@@ -1,0 +1,33 @@
+<tum-ui-dialog [(visible)]="visible" [header]="'artemisApp.milestoneImportExport.export.header' | artemisTranslate" [closable]="true" [closeOnEscape]="true" size="medium">
+    <p class="text-muted-color text-sm mb-3" jhiTranslate="artemisApp.milestoneImportExport.export.description"></p>
+    @if (!loading() && milestoneGroups().length === 0) {
+        <tum-ui-empty-state [icon]="faFlagCheckered" [title]="'artemisApp.milestoneImportExport.export.empty' | artemisTranslate" />
+    }
+    <div class="d-flex flex-column gap-2">
+        @for (group of milestoneGroups(); track group.id) {
+            <div class="d-flex align-items-center justify-content-between gap-3 border rounded p-2">
+                <div class="d-flex align-items-center gap-2">
+                    <fa-icon [icon]="faFlagCheckered" [fixedWidth]="true" />
+                    <span class="fw-semibold">{{ group.title }}</span>
+                    <span
+                        class="text-muted-color small"
+                        jhiTranslate="artemisApp.milestoneImportExport.export.userStoryCount"
+                        [translateValues]="{ count: (group.exerciseIds ?? []).length }"
+                    ></span>
+                </div>
+                <tum-ui-button
+                    size="small"
+                    severity="secondary"
+                    variant="outlined"
+                    [attr.data-testid]="'milestone-export-button-' + group.id"
+                    [disabled]="exportingGroupId() !== undefined && exportingGroupId() !== group.id"
+                    [loading]="exportingGroupId() === group.id"
+                    (clicked)="exportGroup(group)"
+                >
+                    <fa-icon [icon]="faFileExport" />
+                    <span class="ms-1" jhiTranslate="artemisApp.milestoneImportExport.export.download"></span>
+                </tum-ui-button>
+            </div>
+        }
+    </div>
+</tum-ui-dialog>

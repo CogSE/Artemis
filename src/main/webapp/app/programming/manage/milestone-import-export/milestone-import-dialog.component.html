@@ -1,0 +1,68 @@
+<tum-ui-dialog
+    [(visible)]="visible"
+    [header]="'artemisApp.milestoneImportExport.import.header' | artemisTranslate"
+    [closable]="!importing()"
+    [closeOnEscape]="!importing()"
+    [dismissableMask]="false"
+    size="medium"
+>
+    <div class="d-flex flex-column gap-3">
+        <p class="text-muted-color text-sm mb-0" jhiTranslate="artemisApp.milestoneImportExport.import.description"></p>
+        <div>
+            <label class="fw-semibold d-block mb-1" for="milestone-import-file" jhiTranslate="artemisApp.milestoneImportExport.import.file"></label>
+            <input
+                id="milestone-import-file"
+                data-testid="milestone-import-file-input"
+                type="file"
+                accept="application/zip,.zip"
+                [disabled]="importing()"
+                (change)="onFileSelected($event)"
+            />
+        </div>
+
+        @if (details(); as archive) {
+            <tum-ui-message severity="info">
+                <span jhiTranslate="artemisApp.milestoneImportExport.import.summary" [translateValues]="{ title: archive.groupTitle, count: userStoryCount() }"></span>
+            </tum-ui-message>
+            <div>
+                <label class="fw-semibold d-block mb-1" for="milestone-import-title" jhiTranslate="artemisApp.milestoneImportExport.import.title"></label>
+                <input
+                    id="milestone-import-title"
+                    tumUiInput
+                    class="w-100"
+                    [disabled]="importing()"
+                    [ngModel]="title()"
+                    (ngModelChange)="title.set($event)"
+                    [placeholder]="archive.groupTitle ?? ''"
+                />
+            </div>
+            <div>
+                <label class="fw-semibold d-block mb-1" for="milestone-import-short-name" jhiTranslate="artemisApp.milestoneImportExport.import.shortName"></label>
+                <input
+                    id="milestone-import-short-name"
+                    tumUiInput
+                    class="w-100"
+                    [disabled]="importing()"
+                    [ngModel]="shortName()"
+                    (ngModelChange)="shortName.set($event)"
+                    [placeholder]="'artemisApp.milestoneImportExport.import.shortNamePlaceholder' | artemisTranslate"
+                    [tumUiInputInvalid]="!isShortNameValid()"
+                />
+                <small class="text-muted-color" jhiTranslate="artemisApp.milestoneImportExport.import.uniqueNamesHint"></small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <tum-ui-checkbox inputId="milestone-import-keep-dates" [disabled]="importing()" [ngModel]="keepDates()" (ngModelChange)="keepDates.set($event)" />
+                <label for="milestone-import-keep-dates" class="mb-0" jhiTranslate="artemisApp.milestoneImportExport.import.keepDates"></label>
+            </div>
+        }
+    </div>
+
+    <ng-template #footer>
+        <tum-ui-button severity="secondary" variant="text" [disabled]="importing()" (clicked)="visible.set(false)">
+            <span jhiTranslate="entity.action.cancel"></span>
+        </tum-ui-button>
+        <tum-ui-button data-testid="milestone-import-submit" [disabled]="!canImport()" [loading]="importing()" (clicked)="importArchive()">
+            <span jhiTranslate="artemisApp.milestoneImportExport.import.submit"></span>
+        </tum-ui-button>
+    </ng-template>
+</tum-ui-dialog>

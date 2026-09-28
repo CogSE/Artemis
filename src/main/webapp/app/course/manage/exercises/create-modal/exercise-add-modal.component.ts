@@ -81,6 +81,8 @@ export class ExerciseAddModalComponent {
     readonly visibleChange = output<boolean>();
     readonly groupCreate = output<void>();
     readonly exportRequested = output<void>();
+    readonly milestoneImportRequested = output<void>();
+    readonly milestoneExportRequested = output<void>();
 
     private readonly profileService = inject(ProfileService);
     private readonly featureToggleService = inject(FeatureToggleService);
@@ -116,6 +118,7 @@ export class ExerciseAddModalComponent {
     protected readonly faLayerGroup = faLayerGroup;
     protected readonly faFlagCheckered = faFlagCheckered;
     protected readonly faKeyboard = faKeyboard;
+    protected readonly faCheckDouble = faCheckDouble;
 
     private readonly router = inject(Router);
     private readonly dialogService = inject(DialogService);
@@ -213,6 +216,18 @@ export class ExerciseAddModalComponent {
      */
     requestExport(): void {
         this.exportRequested.emit();
+        this.close();
+    }
+
+    /** Asks the host to open the milestone import dialog, which imports a whole milestone group from an archive. */
+    requestMilestoneImport(): void {
+        this.milestoneImportRequested.emit();
+        this.close();
+    }
+
+    /** Asks the host to open the milestone export dialog, which downloads a whole milestone group as an archive. */
+    requestMilestoneExport(): void {
+        this.milestoneExportRequested.emit();
         this.close();
     }
 

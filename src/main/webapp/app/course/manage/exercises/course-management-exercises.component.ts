@@ -73,6 +73,8 @@ import { DeleteButtonDirective } from 'app/shared-ui/delete-dialog/directive/del
 import { ButtonType } from 'app/shared-ui/components/buttons/button/button.component';
 import { LocalStorageService } from 'app/foundation/service/local-storage.service';
 import { cloneWith, hydrate } from 'app/foundation/util/deep-clone.util';
+import { MilestoneImportDialogComponent } from 'app/programming/manage/milestone-import-export/milestone-import-dialog.component';
+import { MilestoneExportDialogComponent } from 'app/programming/manage/milestone-import-export/milestone-export-dialog.component';
 
 @Component({
     selector: 'jhi-course-management-exercises',
@@ -92,6 +94,8 @@ import { cloneWith, hydrate } from 'app/foundation/util/deep-clone.util';
         ExerciseGroupEditModalComponent,
         ConsistencyCheckComponent,
         QuizExerciseExportComponent,
+        MilestoneImportDialogComponent,
+        MilestoneExportDialogComponent,
         ProgrammingExerciseEditSelectedComponent,
         ProgrammingAssessmentRepoExportButtonComponent,
         ExerciseScoresExportButtonComponent,
@@ -154,6 +158,8 @@ export class CourseManagementExercisesComponent implements OnInit {
     readonly showConsistencyCheck = signal(false);
     readonly consistencyExercises = signal<ProgrammingExercise[]>([]);
     readonly showQuizExport = signal(false);
+    readonly showMilestoneImport = signal(false);
+    readonly showMilestoneExport = signal(false);
     readonly showEditSelected = signal(false);
     readonly editSelectedData = signal<ProgrammingExercise[]>([]);
 
@@ -408,6 +414,20 @@ export class CourseManagementExercisesComponent implements OnInit {
     openImportModal(): void {
         this.addModalMode.set('import');
         this.addModalVisible.set(true);
+    }
+
+    /** Opens the manage-exercises modal on its Export tab, which offers every exercise type that can be exported. */
+    openExportModal(): void {
+        this.addModalMode.set('export');
+        this.addModalVisible.set(true);
+    }
+
+    /** After a milestone archive was imported, reload so the new group and its user stories show up. */
+    protected onMilestoneImported(): void {
+        const courseId = this.course()?.id;
+        if (courseId !== undefined) {
+            this.loadCourseExercises(courseId);
+        }
     }
 
     openQuizExportDialog(): void {

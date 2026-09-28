@@ -33,7 +33,7 @@
                 <fa-icon [icon]="faFileImport" />
                 <span class="ms-1 title-bar-collapsible-label" jhiTranslate="artemisApp.exerciseManagement.action.import"></span>
             </tum-ui-button>
-            <tum-ui-button class="title-bar-optional-control" size="small" severity="secondary" [attr.data-testid]="'export-exercise-button'" (clicked)="openQuizExportDialog()">
+            <tum-ui-button class="title-bar-optional-control" size="small" severity="secondary" [attr.data-testid]="'export-exercise-button'" (clicked)="openExportModal()">
                 <fa-icon [icon]="faFileExport" />
                 <span class="ms-1 title-bar-collapsible-label" jhiTranslate="artemisApp.exerciseManagement.action.export"></span>
             </tum-ui-button>
@@ -308,6 +308,8 @@
         (visibleChange)="addModalVisible.set($event)"
         (groupCreate)="onAddModalGroupCreate()"
         (exportRequested)="openQuizExportDialog()"
+        (milestoneImportRequested)="showMilestoneImport.set(true)"
+        (milestoneExportRequested)="showMilestoneExport.set(true)"
     />
 
     <!-- Declarative modals. Each with a required input is gated by its data signal, so it waits for the data. -->
@@ -317,6 +319,8 @@
     <jhi-consistency-check [(visible)]="showConsistencyCheck" [exercisesToCheck]="consistencyExercises()" />
     @if (courseId(); as id) {
         <jhi-quiz-exercise-export [(visible)]="showQuizExport" [courseId]="id" (back)="onQuizExportBack()" />
+        <jhi-milestone-import-dialog [(visible)]="showMilestoneImport" [courseId]="id" (imported)="onMilestoneImported()" />
+        <jhi-milestone-export-dialog [(visible)]="showMilestoneExport" [courseId]="id" />
     }
     <jhi-programming-exercise-edit-selected [(visible)]="showEditSelected" [selectedProgrammingExercises]="editSelectedData()" (saved)="onEditSelectedSaved()" />
 }
