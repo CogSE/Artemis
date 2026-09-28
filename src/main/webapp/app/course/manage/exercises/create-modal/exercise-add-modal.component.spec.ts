@@ -242,6 +242,19 @@ describe('ExerciseAddModalComponent', () => {
             expect(emitted).toEqual([false]);
         });
 
+        it.each([
+            { isAtLeastInstructor: true, visible: true },
+            { isAtLeastInstructor: false, visible: false },
+        ])('shows the milestone export card only to instructors (instructor: $isAtLeastInstructor)', ({ isAtLeastInstructor, visible }) => {
+            fixture.componentRef.setInput('isAtLeastInstructor', isAtLeastInstructor);
+            fixture.componentRef.setInput('mode', 'export');
+            fixture.componentRef.setInput('visible', true);
+            fixture.detectChanges();
+
+            expect(document.body.querySelector('[data-testid="export-quiz-exercises"]')).not.toBeNull();
+            expect(document.body.querySelector('[data-testid="export-milestone-group"]') !== null).toBe(visible);
+        });
+
         it('emits groupCreate and closes', () => {
             const created = vi.fn();
             const emitted: boolean[] = [];

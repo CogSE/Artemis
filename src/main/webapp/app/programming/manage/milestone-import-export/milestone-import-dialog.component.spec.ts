@@ -7,7 +7,11 @@ import { MockTranslateService } from 'test/helpers/mocks/service/mock-translate.
 import { AlertService } from 'app/foundation/service/alert.service';
 import { ZipBuilder } from 'app/foundation/util/zip.util';
 import { MilestoneImportDialogComponent } from 'app/programming/manage/milestone-import-export/milestone-import-dialog.component';
-import { MILESTONE_DETAILS_FILE_NAME, MilestoneImportExportService } from 'app/programming/manage/milestone-import-export/milestone-import-export.service';
+import {
+    MAX_MILESTONE_IMPORT_FILE_SIZE,
+    MILESTONE_DETAILS_FILE_NAME,
+    MilestoneImportExportService,
+} from 'app/programming/manage/milestone-import-export/milestone-import-export.service';
 
 describe('MilestoneImportDialogComponent', () => {
     let fixture: ComponentFixture<MilestoneImportDialogComponent>;
@@ -45,6 +49,31 @@ describe('MilestoneImportDialogComponent', () => {
         expect(component.title()).toBe('Sprint 1');
         expect(component.userStoryCount()).toBe(2);
         expect(component.canImport()).toBe(true);
+    });
+
+    it('counts the user stories and the other exercises of the archive', async () => {
+        const details = {
+            groupTitle: 'Sprint 1',
+            userStories: [{ title: 'Login' }],
+            otherExercises: [
+                { title: 'Quiz', type: 'quiz' },
+                { title: 'Essay', type: 'text' },
+            ],
+        };
+        await selectFile(await buildArchive({ [MILESTONE_DETAILS_FILE_NAME]: JSON.stringify(details) }));
+
+        expect(component.userStoryCount()).toBe(1);
+        expect(component.otherExerciseCount()).toBe(2);
+    });
+
+    it('accepts archives above the regular upload limit but rejects those above 100 MB', async () => {
+        const errorSpy = vi.spyOn(alertService, 'error');
+        const tooLarge = new File(['zip'], 'milestone.zip');
+        Object.defineProperty(tooLarge, 'size', { value: MAX_MILESTONE_IMPORT_FILE_SIZE + 1 });
+        await selectFile(tooLarge);
+
+        expect(errorSpy).toHaveBeenCalledWith('artemisApp.milestoneImportExport.import.fileTooBig', { fileName: 'milestone.zip', maxSize: 100 });
+        expect(component.file()).toBeUndefined();
     });
 
     it('rejects an archive without a milestone manifest', async () => {

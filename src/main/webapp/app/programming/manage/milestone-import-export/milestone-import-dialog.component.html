@@ -22,7 +22,10 @@
 
         @if (details(); as archive) {
             <tum-ui-message severity="info">
-                <span jhiTranslate="artemisApp.milestoneImportExport.import.summary" [translateValues]="{ title: archive.groupTitle, count: userStoryCount() }"></span>
+                <span
+                    jhiTranslate="artemisApp.milestoneImportExport.import.summary"
+                    [translateValues]="{ title: archive.groupTitle, count: userStoryCount(), otherCount: otherExerciseCount() }"
+                ></span>
             </tum-ui-message>
             <div>
                 <label class="fw-semibold d-block mb-1" for="milestone-import-title" jhiTranslate="artemisApp.milestoneImportExport.import.title"></label>

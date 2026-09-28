@@ -6,26 +6,27 @@
         "milestoneImportExport": {
             "card": {
                 "title": "Milestone",
-                "importDescription": "Import a milestone with its repositories and all of its user stories from an exported archive.",
-                "exportDescription": "Download a milestone with its repositories and all of its user stories as an archive.",
+                "importDescription": "Import a milestone with its repositories and all exercises of its group from an exported archive.",
+                "exportDescription": "Download a milestone with its repositories and all exercises of its group as an archive.",
                 "quizExportDescription": "Download quiz exercises of this course as a file."
             },
             "import": {
                 "header": "Import Milestone",
-                "description": "Choose an archive exported from a milestone. The import creates the milestone exercise with its template, solution and test repositories, the milestone group and all of its user stories.",
+                "description": "Choose an archive exported from a milestone (up to 100 MB). The import creates the milestone exercise with its template, solution and test repositories, the milestone group, its user stories and its other exercises (quiz, text, modeling and file upload exercises).",
                 "file": "Milestone archive (.zip)",
-                "summary": "The archive contains the milestone \"{{ title }}\" with {{ count }} user stories.",
+                "summary": "The archive contains the milestone \"{{ title }}\" with {{ count }} user stories and {{ otherCount }} other exercises.",
                 "title": "Title",
                 "shortName": "Short name",
                 "shortNamePlaceholder": "Keep the short name of the archive",
                 "uniqueNamesHint": "Titles and short names that are already taken in this course get a number appended, for the milestone and its user stories alike.",
                 "keepDates": "Keep the dates of the exported milestone",
                 "submit": "Import",
-                "notAMilestoneArchive": "The selected file is not a milestone archive."
+                "notAMilestoneArchive": "The selected file is not a milestone archive.",
+                "fileTooBig": "The file {{ fileName }} is too large. A milestone archive may be at most {{ maxSize }} MB."
             },
             "export": {
                 "header": "Export Milestone",
-                "description": "Choose the milestone to export. The archive contains the milestone exercise with its repositories and all of its user stories, and can be imported into any course.",
+                "description": "Choose the milestone to export. The archive contains the milestone exercise with its repositories and all exercises of its group, and can be imported into any course.",
                 "empty": "This course has no milestones yet.",
                 "userStoryCount": "({{ count }} exercises)",
                 "download": "Export",

@@ -117,17 +117,19 @@
                     <fa-icon [icon]="faArrowRight" class="ms-1" />
                 </span>
             </button>
-            <button class="exercise-card" data-testid="export-milestone-group" (click)="requestMilestoneExport()" type="button">
-                <div class="card-icon-wrapper">
-                    <fa-icon [icon]="faFlagCheckered" />
-                </div>
-                <h6 jhiTranslate="artemisApp.milestoneImportExport.card.title"></h6>
-                <p jhiTranslate="artemisApp.milestoneImportExport.card.exportDescription"></p>
-                <span class="card-cta">
-                    <span jhiTranslate="artemisApp.exerciseManagement.addModal.cta.select"></span>
-                    <fa-icon [icon]="faArrowRight" class="ms-1" />
-                </span>
-            </button>
+            @if (isAtLeastInstructor()) {
+                <button class="exercise-card" data-testid="export-milestone-group" (click)="requestMilestoneExport()" type="button">
+                    <div class="card-icon-wrapper">
+                        <fa-icon [icon]="faFlagCheckered" />
+                    </div>
+                    <h6 jhiTranslate="artemisApp.milestoneImportExport.card.title"></h6>
+                    <p jhiTranslate="artemisApp.milestoneImportExport.card.exportDescription"></p>
+                    <span class="card-cta">
+                        <span jhiTranslate="artemisApp.exerciseManagement.addModal.cta.select"></span>
+                        <fa-icon [icon]="faArrowRight" class="ms-1" />
+                    </span>
+                </button>
+            }
         </div>
     }
 </tum-ui-dialog>

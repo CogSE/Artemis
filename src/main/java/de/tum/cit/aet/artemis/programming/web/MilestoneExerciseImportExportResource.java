@@ -9,6 +9,8 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,11 +24,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 import de.tum.cit.aet.artemis.account.repository.UserRepository;
+import de.tum.cit.aet.artemis.core.exception.BadRequestAlertException;
 import de.tum.cit.aet.artemis.core.security.annotations.enforceRoleInCourse.EnforceAtLeastEditorInCourse;
 import de.tum.cit.aet.artemis.core.security.annotations.enforceRoleInCourse.EnforceAtLeastInstructorInCourse;
 import de.tum.cit.aet.artemis.core.service.feature.Feature;
@@ -93,21 +95,33 @@ public class MilestoneExerciseImportExportResource {
     /**
      * POST /courses/:courseId/milestone-exercise-groups/import-from-file : Import a milestone archive created by the
      * export above into the course, recreating the milestone exercise with its repositories, the group and all of its
-     * user stories.
+     * members.
+     * <p>
+     * The archive is the raw request body rather than a multipart upload: it carries the full history of the
+     * milestone's repositories and may therefore be larger than the multipart limit every other upload is held to. The
+     * service reads at most {@link MilestoneExerciseImportExportService#MAX_IMPORT_ARCHIVE_SIZE} bytes of it.
      *
-     * @param courseId the id of the course to import into
-     * @param options  the title and short name for the imported milestone, and whether the exported dates are kept
-     * @param zipFile  the milestone archive
+     * @param courseId  the id of the course to import into
+     * @param title     the title of the imported milestone, or none to keep the archive's one
+     * @param shortName the short name of the imported milestone, or none to keep the archive's one
+     * @param keepDates whether the exported dates are kept
+     * @param request   the request whose body is the milestone archive
      * @return the ResponseEntity with status 201 (Created) and the imported group in the body
      * @throws URISyntaxException if the Location URI syntax is incorrect
+     * @throws IOException        if the request body cannot be read
      */
-    @PostMapping("courses/{courseId}/milestone-exercise-groups/import-from-file")
+    @PostMapping(value = "courses/{courseId}/milestone-exercise-groups/import-from-file", consumes = { "application/zip", MediaType.APPLICATION_OCTET_STREAM_VALUE })
     @EnforceAtLeastEditorInCourse
-    public ResponseEntity<MilestoneExerciseGroupDTO> importMilestoneExerciseGroup(@PathVariable long courseId, @RequestPart("options") MilestoneImportOptionsDTO options,
-            @RequestPart("file") MultipartFile zipFile) throws URISyntaxException {
+    public ResponseEntity<MilestoneExerciseGroupDTO> importMilestoneExerciseGroup(@PathVariable long courseId, @RequestParam(required = false) String title,
+            @RequestParam(required = false) String shortName, @RequestParam(defaultValue = "false") boolean keepDates, HttpServletRequest request)
+            throws URISyntaxException, IOException {
         log.debug("REST request to import a MilestoneExerciseGroup into course {}", courseId);
+        if (request.getContentLengthLong() > MilestoneExerciseImportExportService.MAX_IMPORT_ARCHIVE_SIZE) {
+            throw new BadRequestAlertException("The milestone archive exceeds the maximum size", ENTITY_NAME, "milestoneArchiveTooLarge");
+        }
         var user = userRepository.getUserWithAuthorities();
-        MilestoneExerciseGroup group = milestoneExerciseImportExportService.importMilestoneGroup(courseId, zipFile, options, user);
+        MilestoneImportOptionsDTO options = new MilestoneImportOptionsDTO(title, shortName, keepDates);
+        MilestoneExerciseGroup group = milestoneExerciseImportExportService.importMilestoneGroup(courseId, request.getInputStream(), options, user);
         return ResponseEntity.created(new URI("/api/exercise/courses/" + courseId + "/milestone-exercise-groups/" + group.getId()))
                 .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, group.getTitle())).body(new MilestoneExerciseGroupDTO(group));
     }

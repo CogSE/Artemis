@@ -305,6 +305,7 @@
         [mode]="addModalMode()"
         [courseId]="courseId()"
         [hasMilestoneGroup]="hasMilestoneGroup()"
+        [isAtLeastInstructor]="course()?.isAtLeastInstructor ?? false"
         (visibleChange)="addModalVisible.set($event)"
         (groupCreate)="onAddModalGroupCreate()"
         (exportRequested)="openQuizExportDialog()"

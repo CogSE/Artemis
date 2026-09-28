@@ -6,26 +6,27 @@
         "milestoneImportExport": {
             "card": {
                 "title": "Meilenstein",
-                "importDescription": "Importiere einen Meilenstein mit seinen Repositories und allen seinen User Stories aus einem exportierten Archiv.",
-                "exportDescription": "Lade einen Meilenstein mit seinen Repositories und allen seinen User Stories als Archiv herunter.",
+                "importDescription": "Importiere einen Meilenstein mit seinen Repositories und allen Aufgaben seiner Gruppe aus einem exportierten Archiv.",
+                "exportDescription": "Lade einen Meilenstein mit seinen Repositories und allen Aufgaben seiner Gruppe als Archiv herunter.",
                 "quizExportDescription": "Lade Quiz-Aufgaben dieses Kurses als Datei herunter."
             },
             "import": {
                 "header": "Meilenstein importieren",
-                "description": "Wähle ein Archiv, das aus einem Meilenstein exportiert wurde. Der Import legt die Meilenstein-Aufgabe mit ihren Template-, Lösungs- und Test-Repositories, die Meilenstein-Gruppe und alle ihre User Stories an.",
+                "description": "Wähle ein Archiv, das aus einem Meilenstein exportiert wurde (bis zu 100 MB). Der Import legt die Meilenstein-Aufgabe mit ihren Template-, Lösungs- und Test-Repositories, die Meilenstein-Gruppe, ihre User Stories und ihre weiteren Aufgaben (Quiz-, Text-, Modellierungs- und Datei-Upload-Aufgaben) an.",
                 "file": "Meilenstein-Archiv (.zip)",
-                "summary": "Das Archiv enthält den Meilenstein \"{{ title }}\" mit {{ count }} User Stories.",
+                "summary": "Das Archiv enthält den Meilenstein \"{{ title }}\" mit {{ count }} User Stories und {{ otherCount }} weiteren Aufgaben.",
                 "title": "Titel",
                 "shortName": "Kurzname",
                 "shortNamePlaceholder": "Kurzname aus dem Archiv übernehmen",
                 "uniqueNamesHint": "Titel und Kurznamen, die in diesem Kurs bereits vergeben sind, bekommen eine Nummer angehängt, beim Meilenstein ebenso wie bei seinen User Stories.",
                 "keepDates": "Termine des exportierten Meilensteins übernehmen",
                 "submit": "Importieren",
-                "notAMilestoneArchive": "Die gewählte Datei ist kein Meilenstein-Archiv."
+                "notAMilestoneArchive": "Die gewählte Datei ist kein Meilenstein-Archiv.",
+                "fileTooBig": "Die Datei {{ fileName }} ist zu groß. Ein Meilenstein-Archiv darf höchstens {{ maxSize }} MB groß sein."
             },
             "export": {
                 "header": "Meilenstein exportieren",
-                "description": "Wähle den Meilenstein, den du exportieren möchtest. Das Archiv enthält die Meilenstein-Aufgabe mit ihren Repositories und alle ihre User Stories und kann in jeden Kurs importiert werden.",
+                "description": "Wähle den Meilenstein, den du exportieren möchtest. Das Archiv enthält die Meilenstein-Aufgabe mit ihren Repositories und alle Aufgaben ihrer Gruppe und kann in jeden Kurs importiert werden.",
                 "empty": "Dieser Kurs hat noch keine Meilensteine.",
                 "userStoryCount": "({{ count }} Aufgaben)",
                 "download": "Exportieren",

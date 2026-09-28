@@ -3,13 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { strFromU8 } from 'fflate';
 import { TumUiButtonComponent, TumUiCheckboxComponent, TumUiDialogComponent, TumUiInputDirective, TumUiMessageComponent } from '@tumaet/ui-angular';
 import { AlertService } from 'app/foundation/service/alert.service';
-import { MAX_FILE_SIZE } from 'app/foundation/constants/input.constants';
 import { readZipEntries } from 'app/foundation/util/zip.util';
 import { parseJson } from 'app/foundation/util/json.util';
 import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pipe';
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
 import { ExerciseVariantGroupDTO } from 'app/course/manage/exercises/exercise-variant-group.service';
-import { MILESTONE_DETAILS_FILE_NAME, MilestoneExportDetails, MilestoneImportExportService } from './milestone-import-export.service';
+import { MAX_MILESTONE_IMPORT_FILE_SIZE, MILESTONE_DETAILS_FILE_NAME, MilestoneExportDetails, MilestoneImportExportService } from './milestone-import-export.service';
 
 /** Mirrors the server's short name rule for programming exercises. */
 const SHORT_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9]{2,}$/;
@@ -52,6 +51,7 @@ export class MilestoneImportDialogComponent {
     readonly importing = signal(false);
 
     readonly userStoryCount = computed(() => this.details()?.userStories?.length ?? 0);
+    readonly otherExerciseCount = computed(() => this.details()?.otherExercises?.length ?? 0);
     readonly isShortNameValid = computed(() => {
         const shortName = this.shortName().trim();
         return shortName === '' || (SHORT_NAME_PATTERN.test(shortName) && shortName.length <= SHORT_NAME_MAX_LENGTH);
@@ -89,8 +89,8 @@ export class MilestoneImportDialogComponent {
             this.alertService.error('artemisApp.programmingExercise.importFromFile.fileExtensionError');
             return;
         }
-        if (selected.size > MAX_FILE_SIZE) {
-            this.alertService.error('artemisApp.programmingExercise.importFromFile.fileTooBigError', { fileName: selected.name });
+        if (selected.size > MAX_MILESTONE_IMPORT_FILE_SIZE) {
+            this.alertService.error('artemisApp.milestoneImportExport.import.fileTooBig', { fileName: selected.name, maxSize: MAX_MILESTONE_IMPORT_FILE_SIZE / (1024 * 1024) });
             return;
         }
         try {

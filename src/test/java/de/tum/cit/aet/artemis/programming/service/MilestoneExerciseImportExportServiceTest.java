@@ -7,11 +7,14 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -31,16 +34,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import tools.jackson.databind.json.JsonMapper;
 
 import de.tum.cit.aet.artemis.account.domain.User;
+import de.tum.cit.aet.artemis.assessment.domain.CategoryState;
+import de.tum.cit.aet.artemis.assessment.domain.Visibility;
 import de.tum.cit.aet.artemis.core.exception.BadRequestAlertException;
 import de.tum.cit.aet.artemis.core.service.FileService;
 import de.tum.cit.aet.artemis.core.service.TempFileUtilService;
@@ -48,6 +53,7 @@ import de.tum.cit.aet.artemis.core.service.ZipFileService;
 import de.tum.cit.aet.artemis.core.test_repository.CourseTestRepository;
 import de.tum.cit.aet.artemis.core.util.JsonObjectMapper;
 import de.tum.cit.aet.artemis.course.domain.Course;
+import de.tum.cit.aet.artemis.exercise.domain.ExerciseType;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.dto.CreateUserStoryExerciseDTO;
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
@@ -58,8 +64,12 @@ import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseBuildConfig;
 import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.dto.MilestoneExportDetailsDTO;
 import de.tum.cit.aet.artemis.programming.dto.MilestoneImportOptionsDTO;
+import de.tum.cit.aet.artemis.programming.dto.MilestoneMemberExportDTO;
+import de.tum.cit.aet.artemis.programming.dto.MilestoneStaticCodeAnalysisCategoryExportDTO;
+import de.tum.cit.aet.artemis.programming.dto.MilestoneTestCaseExportDTO;
 import de.tum.cit.aet.artemis.programming.dto.MilestoneUserStoryExportDTO;
 import de.tum.cit.aet.artemis.programming.test_repository.ProgrammingExerciseTestRepository;
+import de.tum.cit.aet.artemis.text.domain.TextExercise;
 
 @ExtendWith(MockitoExtension.class)
 class MilestoneExerciseImportExportServiceTest {
@@ -86,6 +96,12 @@ class MilestoneExerciseImportExportServiceTest {
     private MilestoneExerciseService milestoneExerciseService;
 
     @Mock
+    private MilestoneMemberImportExportService milestoneMemberImportExportService;
+
+    @Mock
+    private MilestoneGradingSettingsTransferService milestoneGradingSettingsTransferService;
+
+    @Mock
     private ProgrammingExerciseDeletionService programmingExerciseDeletionService;
 
     @Mock
@@ -109,8 +125,9 @@ class MilestoneExerciseImportExportServiceTest {
     @BeforeEach
     void setUp() {
         service = new MilestoneExerciseImportExportService(milestoneExerciseGroupRepository, programmingExerciseRepository, courseRepository, programmingExerciseExportService,
-                programmingExerciseImportFromFileService, programmingExerciseTaskService, milestoneExerciseService, programmingExerciseDeletionService, exerciseVersionService,
-                fileService, new ZipFileService(fileService), tempFileUtilService, jsonMapper);
+                programmingExerciseImportFromFileService, programmingExerciseTaskService, milestoneExerciseService, milestoneMemberImportExportService,
+                milestoneGradingSettingsTransferService, programmingExerciseDeletionService, exerciseVersionService, fileService, new ZipFileService(fileService),
+                tempFileUtilService, jsonMapper);
         ReflectionTestUtils.setField(service, "repoDownloadClonePath", tempDir);
         course = new Course();
         course.setId(1L);
@@ -139,6 +156,9 @@ class MilestoneExerciseImportExportServiceTest {
         when(programmingExerciseRepository.findByIdWithPlagiarismDetectionConfigTeamConfigGradingCriteriaAndCategoriesElseThrow(12L)).thenReturn(secondStory);
         when(fileService.createTemporaryDirectory(eq(tempDir), anyString(), anyLong())).thenReturn(exportDir);
         when(programmingExerciseExportService.exportProgrammingExerciseForDownload(eq(milestone), anyList())).thenReturn(milestoneArchive);
+        when(milestoneGradingSettingsTransferService.exportTestCases(10L)).thenReturn(List.of(new MilestoneTestCaseExportDTO("testLogin", 3.0, 1.0, 0.0, Visibility.ALWAYS)));
+        when(milestoneGradingSettingsTransferService.exportCategories(10L))
+                .thenReturn(List.of(new MilestoneStaticCodeAnalysisCategoryExportDTO("Bad Practice", 2.0, 10.0, CategoryState.GRADED)));
 
         Path zipPath = service.exportMilestoneGroup(5L, 1L);
 
@@ -150,6 +170,9 @@ class MilestoneExerciseImportExportServiceTest {
             }
             assertThat(details.groupTitle()).isEqualTo("Sprint 1");
             assertThat(details.userStories()).extracting(MilestoneUserStoryExportDTO::shortName).containsExactly("login", "logout");
+            assertThat(details.formatVersion()).isEqualTo(3);
+            assertThat(details.testCases()).extracting(MilestoneTestCaseExportDTO::weight).containsExactly(3.0);
+            assertThat(details.staticCodeAnalysisCategories()).extracting(MilestoneStaticCodeAnalysisCategoryExportDTO::penalty).containsExactly(2.0);
         }
         verify(programmingExerciseTaskService).replaceTestIdsWithNames(firstStory);
         verify(programmingExerciseTaskService).replaceTestIdsWithNames(secondStory);
@@ -157,7 +180,7 @@ class MilestoneExerciseImportExportServiceTest {
 
     @Test
     void importRecreatesTheMilestoneAndItsUserStoriesWithUniqueNames() throws Exception {
-        MultipartFile archive = milestoneArchive(List.of(storyDetails("Login", "login"), storyDetails("Logout", "logout")));
+        InputStream archive = milestoneArchive(List.of(storyDetails("Login", "login"), storyDetails("Logout", "logout")));
         prepareImport();
         // The exported milestone title and the first story's short name are already taken in the target course.
         when(programmingExerciseRepository.countByTitleAndCourse(anyString(), eq(course))).thenAnswer(invocation -> "dtoShapedImport".equals(invocation.getArgument(0)) ? 1L : 0L);
@@ -198,7 +221,7 @@ class MilestoneExerciseImportExportServiceTest {
 
     @Test
     void aFailedUserStoryRemovesThePartiallyImportedGroup() throws Exception {
-        MultipartFile archive = milestoneArchive(List.of(storyDetails("Login", "login"), storyDetails("Logout", "logout")));
+        InputStream archive = milestoneArchive(List.of(storyDetails("Login", "login"), storyDetails("Logout", "logout")));
         prepareImport();
         MilestoneExercise createdMilestone = new MilestoneExercise();
         createdMilestone.setId(20L);
@@ -226,7 +249,7 @@ class MilestoneExerciseImportExportServiceTest {
         prepareTempDirectory();
         when(courseRepository.findByIdElseThrow(1L)).thenReturn(course);
         var plainProgrammingExport = new ClassPathResource("test-data/import-from-file/valid-import-dto-details.zip");
-        MultipartFile archive = new MockMultipartFile("file", "plain.zip", "application/zip", plainProgrammingExport.getInputStream());
+        InputStream archive = plainProgrammingExport.getInputStream();
 
         assertThatThrownBy(() -> service.importMilestoneGroup(1L, archive, new MilestoneImportOptionsDTO(null, null, false), new User()))
                 .isInstanceOf(BadRequestAlertException.class);
@@ -259,11 +282,20 @@ class MilestoneExerciseImportExportServiceTest {
     /**
      * Builds a milestone archive around the regular programming exercise export from the test resources.
      */
-    private MultipartFile milestoneArchive(List<MilestoneUserStoryExportDTO> userStories) throws IOException {
-        var details = new MilestoneExportDetailsDTO(1, "Sprint 1", MilestoneExerciseImportExportService.MILESTONE_ARCHIVE_FILE_NAME, new ArrayList<>(userStories));
+    private InputStream milestoneArchive(List<MilestoneUserStoryExportDTO> userStories) throws IOException {
+        return milestoneArchive(userStories, List.of());
+    }
+
+    /** A version 2 archive, which predates the grading settings, so every test built on it proves older archives still import. */
+    private InputStream milestoneArchive(List<MilestoneUserStoryExportDTO> userStories, List<MilestoneMemberExportDTO> otherExercises) throws IOException {
+        return milestoneArchive(new MilestoneExportDetailsDTO(2, "Sprint 1", MilestoneExerciseImportExportService.MILESTONE_ARCHIVE_FILE_NAME, new ArrayList<>(userStories),
+                new ArrayList<>(otherExercises), null, null));
+    }
+
+    private InputStream milestoneArchive(MilestoneExportDetailsDTO details) throws IOException {
         var nestedExport = new ClassPathResource("test-data/import-from-file/valid-import-dto-details.zip");
-        Path archive = tempDir.resolve("milestone.zip");
-        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
             zip.putNextEntry(new ZipEntry(MilestoneExerciseImportExportService.DETAILS_FILE_NAME));
             zip.write(jsonMapper.writeValueAsBytes(details));
             zip.closeEntry();
@@ -272,7 +304,151 @@ class MilestoneExerciseImportExportServiceTest {
                 inputStream.transferTo(zip);
             }
             zip.closeEntry();
+            // An entry trying to escape the import directory must be ignored rather than extracted.
+            zip.putNextEntry(new ZipEntry("files/../../escape.txt"));
+            zip.write("escape".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
         }
-        return new MockMultipartFile("file", "milestone.zip", "application/zip", Files.readAllBytes(archive));
+        return new ByteArrayInputStream(bytes.toByteArray());
+    }
+
+    private void stubMilestoneCreation() throws Exception {
+        MilestoneExercise createdMilestone = new MilestoneExercise();
+        createdMilestone.setId(20L);
+        createdMilestone.setTitle("dtoShapedImport");
+        when(programmingExerciseImportFromFileService.importProgrammingExerciseFromFile(any(ProgrammingExercise.class), any(ProgrammingExerciseBuildConfig.class),
+                any(MultipartFile.class), eq(course), any(User.class))).thenReturn(createdMilestone);
+        when(milestoneExerciseGroupRepository.save(any(MilestoneExerciseGroup.class))).thenAnswer(invocation -> {
+            MilestoneExerciseGroup saved = invocation.getArgument(0);
+            saved.setId(30L);
+            return saved;
+        });
+    }
+
+    private static MilestoneMemberExportDTO textMember(String title) {
+        return new MilestoneMemberExportDTO(ExerciseType.TEXT, title, null, "Write an essay", null, null, null, null, 10.0, 0.0, null, null, null, null, null, null, null,
+                "Example", null, null, null, null, null, null);
+    }
+
+    @Test
+    void importAppliesTheGradingSettingsBeforeTheUserStoriesAreCreated() throws Exception {
+        var testCases = List.of(new MilestoneTestCaseExportDTO("testLogin", 3.0, 1.0, 0.0, Visibility.ALWAYS));
+        var categories = List.of(new MilestoneStaticCodeAnalysisCategoryExportDTO("Bad Practice", 2.0, 10.0, CategoryState.GRADED));
+        InputStream archive = milestoneArchive(new MilestoneExportDetailsDTO(3, "Sprint 1", MilestoneExerciseImportExportService.MILESTONE_ARCHIVE_FILE_NAME,
+                List.of(storyDetails("Login", "login")), List.of(), testCases, categories));
+        prepareImport();
+        stubMilestoneCreation();
+        when(milestoneExerciseService.createUserStoryExercise(any(CreateUserStoryExerciseDTO.class), eq(30L), eq(1L))).thenReturn(userStory(40L, "Login", "login"));
+        when(milestoneExerciseService.findByIdAndCourseIdElseThrow(30L, 1L)).thenReturn(new MilestoneExerciseGroup());
+
+        service.importMilestoneGroup(1L, archive, new MilestoneImportOptionsDTO(null, null, false), new User());
+
+        InOrder order = inOrder(milestoneGradingSettingsTransferService, milestoneExerciseService);
+        order.verify(milestoneGradingSettingsTransferService).applyCategories(any(MilestoneExercise.class), eq(categories));
+        order.verify(milestoneGradingSettingsTransferService).applyTestCases(any(MilestoneExercise.class), eq(testCases));
+        order.verify(milestoneExerciseService).createUserStoryExercise(any(CreateUserStoryExerciseDTO.class), eq(30L), eq(1L));
+    }
+
+    @Test
+    void importCreatesTheOtherMembersAfterTheUserStories() throws Exception {
+        InputStream archive = milestoneArchive(List.of(storyDetails("Login", "login")), List.of(textMember("Essay"), textMember("Retro")));
+        prepareImport();
+        stubMilestoneCreation();
+        when(milestoneExerciseService.createUserStoryExercise(any(CreateUserStoryExerciseDTO.class), eq(30L), eq(1L))).thenReturn(userStory(40L, "Login", "login"));
+        MilestoneExerciseGroup groupWithDetails = new MilestoneExerciseGroup();
+        when(milestoneExerciseGroupRepository.findByIdAndCourseIdWithDetailsElseThrow(30L, 1L)).thenReturn(groupWithDetails);
+        when(milestoneMemberImportExportService.importMember(any(MilestoneMemberExportDTO.class), eq(groupWithDetails), eq(course), any(Path.class)))
+                .thenReturn(Optional.of(new TextExercise()));
+        when(milestoneExerciseService.findByIdAndCourseIdElseThrow(30L, 1L)).thenReturn(new MilestoneExerciseGroup());
+
+        service.importMilestoneGroup(1L, archive, new MilestoneImportOptionsDTO(null, null, false), new User());
+
+        ArgumentCaptor<MilestoneMemberExportDTO> memberCaptor = ArgumentCaptor.forClass(MilestoneMemberExportDTO.class);
+        verify(milestoneMemberImportExportService, times(2)).importMember(memberCaptor.capture(), eq(groupWithDetails), eq(course), any(Path.class));
+        assertThat(memberCaptor.getAllValues()).extracting(MilestoneMemberExportDTO::title).containsExactly("Essay", "Retro");
+        assertThat(tempDir.resolve("escape.txt")).doesNotExist();
+    }
+
+    @Test
+    void aFailedMemberRemovesTheCreatedMembersAndTheGroup() throws Exception {
+        InputStream archive = milestoneArchive(List.of(storyDetails("Login", "login")), List.of(textMember("Essay"), textMember("Retro")));
+        prepareImport();
+        stubMilestoneCreation();
+        when(milestoneExerciseService.createUserStoryExercise(any(CreateUserStoryExerciseDTO.class), eq(30L), eq(1L))).thenReturn(userStory(40L, "Login", "login"));
+        when(milestoneExerciseGroupRepository.findByIdAndCourseIdWithDetailsElseThrow(30L, 1L)).thenReturn(new MilestoneExerciseGroup());
+        TextExercise createdText = new TextExercise();
+        createdText.setId(50L);
+        when(milestoneMemberImportExportService.importMember(any(MilestoneMemberExportDTO.class), any(MilestoneExerciseGroup.class), eq(course), any(Path.class)))
+                .thenReturn(Optional.of(createdText)).thenThrow(new BadRequestAlertException("invalid", "Exercise", "invalid"));
+
+        assertThatThrownBy(() -> service.importMilestoneGroup(1L, archive, new MilestoneImportOptionsDTO(null, null, false), new User()))
+                .isInstanceOf(BadRequestAlertException.class);
+
+        verify(milestoneMemberImportExportService).deleteMember(50L);
+        verify(programmingExerciseDeletionService).delete(40L, false);
+        verify(milestoneExerciseService).deleteMilestoneGroup(30L, 1L);
+    }
+
+    @Test
+    void anArchiveAboveTheSizeLimitIsRejectedBeforeAnythingIsCreated() throws Exception {
+        prepareImport();
+        InputStream tooLarge = new InputStream() {
+
+            private long remaining = MilestoneExerciseImportExportService.MAX_IMPORT_ARCHIVE_SIZE + 1;
+
+            @Override
+            public int read() {
+                return remaining-- > 0 ? 0 : -1;
+            }
+
+            @Override
+            public int read(byte[] buffer, int offset, int length) {
+                if (remaining <= 0) {
+                    return -1;
+                }
+                int count = (int) Math.min(length, remaining);
+                remaining -= count;
+                return count;
+            }
+        };
+
+        assertThatThrownBy(() -> service.importMilestoneGroup(1L, tooLarge, new MilestoneImportOptionsDTO(null, null, false), new User()))
+                .isInstanceOf(BadRequestAlertException.class).hasMessageContaining("maximum size");
+        verify(programmingExerciseImportFromFileService, never()).importProgrammingExerciseFromFile(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void exportDescribesTheOtherMembers() throws Exception {
+        MilestoneExercise milestone = new MilestoneExercise();
+        milestone.setId(10L);
+        milestone.setCourse(course);
+        TextExercise essay = new TextExercise();
+        essay.setId(13L);
+        MilestoneExerciseGroup group = new MilestoneExerciseGroup();
+        group.setId(5L);
+        group.setTitle("Sprint 1");
+        group.setExercises(Set.of(essay));
+
+        Path exportDir = Files.createDirectories(tempDir.resolve("export"));
+        Path milestoneArchive = tempDir.resolve("material.zip");
+        FileUtils.writeStringToFile(milestoneArchive.toFile(), "milestone", StandardCharsets.UTF_8);
+        when(milestoneExerciseGroupRepository.findByIdAndCourseIdElseThrow(5L, 1L)).thenReturn(group);
+        when(milestoneExerciseGroupRepository.findMilestoneExerciseIdByGroupId(5L)).thenReturn(Optional.of(10L));
+        when(programmingExerciseRepository.findByIdWithPlagiarismDetectionConfigTeamConfigGradingCriteriaAndCategoriesElseThrow(10L)).thenReturn(milestone);
+        when(fileService.createTemporaryDirectory(eq(tempDir), anyString(), anyLong())).thenReturn(exportDir);
+        when(programmingExerciseExportService.exportProgrammingExerciseForDownload(eq(milestone), anyList())).thenReturn(milestoneArchive);
+        when(milestoneMemberImportExportService.isSupported(essay)).thenReturn(true);
+        when(milestoneMemberImportExportService.exportMember(essay, exportDir)).thenReturn(textMember("Essay"));
+
+        Path zipPath = service.exportMilestoneGroup(5L, 1L);
+
+        try (ZipFile zip = new ZipFile(zipPath.toFile())) {
+            MilestoneExportDetailsDTO details;
+            try (InputStream inputStream = zip.getInputStream(zip.getEntry(MilestoneExerciseImportExportService.DETAILS_FILE_NAME))) {
+                details = jsonMapper.readValue(inputStream, MilestoneExportDetailsDTO.class);
+            }
+            assertThat(details.formatVersion()).isEqualTo(3);
+            assertThat(details.otherExercises()).extracting(MilestoneMemberExportDTO::title).containsExactly("Essay");
+        }
     }
 }

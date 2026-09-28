@@ -77,6 +77,8 @@ export class ExerciseAddModalComponent {
     readonly courseId = input<number | undefined>(undefined);
     /** Whether the course has at least one milestone exercise group — gates the "Create user story" card. */
     readonly hasMilestoneGroup = input<boolean>(false);
+    /** Whether the user is at least an instructor of the course — gates the milestone export card, which only instructors may use. */
+    readonly isAtLeastInstructor = input<boolean>(false);
 
     readonly visibleChange = output<boolean>();
     readonly groupCreate = output<void>();

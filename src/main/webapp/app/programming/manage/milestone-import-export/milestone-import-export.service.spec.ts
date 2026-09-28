@@ -27,16 +27,17 @@ describe('MilestoneImportExportService', () => {
         expect(status).toBe(200);
     });
 
-    it('uploads the archive together with the import options', async () => {
+    it('uploads the archive as the raw request body with the options as parameters', () => {
         const file = new File(['zip'], 'milestone.zip');
         let importedTitle: string | undefined;
         service.importMilestoneGroup(42, file, { title: 'Sprint 1', keepDates: true }).subscribe((group) => (importedTitle = group.title));
 
-        const req = httpMock.expectOne({ method: 'POST', url: `${baseUrl}/import-from-file` });
-        const body = req.request.body as FormData;
-        expect((body.get('file') as File).name).toBe('milestone.zip');
-        const options = JSON.parse(await (body.get('options') as Blob).text());
-        expect(options).toEqual({ title: 'Sprint 1', keepDates: true });
+        const req = httpMock.expectOne((request) => request.method === 'POST' && request.url === `${baseUrl}/import-from-file`);
+        expect(req.request.body).toBe(file);
+        expect(req.request.headers.get('Content-Type')).toBe('application/zip');
+        expect(req.request.params.get('title')).toBe('Sprint 1');
+        expect(req.request.params.get('keepDates')).toBe('true');
+        expect(req.request.params.has('shortName')).toBe(false);
         req.flush({ id: 3, title: 'Sprint 1' });
         expect(importedTitle).toBe('Sprint 1');
     });
