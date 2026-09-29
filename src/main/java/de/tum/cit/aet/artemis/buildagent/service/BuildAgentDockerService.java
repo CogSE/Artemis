@@ -450,7 +450,7 @@ public class BuildAgentDockerService {
 
                 try {
                     // Only pull the image if the inspect command failed
-                    var command = dockerClient.pullImageCmd(imageName).withPlatform(imageArchitecture);
+                    var command = dockerClient.pullImageCmd(imageName).withPlatform(toPlatform(imageArchitecture));
                     var exec = command.exec(new MyPullImageResultCallback());
                     awaitPullCompletion(exec, imageName, buildJob, buildLogsMap);
 
@@ -473,7 +473,7 @@ public class BuildAgentDockerService {
                         buildLogsMap.appendBuildLogEntry(buildJob.id(), fallbackMsg);
 
                         try {
-                            var fallbackCommand = dockerClient.pullImageCmd(imageName).withPlatform(AMD64_ARCHITECTURE);
+                            var fallbackCommand = dockerClient.pullImageCmd(imageName).withPlatform(toPlatform(AMD64_ARCHITECTURE));
                             var fallbackExec = fallbackCommand.exec(new MyPullImageResultCallback());
                             awaitPullCompletion(fallbackExec, imageName, buildJob, buildLogsMap);
 
@@ -793,6 +793,17 @@ public class BuildAgentDockerService {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Builds the platform string for a pull. The daemon expects {@code os/arch}; a bare architecture such as {@code amd64} is rejected by current Docker versions,
+     * so the build agent's images, which are always Linux images, get the {@code linux/} prefix unless the configured value already names an OS.
+     *
+     * @param architecture the configured image architecture, e.g. {@code amd64}
+     * @return the platform to pass to the pull command, e.g. {@code linux/amd64}
+     */
+    private static String toPlatform(String architecture) {
+        return architecture.contains("/") ? architecture : "linux/" + architecture;
     }
 
     /**
