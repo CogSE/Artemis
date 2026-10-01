@@ -327,7 +327,7 @@
             "lastname": "Last name",
             "lastname.placeholder": "Last name",
             "username.placeholder": "Login or email",
-            "username.tumPlaceholder": "e.g. go42tum / example@tum.de",
+            "username.tumPlaceholder": "e.g. mmuster / maxi.muster@uni-bielefeld.de",
             "currentpassword": "Current password",
             "currentpassword.placeholder": "Current password",
             "newpassword": "New password",
