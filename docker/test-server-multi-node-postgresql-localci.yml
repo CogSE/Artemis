@@ -11,7 +11,7 @@ services:
         extends:
             file: ./artemis.yml
             service: artemis-app
-        image: ghcr.io/mmrrqq/artemis:${ARTEMIS_DOCKER_TAG:-latest}
+        image: ghcr.io/CogSE/artemis:${ARTEMIS_DOCKER_TAG:-latest}
         depends_on:
             &depends-on-base
             postgres:
