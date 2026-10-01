@@ -10,7 +10,7 @@ services:
         extends:
             file: ./artemis.yml
             service: artemis-app
-        image: ghcr.io/CogSE/artemis:${ARTEMIS_DOCKER_TAG:-latest}
+        image: ghcr.io/cogse/artemis:${ARTEMIS_DOCKER_TAG:-latest}
         depends_on:
             mysql:
                 condition: service_healthy
@@ -36,7 +36,7 @@ services:
         extends:
             file: ./artemis.yml
             service: artemis-app
-        image: ghcr.io/CogSE/artemis:${ARTEMIS_DOCKER_TAG:-latest}
+        image: ghcr.io/cogse/artemis:${ARTEMIS_DOCKER_TAG:-latest}
         depends_on:
             mysql:
                 condition: service_healthy
@@ -64,7 +64,7 @@ services:
         extends:
             file: ./artemis.yml
             service: artemis-app
-        image: ghcr.io/CogSE/artemis:${ARTEMIS_DOCKER_TAG:-latest}
+        image: ghcr.io/cogse/artemis:${ARTEMIS_DOCKER_TAG:-latest}
         depends_on:
             mysql:
                 condition: service_healthy

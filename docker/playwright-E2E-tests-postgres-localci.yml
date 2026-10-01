@@ -9,7 +9,7 @@ services:
             service: postgres
 
     artemis-app:
-        image: ghcr.io/CogSE/artemis:${ARTEMIS_DOCKER_TAG}
+        image: ghcr.io/cogse/artemis:${ARTEMIS_DOCKER_TAG}
         extends:
             file: ./artemis.yml
             service: artemis-app
