@@ -1,6 +1,10 @@
 package de.tum.cit.aet.artemis.account.config;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -81,10 +85,10 @@ public class OIDCConfiguration {
      */
     @Bean
     public ClientRegistrationRepository clientRegistrationRepository() {
-        // Fetch scopes from environment
-        String[] configuredScopes = environment.getProperty("spring.security.oauth2.client.registration.oidc.scope", String[].class);
-        if (configuredScopes == null || configuredScopes.length == 0) {
-            configuredScopes = new String[] { "openid", "profile", "email" };
+        // Bind rather than getProperty: a YAML list is stored as indexed keys (scope[0], scope[1], ...), which getProperty on the bare key does not see
+        List<String> configuredScopes = Binder.get(environment).bind("spring.security.oauth2.client.registration.oidc.scope", Bindable.listOf(String.class)).orElse(List.of());
+        if (configuredScopes.isEmpty()) {
+            configuredScopes = List.of("openid", "profile", "email");
         }
         ClientRegistration oidcRegistration = ClientRegistration.withRegistrationId("oidc").clientId(clientId).clientSecret(clientSecret)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE).redirectUri("{baseUrl}/login/oauth2/code/{registrationId}").scope(configuredScopes)

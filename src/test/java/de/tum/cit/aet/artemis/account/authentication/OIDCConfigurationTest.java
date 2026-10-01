@@ -70,4 +70,23 @@ class OIDCConfigurationTest {
                     assertThat(context).hasSingleBean(SecurityFilterChain.class);
                 });
     }
+
+    @Test
+    void testConfiguredScopesFromListAreUsed() {
+        // a YAML list arrives as indexed properties, which is how application-oidc.yml configures the scopes
+        this.contextRunner.withPropertyValues("artemis.user-management.oidc.enabled=true", "spring.security.oauth2.client.registration.oidc.scope[0]=openid",
+                "spring.security.oauth2.client.registration.oidc.scope[1]=abc", "spring.security.oauth2.client.registration.oidc.scope[2]=profile",
+                "spring.security.oauth2.client.registration.oidc.scope[3]=email").run(context -> {
+                    var registration = context.getBean(ClientRegistrationRepository.class).findByRegistrationId("oidc");
+                    assertThat(registration.getScopes()).containsExactlyInAnyOrder("openid", "abc", "profile", "email");
+                });
+    }
+
+    @Test
+    void testDefaultScopesWhenNoneConfigured() {
+        this.contextRunner.withPropertyValues("artemis.user-management.oidc.enabled=true").run(context -> {
+            var registration = context.getBean(ClientRegistrationRepository.class).findByRegistrationId("oidc");
+            assertThat(registration.getScopes()).containsExactlyInAnyOrder("openid", "profile", "email");
+        });
+    }
 }
