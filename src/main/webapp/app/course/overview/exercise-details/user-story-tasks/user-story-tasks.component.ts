@@ -3,7 +3,14 @@ import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } fro
 import { FormsModule } from '@angular/forms';
 import { faArrowRight, faBars, faCheck, faClock, faPen, faPlus, faTrash, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
-import { TumUiButtonComponent, TumUiButtonDirective, TumUiCardComponent, TumUiInputDirective, TumUiTagComponent, TumUiTooltipDirective } from '@tumaet/ui-angular';
+import {
+    TumAetUiButtonComponent,
+    TumAetUiButtonDirective,
+    TumAetUiCardComponent,
+    TumAetUiInputDirective,
+    TumAetUiTagComponent,
+    TumAetUiTooltipDirective,
+} from '@tumaet/ui-angular';
 import { TaskPriority, TaskState, UserStoryTask } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
 import { UserStoryTaskService } from 'app/programming/shared/services/user-story-task.service';
 import { AlertService } from 'app/foundation/service/alert.service';
@@ -25,12 +32,12 @@ import { cloneWith } from 'app/foundation/util/deep-clone.util';
     imports: [
         FormsModule,
         FaIconComponent,
-        TumUiButtonComponent,
-        TumUiButtonDirective,
-        TumUiCardComponent,
-        TumUiInputDirective,
-        TumUiTagComponent,
-        TumUiTooltipDirective,
+        TumAetUiButtonComponent,
+        TumAetUiButtonDirective,
+        TumAetUiCardComponent,
+        TumAetUiInputDirective,
+        TumAetUiTagComponent,
+        TumAetUiTooltipDirective,
         ArtemisTranslatePipe,
         TranslateDirective,
         DeleteButtonDirective,

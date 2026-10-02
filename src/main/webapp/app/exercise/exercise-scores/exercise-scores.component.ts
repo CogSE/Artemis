@@ -100,6 +100,17 @@ export enum FilterProp {
     ],
 })
 export class ExerciseScoresComponent implements OnInit, OnDestroy {
+    private readonly route = inject(ActivatedRoute);
+    private readonly accountService = inject(AccountService);
+    private readonly courseService = inject(CourseManagementService);
+    private readonly exerciseService = inject(ExerciseService);
+    private readonly resultService = inject(ResultService);
+    private readonly programmingSubmissionService = inject(ProgrammingSubmissionService);
+    private readonly participationService = inject(ParticipationService);
+    private readonly profileService = inject(ProfileService);
+    private readonly alertService = inject(AlertService);
+    private readonly breakpointObserver = inject(BreakpointObserver);
+
     protected readonly exerciseUrlSegment = computed(() => getExerciseUrlSegmentOrEmpty(this.exercise()?.type));
 
     protected readonly faDownload = faDownload;
@@ -112,17 +123,6 @@ export class ExerciseScoresComponent implements OnInit, OnDestroy {
     protected readonly FeatureToggle = FeatureToggle;
     protected readonly AssessmentType = AssessmentType;
     readonly FilterProp = FilterProp;
-
-    private readonly route = inject(ActivatedRoute);
-    private readonly accountService = inject(AccountService);
-    private readonly courseService = inject(CourseManagementService);
-    private readonly exerciseService = inject(ExerciseService);
-    private readonly resultService = inject(ResultService);
-    private readonly programmingSubmissionService = inject(ProgrammingSubmissionService);
-    private readonly participationService = inject(ParticipationService);
-    private readonly profileService = inject(ProfileService);
-    private readonly alertService = inject(AlertService);
-    private readonly breakpointObserver = inject(BreakpointObserver);
 
     // Laptop and smaller: covers screens up to 1400px
     private static readonly LAPTOP_BREAKPOINT = '(max-width: 1400px)';

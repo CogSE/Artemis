@@ -1,16 +1,16 @@
-<tum-ui-dialog [(visible)]="visible" [header]="headerStringKey() | artemisTranslate" [closable]="true" [closeOnEscape]="true" [dismissableMask]="false" size="medium">
+<tumaet-ui-dialog [(visible)]="visible" [header]="headerStringKey() | artemisTranslate" [closable]="true" [closeOnEscape]="true" [dismissableMask]="false" size="medium">
     <div class="d-flex flex-column gap-4">
         <div>
             <label class="fw-semibold d-block mb-1" for="task-edit-title" jhiTranslate="artemisApp.courseOverview.exerciseDetails.tasks.title"></label>
             <input
                 id="task-edit-title"
-                tumUiInput
+                tumAetUiInput
                 class="w-100"
                 [attr.maxlength]="MAX_TITLE_LENGTH"
                 [ngModel]="draftTitle()"
                 (ngModelChange)="draftTitle.set($event)"
                 [placeholder]="'artemisApp.courseOverview.exerciseDetails.tasks.titlePlaceholder' | artemisTranslate"
-                [tumUiInputInvalid]="!isTitleValid()"
+                [tumAetUiInputInvalid]="!isTitleValid()"
             />
         </div>
 
@@ -18,7 +18,7 @@
             <label class="fw-semibold d-block mb-1" for="task-edit-description" jhiTranslate="artemisApp.courseOverview.exerciseDetails.tasks.description"></label>
             <textarea
                 id="task-edit-description"
-                tumUiInput
+                tumAetUiTextarea
                 class="w-100"
                 rows="3"
                 [ngModel]="draftDescription()"
@@ -30,18 +30,24 @@
         <div class="d-flex flex-wrap gap-3">
             <div>
                 <label class="fw-semibold d-block mb-1" for="task-edit-points" jhiTranslate="artemisApp.courseOverview.exerciseDetails.tasks.points"></label>
-                <tum-ui-select inputId="task-edit-points" class="w-20" [options]="taskPointsOptions" [ngModel]="draftTaskPoints()" (ngModelChange)="draftTaskPoints.set($event)" />
+                <tumaet-ui-select
+                    inputId="task-edit-points"
+                    class="w-20"
+                    [options]="taskPointsOptions"
+                    [ngModel]="draftTaskPoints()"
+                    (ngModelChange)="draftTaskPoints.set($event)"
+                />
             </div>
             <div>
                 <label class="fw-semibold d-block mb-1" for="task-edit-effort" jhiTranslate="artemisApp.courseOverview.exerciseDetails.tasks.estimatedEffort"></label>
                 <input
                     id="task-edit-effort"
-                    tumUiInput
+                    tumAetUiInput
                     class="w-20"
                     [value]="draftEstimatedEffortText()"
                     (input)="onEffortInput($event)"
                     placeholder="hh:mm"
-                    [tumUiInputInvalid]="draftEstimatedEffortHours() === undefined"
+                    [tumAetUiInputInvalid]="draftEstimatedEffortHours() === undefined"
                 />
             </div>
         </div>
@@ -51,7 +57,7 @@
             <ng-template #priorityItemTpl let-option>
                 <span [jhiTranslate]="option.labelKey"></span>
             </ng-template>
-            <tum-ui-select-button
+            <tumaet-ui-select-button
                 [options]="priorityOptions"
                 optionValue="value"
                 [allowEmpty]="false"
@@ -67,7 +73,7 @@
                 <ng-template #stateItemTpl let-option>
                     <span [jhiTranslate]="option.labelKey"></span>
                 </ng-template>
-                <tum-ui-select-button
+                <tumaet-ui-select-button
                     [options]="stateOptions"
                     optionValue="value"
                     [allowEmpty]="false"
@@ -80,11 +86,11 @@
     </div>
 
     <ng-template #footer>
-        <tum-ui-button severity="secondary" variant="text" (clicked)="onCancel()">
+        <tumaet-ui-button severity="secondary" variant="text" (clicked)="onCancel()">
             <span jhiTranslate="entity.action.cancel"></span>
-        </tum-ui-button>
-        <tum-ui-button [disabled]="isSaveDisabled()" (clicked)="onSave()">
+        </tumaet-ui-button>
+        <tumaet-ui-button [disabled]="isSaveDisabled()" (clicked)="onSave()">
             <span jhiTranslate="entity.action.save"></span>
-        </tum-ui-button>
+        </tumaet-ui-button>
     </ng-template>
-</tum-ui-dialog>
+</tumaet-ui-dialog>

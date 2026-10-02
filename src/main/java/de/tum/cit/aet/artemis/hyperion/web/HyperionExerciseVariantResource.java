@@ -20,11 +20,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import de.tum.cit.aet.artemis.account.domain.User;
 import de.tum.cit.aet.artemis.account.repository.UserRepository;
+import de.tum.cit.aet.artemis.core.domain.FeatureInteraction;
 import de.tum.cit.aet.artemis.core.exception.BadRequestAlertException;
 import de.tum.cit.aet.artemis.core.exception.ServiceUnavailableAlertException;
 import de.tum.cit.aet.artemis.core.security.annotations.EnforceAtLeastEditor;
 import de.tum.cit.aet.artemis.core.security.annotations.enforceRoleInExercise.EnforceAtLeastEditorInExercise;
 import de.tum.cit.aet.artemis.core.service.featureusage.FeatureUsage;
+import de.tum.cit.aet.artemis.core.service.featureusage.UsageInteraction;
+import de.tum.cit.aet.artemis.core.service.featureusage.UserFeature;
 import de.tum.cit.aet.artemis.exercise.domain.Exercise;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseRepository;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseVariantGroupRepository;
@@ -53,7 +56,7 @@ import de.tum.cit.aet.artemis.quiz.domain.QuizMode;
 @Lazy
 @RestController
 @RequestMapping("api/hyperion/")
-@FeatureUsage("authoring-assistance/variant-generation")
+@FeatureUsage(UserFeature.HYPERION_VARIANT_GENERATION)
 public class HyperionExerciseVariantResource {
 
     private static final Logger log = LoggerFactory.getLogger(HyperionExerciseVariantResource.class);
@@ -130,6 +133,7 @@ public class HyperionExerciseVariantResource {
      *
      * @return 200 with the job list
      */
+    @UsageInteraction(FeatureInteraction.AUTOMATIC)
     @GetMapping("variant-jobs")
     @EnforceAtLeastEditor
     public ResponseEntity<List<VariantJobDTO>> getJobsOfCurrentUser() {
@@ -145,6 +149,7 @@ public class HyperionExerciseVariantResource {
      * @param jobId the job id
      * @return 200 with the detail, or 404
      */
+    @UsageInteraction(FeatureInteraction.AUTOMATIC)
     @GetMapping("variant-jobs/{jobId}")
     @EnforceAtLeastEditor
     public ResponseEntity<VariantJobDetailDTO> getJobDetail(@PathVariable String jobId) {

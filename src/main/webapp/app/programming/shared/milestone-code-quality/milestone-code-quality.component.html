@@ -21,6 +21,7 @@
                             @case ('deducting') {
                                 <fa-icon [icon]="faCircleXmark" class="text-state-danger" />
                             }
+                            @default {}
                         }
                         <span>{{ issueCount() }}</span>
                         @if (totalPenalty() > 0) {
@@ -33,9 +34,14 @@
             </jhi-information-box>
         </button>
 
-        <tum-ui-dialog [(visible)]="detailsVisible" [dismissableMask]="true" size="large" [header]="'artemisApp.exerciseVariantGroup.detail.codeQuality.title' | artemisTranslate">
+        <tumaet-ui-dialog
+            [(visible)]="detailsVisible"
+            [dismissableMask]="true"
+            size="large"
+            [header]="'artemisApp.exerciseVariantGroup.detail.codeQuality.title' | artemisTranslate"
+        >
             <ng-container *ngTemplateOutlet="issues" />
-        </tum-ui-dialog>
+        </tumaet-ui-dialog>
     }
 }
 
@@ -50,7 +56,7 @@
         }
 
         <div class="code-quality__scroll mt-2">
-            <table tumUiTable size="small">
+            <table tumAetUiTable size="small">
                 <thead>
                     <tr>
                         <th jhiTranslate="artemisApp.exerciseVariantGroup.detail.codeQuality.column.location"></th>

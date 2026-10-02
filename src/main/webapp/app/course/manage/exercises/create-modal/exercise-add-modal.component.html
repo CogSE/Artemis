@@ -1,16 +1,19 @@
-<tum-ui-dialog [header]="'artemisApp.exerciseManagement.addModal.header' | artemisTranslate" [visible]="visible()" (visibleChange)="visibleChange.emit($event)" size="medium">
+<tumaet-ui-dialog [header]="'artemisApp.exerciseManagement.addModal.header' | artemisTranslate" [visible]="visible()" (visibleChange)="visibleChange.emit($event)" size="medium">
     <div class="tab-bar mb-3">
         <button
+            type="button"
             class="tab-btn {{ activeTab() === 'create' ? 'tab-btn--active' : '' }}"
             (click)="setActiveTab('create')"
             jhiTranslate="artemisApp.exerciseManagement.addModal.tab.create"
         ></button>
         <button
+            type="button"
             class="tab-btn {{ activeTab() === 'import' ? 'tab-btn--active' : '' }}"
             (click)="setActiveTab('import')"
             jhiTranslate="artemisApp.exerciseManagement.addModal.tab.import"
         ></button>
         <button
+            type="button"
             class="tab-btn {{ activeTab() === 'export' ? 'tab-btn--active' : '' }}"
             (click)="setActiveTab('export')"
             jhiTranslate="artemisApp.exerciseManagement.addModal.tab.export"
@@ -56,7 +59,10 @@
                     <fa-icon [icon]="faArrowRight" class="ms-1" />
                 </span>
             </button>
-            <span [tumUiTooltip]="hasMilestoneGroup() ? '' : ('artemisApp.exerciseManagement.addModal.userStory.disabledTooltip' | artemisTranslate)" tumUiTooltipPlacement="top">
+            <span
+                [tumAetUiTooltip]="hasMilestoneGroup() ? '' : ('artemisApp.exerciseManagement.addModal.userStory.disabledTooltip' | artemisTranslate)"
+                tumAetUiTooltipPlacement="top"
+            >
                 <button class="exercise-card" data-testid="create-user-story-exercise" [disabled]="!hasMilestoneGroup()" (click)="navigateToCreateUserStory()" type="button">
                     <div class="card-icon-wrapper">
                         <fa-icon [icon]="faKeyboard" />
@@ -132,4 +138,6 @@
             }
         </div>
     }
-</tum-ui-dialog>
+
+    <!-- The Export tab opens the quiz export dialog directly (see requestExport); no separate page is rendered here. -->
+</tumaet-ui-dialog>

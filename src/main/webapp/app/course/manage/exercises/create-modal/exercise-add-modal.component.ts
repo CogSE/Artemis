@@ -7,7 +7,7 @@ import { MODULE_FEATURE_FILEUPLOAD, MODULE_FEATURE_MODELING, MODULE_FEATURE_TEXT
 import { FeatureToggle, FeatureToggleService } from 'app/foundation/feature-toggle/feature-toggle.service';
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { faArrowLeft, faArrowRight, faCheckDouble, faFileUpload, faFlagCheckered, faFont, faKeyboard, faLayerGroup, faProjectDiagram } from '@fortawesome/free-solid-svg-icons';
-import { TumUiDialogComponent, TumUiTooltipDirective } from '@tumaet/ui-angular';
+import { TumAetUiDialogComponent, TumAetUiTooltipDirective } from '@tumaet/ui-angular';
 import { Exercise, ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { ExerciseImportComponent, ExerciseImportDialogData } from 'app/exercise/import/exercise-import.component';
 import { ExerciseImportTabsComponent } from 'app/exercise/import/exercise-import-tabs/exercise-import-tabs.component';
@@ -68,10 +68,15 @@ const EXERCISE_TYPE_CARDS: ExerciseTypeCard[] = [
     selector: 'jhi-exercise-add-modal',
     templateUrl: './exercise-add-modal.component.html',
     styleUrl: './exercise-add-modal.component.scss',
-    imports: [TumUiDialogComponent, TumUiTooltipDirective, FaIconComponent, ArtemisTranslatePipe, TranslateDirective],
+    imports: [TumAetUiDialogComponent, TumAetUiTooltipDirective, FaIconComponent, ArtemisTranslatePipe, TranslateDirective],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ExerciseAddModalComponent {
+    private readonly profileService = inject(ProfileService);
+    private readonly featureToggleService = inject(FeatureToggleService);
+    private readonly router = inject(Router);
+    private readonly dialogService = inject(DialogService);
+
     readonly visible = input<boolean>(false);
     readonly mode = input<AddModalMode>('create');
     readonly courseId = input<number | undefined>(undefined);
@@ -85,9 +90,6 @@ export class ExerciseAddModalComponent {
     readonly exportRequested = output<void>();
     readonly milestoneImportRequested = output<void>();
     readonly milestoneExportRequested = output<void>();
-
-    private readonly profileService = inject(ProfileService);
-    private readonly featureToggleService = inject(FeatureToggleService);
 
     /** Whether programming exercises are enabled server-side; defaults to active until the toggle resolves. */
     private readonly programmingEnabled = toSignal(this.featureToggleService.getFeatureToggleActive(FeatureToggle.ProgrammingExercises), { initialValue: true });
@@ -121,9 +123,6 @@ export class ExerciseAddModalComponent {
     protected readonly faFlagCheckered = faFlagCheckered;
     protected readonly faKeyboard = faKeyboard;
     protected readonly faCheckDouble = faCheckDouble;
-
-    private readonly router = inject(Router);
-    private readonly dialogService = inject(DialogService);
 
     constructor() {
         effect(() => {

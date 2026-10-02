@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { TumUiTableDirective } from '@tumaet/ui-angular';
+import { TumAetUiButtonDirective, TumAetUiTableDirective } from '@tumaet/ui-angular';
 import { DecimalPipe } from '@angular/common';
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
 import { AlertService } from 'app/foundation/service/alert.service';
@@ -21,7 +21,7 @@ import { MilestoneAssessmentExercise, MilestoneAssessmentService, MilestoneAsses
     selector: 'jhi-milestone-assessment-dashboard',
     templateUrl: './milestone-assessment-dashboard.component.html',
     styleUrl: './milestone-assessment-dashboard.component.scss',
-    imports: [RouterLink, DecimalPipe, TranslateDirective, TumUiTableDirective, CourseTitleBarTitleDirective],
+    imports: [RouterLink, DecimalPipe, TranslateDirective, TumAetUiButtonDirective, TumAetUiTableDirective, CourseTitleBarTitleDirective],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MilestoneAssessmentDashboardComponent {

@@ -1,5 +1,4 @@
 <jhi-assessment-layout
-    (navigateBack)="navigateBack()"
     [isLoading]="isLoading()"
     [saveBusy]="saveBusy()"
     [submitBusy]="submitBusy()"
@@ -68,7 +67,6 @@
                     [highlightDifferences]="highlightDifferences()"
                     (feedbacksChange)="validateFeedback($event); markPendingChanges()"
                     [readOnly]="readOnly"
-                    [useDefaultFeedbackSuggestionBadgeText]="true"
                     [resultId]="result()!.id!"
                     [gradingCriteria]="exercise?.gradingCriteria ?? []"
                     [allFeedbacks]="allAssessmentFeedbacks()"

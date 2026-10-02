@@ -3,7 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
-import { TumUiTabComponent, TumUiTabListComponent, TumUiTabValue, TumUiTabsComponent } from '@tumaet/ui-angular';
+import { TumAetUiTabComponent, TumAetUiTabListComponent, TumAetUiTabValue, TumAetUiTabsComponent } from '@tumaet/ui-angular';
 import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pipe';
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
 import { AlertService } from 'app/foundation/service/alert.service';
@@ -41,9 +41,9 @@ const OVERVIEW_TAB = 'milestone';
     imports: [
         TranslateDirective,
         ArtemisTranslatePipe,
-        TumUiTabsComponent,
-        TumUiTabListComponent,
-        TumUiTabComponent,
+        TumAetUiTabsComponent,
+        TumAetUiTabListComponent,
+        TumAetUiTabComponent,
         CourseTitleBarTitleDirective,
         MilestoneAssessmentOverviewComponent,
         CodeEditorTutorAssessmentContainerComponent,
@@ -66,7 +66,7 @@ export class MilestoneAssessmentComponent {
     protected readonly studentLogin = signal<string>('');
     protected readonly assessment = signal<MilestoneAssessment | undefined>(undefined);
     protected readonly isLoading = signal(true);
-    protected readonly activeTab = signal<TumUiTabValue>(OVERVIEW_TAB);
+    protected readonly activeTab = signal<TumAetUiTabValue>(OVERVIEW_TAB);
 
     protected readonly OVERVIEW_TAB = OVERVIEW_TAB;
 
@@ -142,7 +142,7 @@ export class MilestoneAssessmentComponent {
      * The panel is destroyed on switch (see the class comment), so leaving without asking would discard that feedback
      * silently. Reuses the confirmation the routed assessment page's deactivate guard shows for the same reason.
      */
-    protected onTabChange(value: TumUiTabValue): void {
+    protected onTabChange(value: TumAetUiTabValue): void {
         if (value === undefined || value === this.activeTab()) {
             return;
         }

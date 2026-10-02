@@ -35,6 +35,7 @@ import de.tum.cit.aet.artemis.core.security.annotations.enforceRoleInCourse.Enfo
 import de.tum.cit.aet.artemis.core.service.feature.Feature;
 import de.tum.cit.aet.artemis.core.service.feature.FeatureToggle;
 import de.tum.cit.aet.artemis.core.service.featureusage.FeatureUsage;
+import de.tum.cit.aet.artemis.core.service.featureusage.UserFeature;
 import de.tum.cit.aet.artemis.core.util.HeaderUtil;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.dto.CreateMilestoneExerciseGroupDTO;
@@ -67,7 +68,7 @@ import de.tum.cit.aet.artemis.programming.service.MilestoneExerciseService;
 @Lazy
 @RestController
 @RequestMapping("api/exercise/")
-@FeatureUsage("management/milestone-groups")
+@FeatureUsage(UserFeature.EXERCISE_MILESTONE_GROUPS)
 public class MilestoneExerciseGroupResource {
 
     private static final Logger log = LoggerFactory.getLogger(MilestoneExerciseGroupResource.class);
@@ -248,7 +249,7 @@ public class MilestoneExerciseGroupResource {
      * @return the ResponseEntity with status 200 (OK) and one entry per student, ordered by login
      */
     @GetMapping("courses/{courseId}/milestone-exercise-groups/{groupId}/assessment/students")
-    @FeatureUsage("assessment/milestone-assessment")
+    @FeatureUsage(UserFeature.MILESTONE_ASSESSMENT_DASHBOARD)
     @EnforceAtLeastTutorInCourse
     public ResponseEntity<List<MilestoneAssessmentStudentDTO>> getMilestoneAssessmentDashboard(@PathVariable Long groupId, @PathVariable Long courseId) {
         log.debug("REST request to get the assessment dashboard of MilestoneExerciseGroup {} in course {}", groupId, courseId);
@@ -269,7 +270,7 @@ public class MilestoneExerciseGroupResource {
      * @return the ResponseEntity with status 200 (OK) and the milestone's information together with its ordered stories
      */
     @GetMapping("courses/{courseId}/milestone-exercise-groups/{groupId}/assessment/students/{studentLogin}")
-    @FeatureUsage("assessment/milestone-assessment")
+    @FeatureUsage(UserFeature.MILESTONE_ASSESSMENT)
     @EnforceAtLeastTutorInCourse
     public ResponseEntity<MilestoneAssessmentDTO> getMilestoneAssessmentForStudent(@PathVariable Long groupId, @PathVariable Long courseId, @PathVariable String studentLogin) {
         log.debug("REST request to get the milestone assessment of student {} in MilestoneExerciseGroup {} in course {}", studentLogin, groupId, courseId);

@@ -1,7 +1,7 @@
-<tum-ui-dialog [(visible)]="visible" [header]="'artemisApp.milestoneImportExport.export.header' | artemisTranslate" [closable]="true" [closeOnEscape]="true" size="medium">
+<tumaet-ui-dialog [(visible)]="visible" [header]="'artemisApp.milestoneImportExport.export.header' | artemisTranslate" [closable]="true" [closeOnEscape]="true" size="medium">
     <p class="text-muted-color text-sm mb-3" jhiTranslate="artemisApp.milestoneImportExport.export.description"></p>
     @if (!loading() && milestoneGroups().length === 0) {
-        <tum-ui-empty-state [icon]="faFlagCheckered" [title]="'artemisApp.milestoneImportExport.export.empty' | artemisTranslate" />
+        <tumaet-ui-empty-state [icon]="faFlagCheckered" [title]="'artemisApp.milestoneImportExport.export.empty' | artemisTranslate" />
     }
     <div class="d-flex flex-column gap-2">
         @for (group of milestoneGroups(); track group.id) {
@@ -15,7 +15,7 @@
                         [translateValues]="{ count: (group.exerciseIds ?? []).length }"
                     ></span>
                 </div>
-                <tum-ui-button
+                <tumaet-ui-button
                     size="small"
                     severity="secondary"
                     variant="outlined"
@@ -26,8 +26,8 @@
                 >
                     <fa-icon [icon]="faFileExport" />
                     <span class="ms-1" jhiTranslate="artemisApp.milestoneImportExport.export.download"></span>
-                </tum-ui-button>
+                </tumaet-ui-button>
             </div>
         }
     </div>
-</tum-ui-dialog>
+</tumaet-ui-dialog>

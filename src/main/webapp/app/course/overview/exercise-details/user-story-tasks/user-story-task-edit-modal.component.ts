@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, input, model, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TumUiButtonComponent, TumUiDialogComponent, TumUiInputDirective, TumUiSelectButtonComponent, TumUiSelectComponent } from '@tumaet/ui-angular';
+import { TumAetUiButtonComponent, TumAetUiDialogComponent, TumAetUiInputDirective, TumAetUiSelectButtonComponent, TumAetUiSelectComponent } from '@tumaet/ui-angular';
 import { TaskPriority, TaskState, UserStoryTask } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
 import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pipe';
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
@@ -38,11 +38,11 @@ interface StateOption {
     templateUrl: './user-story-task-edit-modal.component.html',
     imports: [
         FormsModule,
-        TumUiDialogComponent,
-        TumUiInputDirective,
-        TumUiSelectComponent,
-        TumUiSelectButtonComponent,
-        TumUiButtonComponent,
+        TumAetUiDialogComponent,
+        TumAetUiInputDirective,
+        TumAetUiSelectComponent,
+        TumAetUiSelectButtonComponent,
+        TumAetUiButtonComponent,
         ArtemisTranslatePipe,
         TranslateDirective,
     ],
@@ -100,7 +100,12 @@ export class UserStoryTaskEditModalComponent {
     );
 
     constructor() {
+        // Refilled on every open, not only when the task changes: creating twice in a row keeps `task` undefined, and
+        // reopening the same task after a cancel must drop the discarded edits.
         effect(() => {
+            if (!this.visible()) {
+                return;
+            }
             const t = this.task();
             this.draftTitle.set(t?.title ?? '');
             this.draftDescription.set(t?.description ?? '');

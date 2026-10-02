@@ -69,7 +69,7 @@ import { cloneWith, deepClone } from 'app/foundation/util/deep-clone.util';
 import { ExerciseVariantGroupService, toCourseExerciseGroup } from 'app/course/manage/exercises/exercise-variant-group.service';
 import { EXERCISE_MANAGEMENT_VIEW_STORAGE_KEY } from 'app/course/manage/exercises/course-exercise-cards';
 import { CourseExerciseGroup } from 'app/exercise/shared/entities/exercise/course-exercise-group.model';
-import { TumUiSelectComponent } from '@tumaet/ui-angular';
+import { TumAetUiSelectComponent } from '@tumaet/ui-angular';
 
 export const LOCAL_STORAGE_KEY_IS_SIMPLE_MODE = 'isSimpleMode';
 const AUTO_START_CODE_GENERATION_ALL_REPOSITORIES_STATE = 'autoStartCodeGenerationAllRepositories';
@@ -162,7 +162,7 @@ const GRADING_FIELD_REASON_KEYS = new Set([
         ExerciseUpdatePlagiarismComponent,
         FormFooterComponent,
         FeatureOverlayComponent,
-        TumUiSelectComponent,
+        TumAetUiSelectComponent,
     ],
 })
 export class ProgrammingExerciseUpdateComponent implements AfterViewInit, OnDestroy, OnInit {

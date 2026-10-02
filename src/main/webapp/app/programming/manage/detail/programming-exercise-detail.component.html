@@ -131,6 +131,7 @@
                         }
                         @if (programmingExercise().isAtLeastEditor) {
                             <button
+                                type="button"
                                 [jhiFeatureToggle]="FeatureToggle.ProgrammingExercises"
                                 (click)="checkConsistencies(programmingExercise())"
                                 class="btn btn-outline-primary btn-sm me-1"
@@ -143,6 +144,7 @@
                                 <jhi-atlas-orchestration-trigger [exercise]="programmingExercise()" [buttonClass]="'btn btn-primary btn-sm me-1 mb-1'" />
                             }
                             <button
+                                type="button"
                                 [jhiFeatureToggle]="FeatureToggle.ProgrammingExercises"
                                 jhiProgrammingExerciseResetButton
                                 [programmingExercise]="programmingExercise()"
@@ -154,6 +156,7 @@
                         }
                         @if (programmingExercise().course !== undefined && programmingExercise().isAtLeastInstructor) {
                             <button
+                                type="button"
                                 jhiDeleteButton
                                 [entityTitle]="programmingExercise().title || ''"
                                 entitySummaryTitle="artemisApp.exercise.delete.summary.title"

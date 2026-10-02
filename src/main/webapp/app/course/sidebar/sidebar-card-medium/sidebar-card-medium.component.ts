@@ -1,7 +1,8 @@
 import { Component, computed, inject, input, output } from '@angular/core';
-import { DifficultyLevel, getExerciseUrlSegmentOrEmpty } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { ProgrammingExerciseStudentTriggerBuildButtonComponent } from 'app/programming/shared/actions/trigger-build-button/student/programming-exercise-student-trigger-build-button.component';
+import { DifficultyLevel, ExerciseType, getExerciseUrlSegmentOrEmpty } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { SidebarEventService } from '../service/sidebar-event.service';
-import { ActivatedRoute, Router, RouterLink, isActive } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink, RouterLinkActive, isActive } from '@angular/router';
 import { NgClass } from '@angular/common';
 import { SidebarCardItemComponent } from '../sidebar-card-item/sidebar-card-item.component';
 import { SidebarCardElement, SidebarTypes } from 'app/foundation/types/sidebar';
@@ -10,7 +11,7 @@ import { SidebarCardElement, SidebarTypes } from 'app/foundation/types/sidebar';
     selector: 'jhi-medium-sidebar-card',
     templateUrl: './sidebar-card-medium.component.html',
     styleUrls: ['./sidebar-card-medium.component.scss'],
-    imports: [NgClass, SidebarCardItemComponent, RouterLink],
+    imports: [NgClass, SidebarCardItemComponent, RouterLink, RouterLinkActive, ProgrammingExerciseStudentTriggerBuildButtonComponent],
 })
 export class SidebarCardMediumComponent {
     private sidebarEventService = inject(SidebarEventService);
@@ -18,6 +19,7 @@ export class SidebarCardMediumComponent {
     private route = inject(ActivatedRoute);
 
     protected readonly DifficultyLevel = DifficultyLevel;
+    protected readonly ExerciseType = ExerciseType;
 
     readonly sidebarItem = input.required<SidebarCardElement>();
     readonly sidebarType = input<SidebarTypes>();
@@ -89,7 +91,12 @@ export class SidebarCardMediumComponent {
         return isActive(tree, this.router, { paths: 'subset', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' })();
     }
 
-    onNonExamCardClicked() {
+    onNonExamCardClicked(event?: MouseEvent) {
+        // Leave modified clicks to the native link (for example, opening a card in a new tab).
+        if (event && (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)) {
+            return;
+        }
+
         this.storeTargetComponentSubRoute();
         if (this.itemSelected()) {
             this.refreshChildComponent();

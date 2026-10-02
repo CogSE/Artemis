@@ -1,4 +1,4 @@
-<tum-ui-dialog
+<tumaet-ui-dialog
     [(visible)]="visible"
     [header]="'artemisApp.milestoneImportExport.import.header' | artemisTranslate"
     [closable]="!importing()"
@@ -21,17 +21,17 @@
         </div>
 
         @if (details(); as archive) {
-            <tum-ui-message severity="info">
+            <tumaet-ui-message severity="info">
                 <span
                     jhiTranslate="artemisApp.milestoneImportExport.import.summary"
                     [translateValues]="{ title: archive.groupTitle, count: userStoryCount(), otherCount: otherExerciseCount() }"
                 ></span>
-            </tum-ui-message>
+            </tumaet-ui-message>
             <div>
                 <label class="fw-semibold d-block mb-1" for="milestone-import-title" jhiTranslate="artemisApp.milestoneImportExport.import.title"></label>
                 <input
                     id="milestone-import-title"
-                    tumUiInput
+                    tumAetUiInput
                     class="w-100"
                     [disabled]="importing()"
                     [ngModel]="title()"
@@ -43,29 +43,29 @@
                 <label class="fw-semibold d-block mb-1" for="milestone-import-short-name" jhiTranslate="artemisApp.milestoneImportExport.import.shortName"></label>
                 <input
                     id="milestone-import-short-name"
-                    tumUiInput
+                    tumAetUiInput
                     class="w-100"
                     [disabled]="importing()"
                     [ngModel]="shortName()"
                     (ngModelChange)="shortName.set($event)"
                     [placeholder]="'artemisApp.milestoneImportExport.import.shortNamePlaceholder' | artemisTranslate"
-                    [tumUiInputInvalid]="!isShortNameValid()"
+                    [tumAetUiInputInvalid]="!isShortNameValid()"
                 />
                 <small class="text-muted-color" jhiTranslate="artemisApp.milestoneImportExport.import.uniqueNamesHint"></small>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <tum-ui-checkbox inputId="milestone-import-keep-dates" [disabled]="importing()" [ngModel]="keepDates()" (ngModelChange)="keepDates.set($event)" />
+                <tumaet-ui-checkbox inputId="milestone-import-keep-dates" [disabled]="importing()" [ngModel]="keepDates()" (ngModelChange)="keepDates.set($event)" />
                 <label for="milestone-import-keep-dates" class="mb-0" jhiTranslate="artemisApp.milestoneImportExport.import.keepDates"></label>
             </div>
         }
     </div>
 
     <ng-template #footer>
-        <tum-ui-button severity="secondary" variant="text" [disabled]="importing()" (clicked)="visible.set(false)">
+        <tumaet-ui-button severity="secondary" variant="text" [disabled]="importing()" (clicked)="visible.set(false)">
             <span jhiTranslate="entity.action.cancel"></span>
-        </tum-ui-button>
-        <tum-ui-button data-testid="milestone-import-submit" [disabled]="!canImport()" [loading]="importing()" (clicked)="importArchive()">
+        </tumaet-ui-button>
+        <tumaet-ui-button data-testid="milestone-import-submit" [disabled]="!canImport()" [loading]="importing()" (clicked)="importArchive()">
             <span jhiTranslate="artemisApp.milestoneImportExport.import.submit"></span>
-        </tum-ui-button>
+        </tumaet-ui-button>
     </ng-template>
-</tum-ui-dialog>
+</tumaet-ui-dialog>

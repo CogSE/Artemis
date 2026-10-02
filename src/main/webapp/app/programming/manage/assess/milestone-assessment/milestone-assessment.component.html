@@ -10,20 +10,20 @@
 
 @if (assessment(); as assessment) {
     <div class="milestone-assessment">
-        <tum-ui-tabs [value]="activeTab()" (valueChange)="onTabChange($event)">
-            <tum-ui-tab-list [attr.aria-label]="'artemisApp.milestoneAssessment.title' | artemisTranslate">
-                <tum-ui-tab [value]="OVERVIEW_TAB">
+        <tumaet-ui-tabs [value]="activeTab()" (valueChange)="onTabChange($event)">
+            <tumaet-ui-tab-list [attr.aria-label]="'artemisApp.milestoneAssessment.title' | artemisTranslate">
+                <tumaet-ui-tab [value]="OVERVIEW_TAB">
                     <span jhiTranslate="artemisApp.milestoneAssessment.overviewTab"></span>
-                </tum-ui-tab>
+                </tumaet-ui-tab>
                 @for (exercise of exercises(); track exercise.exerciseId) {
                     <!-- An exercise the student never started has nothing to assess, so its tab is disabled rather than
                          hidden: the group's shape should read the same for every student. -->
-                    <tum-ui-tab [value]="exercise.exerciseId" [disabled]="!exercise.submissionId">
+                    <tumaet-ui-tab [value]="exercise.exerciseId" [disabled]="!exercise.submissionId">
                         <span>{{ exercise.title }}</span>
-                    </tum-ui-tab>
+                    </tumaet-ui-tab>
                 }
-            </tum-ui-tab-list>
-        </tum-ui-tabs>
+            </tumaet-ui-tab-list>
+        </tumaet-ui-tabs>
 
         <div class="milestone-assessment__panel">
             @if (activeTab() === OVERVIEW_TAB) {
@@ -87,6 +87,7 @@
                                     }
                                 </div>
                             }
+                            @default {}
                         }
                     }
                 } @else {

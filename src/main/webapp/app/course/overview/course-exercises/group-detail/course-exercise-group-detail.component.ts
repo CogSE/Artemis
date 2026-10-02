@@ -31,10 +31,10 @@ import { ArtemisServerDateService } from 'app/foundation/service/server-date.ser
 import { ScoresStorageService } from 'app/course/manage/course-scores/scores-storage.service';
 import { AlertService } from 'app/foundation/service/alert.service';
 import { isDateLessThanAWeekInTheFuture } from 'app/foundation/util/date.utils';
+import { TumAetUiButtonDirective, TumAetUiMenuComponent, TumAetUiMenuItemDirective, TumAetUiMenuTriggerDirective, TumAetUiTooltipDirective } from '@tumaet/ui-angular';
 import { roundValueSpecifiedByCourseSettings } from 'app/foundation/util/utils';
 import { cloneWith, hydrate } from 'app/foundation/util/deep-clone.util';
 import { convertDateFromServer } from 'app/foundation/util/date.utils';
-import { TumUiTooltipDirective } from '@tumaet/ui-angular';
 import { ExerciseActionButtonComponent } from 'app/shared-ui/components/buttons/exercise-action-button/exercise-action-button.component';
 import { FeatureToggle } from 'app/foundation/feature-toggle/feature-toggle.service';
 import { FeatureToggleDirective } from 'app/foundation/feature-toggle/feature-toggle.directive';
@@ -50,7 +50,6 @@ import { ProgrammingSubmissionService, ProgrammingSubmissionState } from 'app/pr
 import { ResultComponent } from 'app/exercise/result/result.component';
 import { MilestoneCodeQualityComponent } from 'app/programming/shared/milestone-code-quality/milestone-code-quality.component';
 import { ProgrammingExerciseInstructionComponent } from 'app/programming/shared/instructions-render/programming-exercise-instruction.component';
-import { NgbDropdown, NgbDropdownItem, NgbDropdownMenu, NgbDropdownToggle } from '@ng-bootstrap/ng-bootstrap';
 
 @Component({
     selector: 'jhi-course-exercise-group-detail',
@@ -65,14 +64,14 @@ import { NgbDropdown, NgbDropdownItem, NgbDropdownMenu, NgbDropdownToggle } from
         TranslateDirective,
         ExerciseHeadersInformationComponent,
         InformationBoxComponent,
-        TumUiTooltipDirective,
+        TumAetUiTooltipDirective,
         ExerciseActionButtonComponent,
         FeatureToggleDirective,
         CodeButtonComponent,
-        NgbDropdown,
-        NgbDropdownToggle,
-        NgbDropdownMenu,
-        NgbDropdownItem,
+        TumAetUiButtonDirective,
+        TumAetUiMenuComponent,
+        TumAetUiMenuItemDirective,
+        TumAetUiMenuTriggerDirective,
         MilestoneCodeQualityComponent,
         ResultComponent,
         ProgrammingExerciseInstructionComponent,
@@ -93,6 +92,14 @@ export class CourseExerciseGroupDetailComponent {
     private readonly plantUmlWrapper = inject(ProgrammingExercisePlantUmlExtensionWrapper);
     private readonly sanitizer = inject(DomSanitizer);
     private readonly injector = inject(EnvironmentInjector);
+    private readonly serverDateService = inject(ArtemisServerDateService);
+    private readonly scoresStorageService = inject(ScoresStorageService);
+    private readonly participationService = inject(ParticipationService);
+    private readonly courseExerciseService = inject(CourseExerciseService);
+    private readonly alertService = inject(AlertService);
+    private readonly programmingExerciseParticipationService = inject(ProgrammingExerciseParticipationService);
+    private readonly participationWebsocketService = inject(ParticipationWebsocketService);
+    private readonly programmingSubmissionService = inject(ProgrammingSubmissionService);
 
     protected readonly faLayerGroup = faLayerGroup;
     protected readonly faCircleInfo = faCircleInfo;
@@ -103,14 +110,6 @@ export class CourseExerciseGroupDetailComponent {
     protected readonly DifficultyLevel = DifficultyLevel;
     protected readonly FeatureToggle = FeatureToggle;
 
-    private readonly serverDateService = inject(ArtemisServerDateService);
-    private readonly scoresStorageService = inject(ScoresStorageService);
-    private readonly participationService = inject(ParticipationService);
-    private readonly courseExerciseService = inject(CourseExerciseService);
-    private readonly alertService = inject(AlertService);
-    private readonly programmingExerciseParticipationService = inject(ProgrammingExerciseParticipationService);
-    private readonly participationWebsocketService = inject(ParticipationWebsocketService);
-    private readonly programmingSubmissionService = inject(ProgrammingSubmissionService);
     private readonly now = this.serverDateService.now();
 
     /*
@@ -362,18 +361,18 @@ export class CourseExerciseGroupDetailComponent {
      */
     protected readonly milestoneDescriptionHtml = signal<SafeHtml | undefined>(undefined);
 
-    protected readonly pointsInfoBoxData = computed<InformationBox>(() => ({
+    protected readonly pointsInfoBoxData: InformationBox = {
         title: 'artemisApp.courseOverview.exerciseDetails.points',
         content: { type: 'string', value: '' },
         isContentComponent: true,
-    }));
+    };
 
     /** The shared build's status, labelled like the exercise page's own status box (see ExerciseHeadersInformationComponent). */
-    protected readonly buildStatusInfoBoxData = computed<InformationBox>(() => ({
+    protected readonly buildStatusInfoBoxData: InformationBox = {
         title: 'artemisApp.courseOverview.exerciseDetails.status',
         content: { type: 'string', value: '' },
         isContentComponent: true,
-    }));
+    };
 
     protected readonly variantsInfoBoxData = computed<InformationBox>(() => ({
         title: this.group()?.type === 'milestone' ? 'artemisApp.exerciseVariantGroup.detail.milestoneVariants' : 'artemisApp.exerciseVariantGroup.detail.variants',

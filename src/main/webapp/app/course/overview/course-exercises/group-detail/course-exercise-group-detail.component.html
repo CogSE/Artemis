@@ -20,17 +20,17 @@
             -->
             <div class="flex items-center gap-2 shrink-0">
                 @if (exerciseSumMaxPoints() > 0) {
-                    <jhi-information-box [informationBoxData]="pointsInfoBoxData()" layout="inline">
+                    <jhi-information-box [informationBoxData]="pointsInfoBoxData" layout="inline">
                         <span contentComponent class="d-flex align-items-center gap-1">
                             <span>{{ displayedGroupPoints() }} / {{ effectiveGroupMaxPoints() }}</span>
                             @if (capReducesMaxPoints()) {
                                 <fa-icon
                                     [icon]="faCircleInfo"
                                     class="text-body-tertiary"
-                                    [tumUiTooltip]="
+                                    [tumAetUiTooltip]="
                                         'artemisApp.exerciseVariantGroup.detail.pointsTooltip' | artemisTranslate: { total: exerciseSumMaxPoints(), cap: group.maxPoints }
                                     "
-                                    tumUiTooltipPlacement="top"
+                                    tumAetUiTooltipPlacement="top"
                                 />
                             }
                         </span>
@@ -43,7 +43,7 @@
                         build log, which a student has no other way to read once the online editor is switched off.
                     -->
                     @if (milestoneParticipation()) {
-                        <jhi-information-box data-testid="milestone-build-status" [informationBoxData]="buildStatusInfoBoxData()" layout="inline">
+                        <jhi-information-box data-testid="milestone-build-status" [informationBoxData]="buildStatusInfoBoxData" layout="inline">
                             <span contentComponent class="d-flex align-items-center gap-1">
                                 <jhi-result
                                     class="text-truncate"
@@ -87,6 +87,7 @@
                             @case ('dateTime') {
                                 <span contentComponent>{{ dateBox.content.value | artemisDate }}</span>
                             }
+                            @default {}
                         }
                     </jhi-information-box>
                 }
@@ -94,6 +95,29 @@
             </div>
             @if (group.type === 'milestone') {
                 <div class="ms-auto flex items-center gap-2 shrink-0">
+                    @if (course()?.isAtLeastTutor) {
+                        <button
+                            id="milestone-instructor-actions-dropdown"
+                            type="button"
+                            tumAetUiButton
+                            severity="secondary"
+                            [attr.aria-label]="'artemisApp.exerciseVariantGroup.detail.instructorActions' | artemisTranslate"
+                            [tumAetUiMenuTrigger]="instructorActionsMenu"
+                        >
+                            <fa-icon [icon]="faWrench" />
+                            <span class="d-none d-md-inline" jhiTranslate="artemisApp.exerciseVariantGroup.detail.instructorActions"></span>
+                        </button>
+                        <ng-template #instructorActionsMenu>
+                            <tumaet-ui-menu aria-labelledby="milestone-instructor-actions-dropdown">
+                                @for (memberExercise of exercises(); track memberExercise.id) {
+                                    <a tumAetUiMenuItem [routerLink]="exerciseManagementRouterLink(memberExercise)">
+                                        <fa-icon [fixedWidth]="true" [icon]="getIcon(memberExercise.type)" />
+                                        <span>{{ memberExercise.title }}</span>
+                                    </a>
+                                }
+                            </tumaet-ui-menu>
+                        </ng-template>
+                    }
                     @if (milestoneStatus(); as status) {
                         @if (status.started) {
                             <jhi-code-button
@@ -105,6 +129,7 @@
                             />
                         } @else {
                             <button
+                                type="button"
                                 jhi-exercise-action-button
                                 [jhiFeatureToggle]="FeatureToggle.ProgrammingExercises"
                                 [buttonIcon]="faPlayCircle"
@@ -117,6 +142,7 @@
                     } @else if (milestoneStatusFailed()) {
                         <!-- Without this the header renders nothing at all when the status request fails, which reads as a missing start action. -->
                         <button
+                            type="button"
                             jhi-exercise-action-button
                             [buttonIcon]="faRotateRight"
                             [buttonLabel]="'artemisApp.exerciseVariantGroup.detail.retryMilestoneStatus' | artemisTranslate"
@@ -125,22 +151,6 @@
                             [outlined]="true"
                             (click)="retryMilestoneStatus()"
                         ></button>
-                    }
-                    @if (course()?.isAtLeastEditor) {
-                        <div ngbDropdown class="d-inline">
-                            <button id="milestone-instructor-actions-dropdown" class="btn btn-secondary" ngbDropdownToggle>
-                                <fa-icon [icon]="faWrench" />
-                                <span class="d-none d-md-inline" jhiTranslate="artemisApp.exerciseVariantGroup.detail.instructorActions"></span>
-                            </button>
-                            <div ngbDropdownMenu aria-labelledby="milestone-instructor-actions-dropdown">
-                                @for (memberExercise of exercises(); track memberExercise.id) {
-                                    <a class="btn" [routerLink]="exerciseManagementRouterLink(memberExercise)" ngbDropdownItem>
-                                        <fa-icon [fixedWidth]="true" [icon]="getIcon(memberExercise.type)" class="ms-2 me-3" />
-                                        <span>{{ memberExercise.title }}</span>
-                                    </a>
-                                }
-                            </div>
-                        </div>
                     }
                 </div>
             }

@@ -1,27 +1,27 @@
 @if (tasks().length) {
     <div class="grid grid-cols-1 gap-3" cdkDropList [cdkDropListData]="tasks()" (cdkDropListDropped)="drop($event)" data-testid="user-story-tasks-grid">
         @for (task of tasks(); track task.id) {
-            <tum-ui-card class="border" cdkDrag data-testid="user-story-task-card">
-                <div tumUiCardHeader class="task-tile-header d-flex align-items-center gap-2">
+            <tumaet-ui-card class="border" cdkDrag data-testid="user-story-task-card">
+                <div tumAetUiCardHeader class="task-tile-header d-flex align-items-center gap-2">
                     <fa-icon
                         [icon]="faBars"
                         cdkDragHandle
                         class="text-muted"
                         style="cursor: grab"
-                        [tumUiTooltip]="'artemisApp.courseOverview.exerciseDetails.tasks.dragHandle' | artemisTranslate"
-                        tumUiTooltipPlacement="top"
+                        [tumAetUiTooltip]="'artemisApp.courseOverview.exerciseDetails.tasks.dragHandle' | artemisTranslate"
+                        tumAetUiTooltipPlacement="top"
                         data-testid="task-drag-handle"
                     />
                     <span class="fs-5 fw-semibold">{{ task.title }}</span>
                 </div>
                 <div class="d-flex flex-column gap-2">
                     <div class="d-flex gap-2">
-                        <tum-ui-tag [severity]="stateSeverity(task.state ?? 'NEW')" [rounded]="true">
+                        <tumaet-ui-tag [severity]="stateSeverity(task.state ?? 'NEW')" [rounded]="true">
                             {{ stateLabelKey(task.state ?? 'NEW') | artemisTranslate }}
-                        </tum-ui-tag>
-                        <tum-ui-tag [severity]="prioritySeverity(task.priority)" [rounded]="true">
+                        </tumaet-ui-tag>
+                        <tumaet-ui-tag [severity]="prioritySeverity(task.priority)" [rounded]="true">
                             {{ priorityLabelKey(task.priority) | artemisTranslate }}
-                        </tum-ui-tag>
+                        </tumaet-ui-tag>
                     </div>
                     @if (task.description) {
                         <div class="text-muted small">{{ task.description }}</div>
@@ -31,42 +31,44 @@
                         <span>{{ 'artemisApp.courseOverview.exerciseDetails.tasks.estimatedEffort' | artemisTranslate }}: {{ formatEffortHours(task.estimatedEffortHours) }}</span>
                     </div>
                 </div>
-                <div tumUiCardFooter class="d-flex justify-content-between align-items-center gap-2 mt-3">
+                <div tumAetUiCardFooter class="d-flex justify-content-between align-items-center gap-2 mt-3">
                     <div data-testid="actual-effort-field">
                         @if (showActualEffort(task)) {
                             @if (editingActualEffortTaskId() === task.id) {
                                 <span class="d-flex align-items-center gap-1">
                                     <input
-                                        tumUiInput
+                                        tumAetUiInput
                                         class="w-20"
                                         [ngModel]="draftActualEffortText()"
                                         (ngModelChange)="draftActualEffortText.set($event)"
                                         (keydown.enter)="saveActualEffort(task)"
                                         (keydown.escape)="cancelActualEffortEdit()"
                                         placeholder="hh:mm"
-                                        [tumUiInputInvalid]="parseEffortHours(draftActualEffortText()) === undefined"
+                                        [tumAetUiInputInvalid]="parseEffortHours(draftActualEffortText()) === undefined"
                                         data-testid="actual-effort-input"
                                     />
                                     <button
-                                        tumUiButton
+                                        type="button"
+                                        tumAetUiButton
                                         severity="success"
                                         size="small"
                                         [disabled]="parseEffortHours(draftActualEffortText()) === undefined"
                                         (click)="saveActualEffort(task)"
-                                        [tumUiTooltip]="'entity.action.save' | artemisTranslate"
-                                        tumUiTooltipPlacement="top"
+                                        [tumAetUiTooltip]="'entity.action.save' | artemisTranslate"
+                                        tumAetUiTooltipPlacement="top"
                                         [attr.aria-label]="'entity.action.save' | artemisTranslate"
                                         data-testid="save-actual-effort-btn"
                                     >
                                         <fa-icon [icon]="faCheck" />
                                     </button>
                                     <button
-                                        tumUiButton
+                                        type="button"
+                                        tumAetUiButton
                                         severity="danger"
                                         size="small"
                                         (click)="cancelActualEffortEdit()"
-                                        [tumUiTooltip]="'entity.action.cancel' | artemisTranslate"
-                                        tumUiTooltipPlacement="top"
+                                        [tumAetUiTooltip]="'entity.action.cancel' | artemisTranslate"
+                                        tumAetUiTooltipPlacement="top"
                                         [attr.aria-label]="'entity.action.cancel' | artemisTranslate"
                                         data-testid="cancel-actual-effort-btn"
                                     >
@@ -74,13 +76,13 @@
                                     </button>
                                 </span>
                             } @else if (canEditActualEffort(task)) {
-                                <tum-ui-button
+                                <tumaet-ui-button
                                     severity="secondary"
                                     variant="text"
                                     size="small"
                                     (clicked)="startEditingActualEffort(task)"
-                                    [tumUiTooltip]="'artemisApp.courseOverview.exerciseDetails.tasks.actualEffort' | artemisTranslate"
-                                    tumUiTooltipPlacement="top"
+                                    [tumAetUiTooltip]="'artemisApp.courseOverview.exerciseDetails.tasks.actualEffort' | artemisTranslate"
+                                    tumAetUiTooltipPlacement="top"
                                     data-testid="actual-effort-display"
                                 >
                                     <fa-icon [icon]="faClock" class="me-1" />
@@ -89,7 +91,7 @@
                                             ? formatEffortHours(task.actualEffortHours)
                                             : ('artemisApp.courseOverview.exerciseDetails.tasks.actualEffortUnset' | artemisTranslate)
                                     }}
-                                </tum-ui-button>
+                                </tumaet-ui-button>
                             } @else {
                                 <span class="d-flex align-items-center gap-1 text-muted small" data-testid="actual-effort-readonly">
                                     <fa-icon [icon]="faClock" />
@@ -105,13 +107,14 @@
                     <div class="d-flex gap-2">
                         @if ((task.state ?? 'NEW') !== 'DONE') {
                             <button
-                                tumUiButton
+                                type="button"
+                                tumAetUiButton
                                 severity="primary"
                                 size="small"
                                 [disabled]="advanceRequiresEffort(task)"
                                 (click)="advanceState(task)"
-                                [tumUiTooltip]="advanceButtonTooltipKey(task) | artemisTranslate"
-                                tumUiTooltipPlacement="top"
+                                [tumAetUiTooltip]="advanceButtonTooltipKey(task) | artemisTranslate"
+                                tumAetUiTooltipPlacement="top"
                                 [attr.aria-label]="advanceButtonTooltipKey(task) | artemisTranslate"
                                 data-testid="advance-task-btn"
                             >
@@ -119,19 +122,21 @@
                             </button>
                         }
                         <button
-                            tumUiButton
+                            type="button"
+                            tumAetUiButton
                             severity="warn"
                             size="small"
                             (click)="openEditModal(task)"
-                            [tumUiTooltip]="'entity.action.edit' | artemisTranslate"
-                            tumUiTooltipPlacement="top"
+                            [tumAetUiTooltip]="'entity.action.edit' | artemisTranslate"
+                            tumAetUiTooltipPlacement="top"
                             [attr.aria-label]="'entity.action.edit' | artemisTranslate"
                             data-testid="edit-task-btn"
                         >
                             <fa-icon [icon]="faPen" />
                         </button>
                         <button
-                            tumUiButton
+                            type="button"
+                            tumAetUiButton
                             severity="danger"
                             size="small"
                             [renderButtonStyle]="false"
@@ -139,8 +144,8 @@
                             [entityTitle]="task.title"
                             [deleteQuestion]="'artemisApp.courseOverview.exerciseDetails.tasks.deleteQuestion'"
                             (delete)="deleteTask(task)"
-                            [tumUiTooltip]="'entity.action.delete' | artemisTranslate"
-                            tumUiTooltipPlacement="top"
+                            [tumAetUiTooltip]="'entity.action.delete' | artemisTranslate"
+                            tumAetUiTooltipPlacement="top"
                             [attr.aria-label]="'entity.action.delete' | artemisTranslate"
                             data-testid="delete-task-btn"
                         >
@@ -148,7 +153,7 @@
                         </button>
                     </div>
                 </div>
-            </tum-ui-card>
+            </tumaet-ui-card>
         }
     </div>
 } @else {
@@ -158,10 +163,10 @@
 }
 
 <div class="module-bg sticky-bottom d-flex justify-content-end pb-2 pt-3">
-    <tum-ui-button size="small" (clicked)="openCreateModal()" data-testid="create-task-btn">
+    <tumaet-ui-button size="small" (clicked)="openCreateModal()" data-testid="create-task-btn">
         <fa-icon [icon]="faPlus" class="me-1" />
         <span jhiTranslate="artemisApp.courseOverview.exerciseDetails.tasks.createButton"></span>
-    </tum-ui-button>
+    </tumaet-ui-button>
 </div>
 
 <jhi-user-story-task-edit-modal [(visible)]="modalVisible" [task]="selectedTask()" (saved)="onSaved($event)" />

@@ -34,6 +34,7 @@ import de.tum.cit.aet.artemis.core.security.annotations.enforceRoleInCourse.Enfo
 import de.tum.cit.aet.artemis.core.service.feature.Feature;
 import de.tum.cit.aet.artemis.core.service.feature.FeatureToggle;
 import de.tum.cit.aet.artemis.core.service.featureusage.FeatureUsage;
+import de.tum.cit.aet.artemis.core.service.featureusage.UserFeature;
 import de.tum.cit.aet.artemis.core.util.HeaderUtil;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.dto.MilestoneExerciseGroupDTO;
@@ -49,7 +50,7 @@ import de.tum.cit.aet.artemis.programming.service.MilestoneExerciseImportExportS
 @Profile(PROFILE_CORE)
 @FeatureToggle(Feature.ProgrammingExercises)
 @Lazy
-@FeatureUsage("authoring/import-export")
+@FeatureUsage(UserFeature.PROGRAMMING_IMPORT_EXPORT)
 @RestController
 @RequestMapping("api/programming/")
 public class MilestoneExerciseImportExportResource {

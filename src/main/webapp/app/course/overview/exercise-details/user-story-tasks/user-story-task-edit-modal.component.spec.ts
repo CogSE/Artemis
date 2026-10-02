@@ -26,6 +26,8 @@ describe('UserStoryTaskEditModalComponent', () => {
         }).compileComponents();
         fixture = TestBed.createComponent(UserStoryTaskEditModalComponent);
         component = fixture.componentInstance;
+        // The drafts are only filled while the dialog is open, as the parent opens it right after choosing the task.
+        fixture.componentRef.setInput('visible', true);
     });
 
     it('should be in create mode with empty drafts when no task is given', () => {
@@ -151,5 +153,39 @@ describe('UserStoryTaskEditModalComponent', () => {
 
         expect(emitted).toBe(false);
         expect(component['visible']()).toBe(false);
+    });
+
+    it('should clear the drafts when creating again after a saved task', () => {
+        fixture.detectChanges();
+        component['draftTitle'].set('First task');
+        component['draftDescription'].set('Some details');
+        component['draftTaskPoints'].set(5);
+        component['draftPriority'].set('LOW');
+        component['draftEstimatedEffortText'].set('01:00');
+        component['onSave']();
+        fixture.detectChanges();
+
+        component.visible.set(true);
+        fixture.detectChanges();
+
+        expect(component['draftTitle']()).toBe('');
+        expect(component['draftDescription']()).toBe('');
+        expect(component['draftTaskPoints']()).toBeUndefined();
+        expect(component['draftPriority']()).toBeUndefined();
+        expect(component['draftEstimatedEffortText']()).toBe('');
+        expect(component['draftState']()).toBe('NEW');
+    });
+
+    it('should drop discarded edits when reopening the same task after a cancel', () => {
+        fixture.componentRef.setInput('task', existingTask);
+        fixture.detectChanges();
+        component['draftTitle'].set('Discarded title');
+        component['onCancel']();
+        fixture.detectChanges();
+
+        component.visible.set(true);
+        fixture.detectChanges();
+
+        expect(component['draftTitle']()).toBe('Write tests');
     });
 });

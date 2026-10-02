@@ -9,7 +9,7 @@ import { StaticCodeAnalysisIssue } from 'app/programming/shared/entities/static-
 import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pipe';
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
 import { InformationBox, InformationBoxComponent } from 'app/shared-ui/information-box/information-box.component';
-import { TumUiDialogComponent, TumUiTableDirective } from '@tumaet/ui-angular';
+import { TumAetUiDialogComponent, TumAetUiTableDirective } from '@tumaet/ui-angular';
 import { parseScaIssue, scaFeedbackPenalty } from './milestone-code-quality.util';
 
 /** One static code analysis issue of the milestone's build, flattened for display. */
@@ -60,7 +60,7 @@ type CodeQualityStatus = 'building' | 'clean' | 'informational' | 'deducting';
     selector: 'jhi-milestone-code-quality',
     templateUrl: './milestone-code-quality.component.html',
     styleUrl: './milestone-code-quality.component.scss',
-    imports: [FaIconComponent, DecimalPipe, NgTemplateOutlet, ArtemisTranslatePipe, TranslateDirective, InformationBoxComponent, TumUiDialogComponent, TumUiTableDirective],
+    imports: [FaIconComponent, DecimalPipe, NgTemplateOutlet, ArtemisTranslatePipe, TranslateDirective, InformationBoxComponent, TumAetUiDialogComponent, TumAetUiTableDirective],
     /* preserveWhitespaces: false is required here because the global tsconfig sets preserveWhitespaces: true,
      * which inserts whitespace text nodes that break [contentComponent] slot matching in jhi-information-box. */
     preserveWhitespaces: false,

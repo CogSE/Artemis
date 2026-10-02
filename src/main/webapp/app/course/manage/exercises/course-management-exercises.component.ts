@@ -8,7 +8,14 @@ import { TranslateService } from '@ngx-translate/core';
 import { QuizExerciseExportComponent } from 'app/quiz/manage/export/quiz-exercise-export.component';
 import { CourseManagementService } from 'app/course/manage/services/course-management.service';
 import { FormsModule } from '@angular/forms';
-import { TumUiButtonComponent, TumUiButtonDirective, TumUiEmptyStateComponent, TumUiPanelComponent, TumUiSelectButtonComponent, TumUiTooltipDirective } from '@tumaet/ui-angular';
+import {
+    TumAetUiButtonComponent,
+    TumAetUiButtonDirective,
+    TumAetUiEmptyStateComponent,
+    TumAetUiPanelComponent,
+    TumAetUiSelectButtonComponent,
+    TumAetUiTooltipDirective,
+} from '@tumaet/ui-angular';
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { IconProp } from '@fortawesome/fontawesome-svg-core';
 import {
@@ -82,12 +89,12 @@ import { MilestoneExportDialogComponent } from 'app/programming/manage/milestone
     styleUrl: './course-management-exercises.component.scss',
     imports: [
         FormsModule,
-        TumUiSelectButtonComponent,
-        TumUiPanelComponent,
-        TumUiButtonComponent,
-        TumUiButtonDirective,
-        TumUiEmptyStateComponent,
-        TumUiTooltipDirective,
+        TumAetUiSelectButtonComponent,
+        TumAetUiPanelComponent,
+        TumAetUiButtonComponent,
+        TumAetUiButtonDirective,
+        TumAetUiEmptyStateComponent,
+        TumAetUiTooltipDirective,
         FaIconComponent,
         ExerciseTableComponent,
         ExerciseAddModalComponent,
@@ -110,6 +117,23 @@ import { MilestoneExportDialogComponent } from 'app/programming/manage/milestone
     ],
 })
 export class CourseManagementExercisesComponent implements OnInit {
+    private readonly route = inject(ActivatedRoute);
+    private readonly router = inject(Router);
+    private readonly courseManagementService = inject(CourseManagementService);
+    private readonly quizExerciseService = inject(QuizExerciseService);
+    private readonly programmingExerciseService = inject(ProgrammingExerciseService);
+    private readonly textExerciseService = inject(TextExerciseService);
+    private readonly fileUploadExerciseService = inject(FileUploadExerciseService);
+    private readonly modelingExerciseService = inject(ModelingExerciseService);
+    private readonly translateService = inject(TranslateService);
+    private readonly exerciseVariantGroupService = inject(ExerciseVariantGroupService);
+    private readonly groupSync = inject(ExerciseGroupSyncService);
+    private readonly deleteDialogService = inject(DeleteDialogService);
+    private readonly alertService = inject(AlertService);
+    private readonly localStorageService = inject(LocalStorageService);
+    private readonly profileService = inject(ProfileService);
+    private readonly destroyRef = inject(DestroyRef);
+
     protected readonly faPlus = faPlus;
     protected readonly faFileImport = faFileImport;
     protected readonly faFileExport = faFileExport;
@@ -202,23 +226,6 @@ export class CourseManagementExercisesComponent implements OnInit {
     });
     /** The selected exercises narrowed to programming exercises — the mass actions below only apply to those. */
     readonly selectedProgrammingExercises = computed(() => this.selectedExercises().filter((exercise) => exercise.type === ExerciseType.PROGRAMMING) as ProgrammingExercise[]);
-
-    private readonly route = inject(ActivatedRoute);
-    private readonly router = inject(Router);
-    private readonly courseManagementService = inject(CourseManagementService);
-    private readonly quizExerciseService = inject(QuizExerciseService);
-    private readonly programmingExerciseService = inject(ProgrammingExerciseService);
-    private readonly textExerciseService = inject(TextExerciseService);
-    private readonly fileUploadExerciseService = inject(FileUploadExerciseService);
-    private readonly modelingExerciseService = inject(ModelingExerciseService);
-    private readonly translateService = inject(TranslateService);
-    private readonly exerciseVariantGroupService = inject(ExerciseVariantGroupService);
-    private readonly groupSync = inject(ExerciseGroupSyncService);
-    private readonly deleteDialogService = inject(DeleteDialogService);
-    private readonly alertService = inject(AlertService);
-    private readonly localStorageService = inject(LocalStorageService);
-    private readonly profileService = inject(ProfileService);
-    private readonly destroyRef = inject(DestroyRef);
 
     /** Under LocalCI repositories and build plans live inside Artemis, so the delete dialog offers no external cleanup checks. */
     protected readonly localCIEnabled = signal(true);
@@ -503,10 +510,7 @@ export class CourseManagementExercisesComponent implements OnInit {
         if (!group) {
             return;
         }
-        // A milestone group is anchored by a full MilestoneExercise (language, VCS, build config, ...) - the small
-        // title/points/dates dialog below can't edit that. Route to the same full-page config layout as milestone
-        // create instead (see ProgrammingExerciseUpdateComponent.isMilestoneMode); a plain variant group has no
-        // backing exercise of its own, so it keeps the lightweight dialog.
+
         if (group.type === 'milestone' && group.milestoneExerciseId !== undefined) {
             void this.router.navigate(['/course-management', this.courseId(), 'milestone-exercise-groups', group.milestoneExerciseId, 'edit']);
             return;

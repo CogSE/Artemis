@@ -8,7 +8,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { BehaviorSubject, EMPTY, Observable, filter, of, throwError } from 'rxjs';
 import dayjs from 'dayjs/esm';
 import { MockComponent, MockDirective, MockPipe, MockProvider } from 'ng-mocks';
-import { TumUiTooltipDirective } from '@tumaet/ui-angular';
+import { TumAetUiTooltipDirective } from '@tumaet/ui-angular';
 import { CourseSidebarToggleButtonComponent } from 'app/course/shared/course-sidebar-toggle-button/course-sidebar-toggle-button.component';
 import { ResultComponent } from 'app/exercise/result/result.component';
 import { ExerciseHeadersInformationComponent } from 'app/exercise/exercise-headers/exercise-headers-information/exercise-headers-information.component';
@@ -199,7 +199,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
                         RouterLink,
                         ExerciseHeadersInformationComponent,
                         InformationBoxComponent,
-                        TumUiTooltipDirective,
+                        TumAetUiTooltipDirective,
                         TranslateDirective,
                         ArtemisDatePipe,
                         ArtemisTimeAgoPipe,
@@ -212,7 +212,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
                         MockDirective(RouterLink),
                         MockComponent(ExerciseHeadersInformationComponent),
                         MockComponent(InformationBoxComponent),
-                        MockDirective(TumUiTooltipDirective),
+                        MockDirective(TumAetUiTooltipDirective),
                         MockDirective(TranslateDirective),
                         MockPipe(ArtemisDatePipe),
                         MockPipe(ArtemisTimeAgoPipe),
@@ -238,7 +238,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
         effectiveGroupMaxPoints: () => number;
         capReducesMaxPoints: () => boolean;
         variantsInfoBoxData: () => InformationBox;
-        pointsInfoBoxData: () => InformationBox;
+        pointsInfoBoxData: InformationBox;
         groupDateInfoBoxes: () => InformationBox[];
         exerciseParticipation: (exercise: Exercise) => StudentParticipation | undefined;
         exerciseLink: (exercise: Exercise) => string;
@@ -363,7 +363,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
             ).toEqual([1, 2]);
             expect(comp().exerciseSumMaxPoints()).toBe(20);
             expect(comp().variantsInfoBoxData().content.value).toBe(2);
-            expect(comp().pointsInfoBoxData().isContentComponent).toBe(true);
+            expect(comp().pointsInfoBoxData.isContentComponent).toBe(true);
         });
 
         it('resolves no group when the course has no exercises of that group', async () => {
@@ -585,7 +585,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
             // The bar states the group's points and its code issues in boxes of their own, so this one is purely
             // about whether the shared build came through.
             expect((badge.componentInstance as ResultComponent).buildOutcomeOnly()).toBe(true);
-            expect((fixture.componentInstance as unknown as { buildStatusInfoBoxData: () => InformationBox }).buildStatusInfoBoxData().title).toBe(
+            expect((fixture.componentInstance as unknown as { buildStatusInfoBoxData: InformationBox }).buildStatusInfoBoxData.title).toBe(
                 'artemisApp.courseOverview.exerciseDetails.status',
             );
         });

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, model, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { strFromU8 } from 'fflate';
-import { TumUiButtonComponent, TumUiCheckboxComponent, TumUiDialogComponent, TumUiInputDirective, TumUiMessageComponent } from '@tumaet/ui-angular';
+import { TumAetUiButtonComponent, TumAetUiCheckboxComponent, TumAetUiDialogComponent, TumAetUiInputDirective, TumAetUiMessageComponent } from '@tumaet/ui-angular';
 import { AlertService } from 'app/foundation/service/alert.service';
 import { readZipEntries } from 'app/foundation/util/zip.util';
 import { parseJson } from 'app/foundation/util/json.util';
@@ -24,11 +24,11 @@ const SHORT_NAME_MAX_LENGTH = 36;
     templateUrl: './milestone-import-dialog.component.html',
     imports: [
         FormsModule,
-        TumUiDialogComponent,
-        TumUiButtonComponent,
-        TumUiCheckboxComponent,
-        TumUiInputDirective,
-        TumUiMessageComponent,
+        TumAetUiDialogComponent,
+        TumAetUiButtonComponent,
+        TumAetUiCheckboxComponent,
+        TumAetUiInputDirective,
+        TumAetUiMessageComponent,
         ArtemisTranslatePipe,
         TranslateDirective,
     ],

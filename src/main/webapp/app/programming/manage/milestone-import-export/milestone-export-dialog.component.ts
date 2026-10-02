@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, model, signal } from '@angular/core';
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { faFileExport, faFlagCheckered } from '@fortawesome/free-solid-svg-icons';
-import { TumUiButtonComponent, TumUiDialogComponent, TumUiEmptyStateComponent } from '@tumaet/ui-angular';
+import { TumAetUiButtonComponent, TumAetUiDialogComponent, TumAetUiEmptyStateComponent } from '@tumaet/ui-angular';
 import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pipe';
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
 import { downloadZipFileFromResponse } from 'app/foundation/util/download.util';
@@ -16,7 +16,7 @@ import { MilestoneImportExportService } from './milestone-import-export.service'
 @Component({
     selector: 'jhi-milestone-export-dialog',
     templateUrl: './milestone-export-dialog.component.html',
-    imports: [TumUiDialogComponent, TumUiButtonComponent, TumUiEmptyStateComponent, FaIconComponent, ArtemisTranslatePipe, TranslateDirective],
+    imports: [TumAetUiDialogComponent, TumAetUiButtonComponent, TumAetUiEmptyStateComponent, FaIconComponent, ArtemisTranslatePipe, TranslateDirective],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MilestoneExportDialogComponent {

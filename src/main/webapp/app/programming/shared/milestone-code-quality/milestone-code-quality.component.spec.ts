@@ -212,12 +212,12 @@ describe('MilestoneCodeQualityComponent', () => {
         it('opens the issue table on click and still opens it with no issues', async () => {
             const component = state(await setup(milestone(), { id: 1, feedbacks: [] } as unknown as Result));
             expect(component.detailsVisible()).toBe(false);
-            expect(document.body.querySelector('.tum-ui-dialog')).toBeNull();
+            expect(document.body.querySelector('.tumaet-ui-dialog')).toBeNull();
 
             openDetails();
 
             expect(component.detailsVisible()).toBe(true);
-            expect(document.body.querySelector('.tum-ui-dialog')).not.toBeNull();
+            expect(document.body.querySelector('.tumaet-ui-dialog')).not.toBeNull();
             // With nothing to list the dialog still explains itself rather than opening empty.
             expect(document.body.querySelector('table')).toBeNull();
         });
@@ -290,7 +290,7 @@ describe('MilestoneCodeQualityComponent', () => {
 
             openDetails();
 
-            const dialogText = document.body.querySelector('.tum-ui-dialog')?.textContent ?? '';
+            const dialogText = document.body.querySelector('.tumaet-ui-dialog')?.textContent ?? '';
             expect(dialogText).toContain('artemisApp.exerciseVariantGroup.detail.codeQuality.building');
             expect(dialogText).not.toContain('artemisApp.exerciseVariantGroup.detail.codeQuality.noIssues');
         });

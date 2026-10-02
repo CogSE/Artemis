@@ -4,7 +4,7 @@
 
 @if (students().length) {
     <div class="milestone-dashboard__scroll">
-        <table tumUiTable size="small">
+        <table tumAetUiTable size="small">
             <thead>
                 <tr>
                     <th jhiTranslate="artemisApp.milestoneAssessment.dashboard.student"></th>
@@ -41,7 +41,7 @@
                         }
                         <td class="whitespace-nowrap">{{ assessedCount(student) }} / {{ manuallyAssessable(student).length }}</td>
                         <td>
-                            <a class="btn btn-primary btn-sm" [routerLink]="assessmentLink(student)" jhiTranslate="artemisApp.milestoneAssessment.dashboard.assess"></a>
+                            <a tumAetUiButton size="small" [routerLink]="assessmentLink(student)" jhiTranslate="artemisApp.milestoneAssessment.dashboard.assess"></a>
                         </td>
                     </tr>
                 }
