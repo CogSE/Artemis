@@ -1,6 +1,6 @@
 package de.tum.cit.aet.artemis.programming;
 
-import static de.tum.cit.aet.artemis.core.config.Constants.NEW_RESULT_TOPIC;
+import static de.tum.cit.aet.artemis.assessment.web.AssessmentWebsocketTopics.NEW_RESULTS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;
@@ -400,7 +400,7 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
         milestoneScoreService.recalculate(milestoneExercise.getId(), userUtilService.getUserByLogin(studentLogin).getId()).orElseThrow();
 
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(websocketMessagingService).sendMessageToUser(eq(studentLogin), eq(NEW_RESULT_TOPIC), payloadCaptor.capture());
+        verify(websocketMessagingService).sendMessageToUser(eq(studentLogin), eq(NEW_RESULTS.at()), payloadCaptor.capture());
         ResultDTO broadcast = (ResultDTO) payloadCaptor.getValue();
         assertThat(broadcast.score()).isEqualTo(50.0);
         // The client routes an incoming result purely by this id, so a payload without it reaches nobody.
@@ -821,7 +821,16 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
             userStoryParticipation = programmingExerciseStudentParticipationRepository.save(userStoryParticipation);
 
             ProgrammingSubmission milestoneSubmission = failedSubmission(milestoneParticipation);
-            buildLogEntryService.saveBuildLogs(List.of(new BuildLogEntry(ZonedDateTime.now(), "cannot find symbol")), milestoneSubmission);
+
+            Result result = new Result();
+            result.setAssessmentType(AssessmentType.AUTOMATIC);
+            result.setCompletionDate(ZonedDateTime.now());
+            result.setSuccessful(false);
+            result.setExerciseId(milestoneExercise.getId());
+            result.setSubmission(milestoneSubmission);
+            resultRepository.save(result);
+
+            buildLogEntryService.saveBuildLogs(List.of(new BuildLogEntry(ZonedDateTime.now(), "cannot find symbol")), milestoneSubmission, result);
             userStorySubmission = failedSubmission(userStoryParticipation);
         }
 
