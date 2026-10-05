@@ -270,7 +270,7 @@ public class ProgrammingExerciseParticipationService {
             return solutionParticipationRepository.findWithEagerResultsAndSubmissionsByProgrammingExerciseIdElseThrow(exerciseId);
         }
         if (repositoryTypeOrUserName.equals(RepositoryType.TEMPLATE.toString())) {
-            return templateParticipationRepository.findWithSubmissionsByRepositoryUriElseThrow(repositoryURL);
+            return templateParticipationRepository.findWithEagerSubmissionsByProgrammingExerciseIdElseThrow(exerciseId);
         }
         return studentParticipationRepository.findWithSubmissionsByExerciseIdAndRepositoryUriElseThrow(exerciseId, repositoryURL);
 
@@ -340,7 +340,7 @@ public class ProgrammingExerciseParticipationService {
             return solutionParticipationRepository.findWithEagerResultsAndSubmissionsByProgrammingExerciseIdElseThrow(exerciseId);
         }
         if (repositoryTypeOrUserName.equals(RepositoryType.TEMPLATE.toString())) {
-            return templateParticipationRepository.findByRepositoryUriElseThrow(repositoryURL);
+            return templateParticipationRepository.findByProgrammingExerciseIdElseThrow(exerciseId);
         }
 
         return studentParticipationRepository.findByExerciseIdAndRepositoryUriElseThrow(exerciseId, repositoryURL);

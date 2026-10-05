@@ -114,9 +114,10 @@ class ProgrammingExerciseParticipationServiceTest {
     }
 
     @Test
-    void fetchParticipationByRepository_forTheTemplateRepository_readsItByItsUri() {
+    void fetchParticipationByRepository_forTheTemplateRepository_readsTheExercisesTemplateParticipation() {
+        // A user story's template participation shares its milestone's repository uri, so the uri alone is not unique.
         var templateParticipation = new TemplateProgrammingExerciseParticipation();
-        when(templateParticipationRepository.findByRepositoryUriElseThrow(REPOSITORY_URI)).thenReturn(templateParticipation);
+        when(templateParticipationRepository.findByProgrammingExerciseIdElseThrow(EXERCISE_ID)).thenReturn(templateParticipation);
 
         assertThat(participationService.fetchParticipationByRepository(RepositoryType.TEMPLATE.toString(), REPOSITORY_URI, exercise)).isSameAs(templateParticipation);
     }
@@ -124,7 +125,7 @@ class ProgrammingExerciseParticipationServiceTest {
     @Test
     void fetchParticipationByRepository_forAStudentRepository_readsThatStudentsParticipation() {
         var studentParticipation = new ProgrammingExerciseStudentParticipation();
-        when(studentParticipationRepository.findByRepositoryUriElseThrow(REPOSITORY_URI)).thenReturn(studentParticipation);
+        when(studentParticipationRepository.findByExerciseIdAndRepositoryUriElseThrow(EXERCISE_ID, REPOSITORY_URI)).thenReturn(studentParticipation);
 
         assertThat(participationService.fetchParticipationByRepository("ge12abc", REPOSITORY_URI, exercise)).isSameAs(studentParticipation);
     }
@@ -134,7 +135,7 @@ class ProgrammingExerciseParticipationServiceTest {
         // The URI arrives straight from the git request, where it ends in the service being called; looking that up verbatim
         // would find no participation at all.
         var studentParticipation = new ProgrammingExerciseStudentParticipation();
-        when(studentParticipationRepository.findByRepositoryUriElseThrow(REPOSITORY_URI)).thenReturn(studentParticipation);
+        when(studentParticipationRepository.findByExerciseIdAndRepositoryUriElseThrow(EXERCISE_ID, REPOSITORY_URI)).thenReturn(studentParticipation);
 
         assertThat(participationService.fetchParticipationByRepository("ge12abc", REPOSITORY_URI + "/git-upload-pack", exercise)).isSameAs(studentParticipation);
         assertThat(participationService.fetchParticipationByRepository("ge12abc", REPOSITORY_URI + "/git-receive-pack", exercise)).isSameAs(studentParticipation);
@@ -143,7 +144,7 @@ class ProgrammingExerciseParticipationServiceTest {
     @Test
     void fetchParticipationWithSubmissionsByRepository_routesTheSameWayButLoadsTheSubmissions() {
         var templateParticipation = new TemplateProgrammingExerciseParticipation();
-        when(templateParticipationRepository.findWithSubmissionsByRepositoryUriElseThrow(REPOSITORY_URI)).thenReturn(templateParticipation);
+        when(templateParticipationRepository.findWithEagerSubmissionsByProgrammingExerciseIdElseThrow(EXERCISE_ID)).thenReturn(templateParticipation);
 
         assertThat(participationService.fetchParticipationWithSubmissionsByRepository(RepositoryType.TEMPLATE.toString(), REPOSITORY_URI + "/git-upload-pack", exercise))
                 .isSameAs(templateParticipation);

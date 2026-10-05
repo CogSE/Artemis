@@ -44,19 +44,6 @@ public interface TemplateProgrammingExerciseParticipationRepository
             """)
     Optional<TemplateProgrammingExerciseParticipation> findByBuildPlanIdWithResults(@Param("buildPlanId") String buildPlanId);
 
-    @EntityGraph(type = LOAD, attributePaths = { "submissions" })
-    Optional<TemplateProgrammingExerciseParticipation> findWithSubmissionsByRepositoryUri(String repositoryUri);
-
-    default TemplateProgrammingExerciseParticipation findWithSubmissionsByRepositoryUriElseThrow(String repositoryUri) {
-        return getValueElseThrow(findWithSubmissionsByRepositoryUri(repositoryUri));
-    }
-
-    Optional<TemplateProgrammingExerciseParticipation> findByRepositoryUri(String repositoryUri);
-
-    default TemplateProgrammingExerciseParticipation findByRepositoryUriElseThrow(String repositoryUri) {
-        return getValueElseThrow(findByRepositoryUri(repositoryUri));
-    }
-
     /**
      * The id of the template participation a repository uri belongs to.
      *
@@ -124,6 +111,10 @@ public interface TemplateProgrammingExerciseParticipationRepository
 
     @EntityGraph(type = LOAD, attributePaths = { "submissions" })
     Optional<TemplateProgrammingExerciseParticipation> findWithEagerSubmissionsByProgrammingExerciseId(long exerciseId);
+
+    default TemplateProgrammingExerciseParticipation findWithEagerSubmissionsByProgrammingExerciseIdElseThrow(long exerciseId) {
+        return getValueElseThrow(findWithEagerSubmissionsByProgrammingExerciseId(exerciseId));
+    }
 
     Optional<TemplateProgrammingExerciseParticipation> findByProgrammingExerciseId(long programmingExerciseId);
 
