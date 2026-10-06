@@ -184,6 +184,11 @@ export class MarkdownEditorMonacoComponent implements AfterContentInit, AfterVie
      * and by imperative {@link setMarkdown} calls. Replaces the former private `_markdown` field.
      */
     readonly currentMarkdown = signal<string | undefined>(undefined);
+    /**
+     * The content last emitted through {@link markdownChange}. A bound parent hands it back through the
+     * {@link markdown} input, which the input effect must not apply to the editor (see the constructor).
+     */
+    private lastEmittedMarkdown?: string;
 
     readonly enableFileUpload = input<boolean>(true);
     readonly enableResize = input<boolean>(true);
@@ -386,8 +391,14 @@ export class MarkdownEditorMonacoComponent implements AfterContentInit, AfterVie
         // against redundant updates and performs emoji conversion) WITHOUT emitting markdownChange. The editor is read
         // untracked so this only reacts to input changes, not to the editor first becoming available (initial content
         // is set in {@link ngAfterViewInit}).
+        // A value equal to the last emitted one is this editor's own edit coming back from a bound parent. In zoneless
+        // change detection it only arrives with the next unrelated change detection run, by which time the user may
+        // have typed on; applying it would reset the editor to the older text and move the cursor to the start.
         effect(() => {
             const value = this.markdown();
+            if (value !== undefined && value === this.lastEmittedMarkdown) {
+                return;
+            }
             this.currentMarkdown.set(value);
             untracked(() => this.applyMarkdownToEditor(value));
         });
@@ -735,6 +746,7 @@ export class MarkdownEditorMonacoComponent implements AfterContentInit, AfterVie
         // emit, preserving the legacy distinction between binding updates and user edits.
         this.currentMarkdown.set(event.text);
         this.applyMarkdownToEditor(event.text);
+        this.lastEmittedMarkdown = event.text;
         this.markdownChange.emit(event.text);
     }
 

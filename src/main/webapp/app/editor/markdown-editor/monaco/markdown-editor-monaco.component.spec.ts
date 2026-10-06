@@ -97,6 +97,32 @@ describe('MarkdownEditorMonacoComponent', () => {
         expect(comp.currentMarkdown()).toBe(text);
     });
 
+    it('should not reapply its own emitted markdown when it comes back through the input after further typing', () => {
+        fixture.detectChanges();
+        const monacoEditor = comp.monacoEditor()!;
+        comp.onTextChanged({ text: 'abc', fileName: 'test-file.md' });
+        const setTextSpy = vi.spyOn(monacoEditor, 'setText');
+
+        // The parent's binding only catches up with the emitted value on a later change detection run; by then the user typed on.
+        fixture.componentRef.setInput('markdown', 'abc');
+        fixture.detectChanges();
+
+        expect(setTextSpy).not.toHaveBeenCalled();
+    });
+
+    it('should still apply markdown that a parent sets from elsewhere', () => {
+        fixture.detectChanges();
+        const monacoEditor = comp.monacoEditor()!;
+        comp.onTextChanged({ text: 'abc', fileName: 'test-file.md' });
+        const setTextSpy = vi.spyOn(monacoEditor, 'setText');
+
+        fixture.componentRef.setInput('markdown', 'xyz');
+        fixture.detectChanges();
+
+        expect(setTextSpy).toHaveBeenCalledWith('xyz');
+        expect(comp.currentMarkdown()).toBe('xyz');
+    });
+
     it('should notify when switching to preview mode', () => {
         const emitSpy = vi.spyOn(comp.onPreviewSelect, 'emit');
         fixture.detectChanges();
