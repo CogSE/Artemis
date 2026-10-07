@@ -1,7 +1,6 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, EnvironmentInjector, afterNextRender, computed, effect, inject, linkedSignal, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, linkedSignal, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { faCircleInfo, faLayerGroup, faPlayCircle, faRotateRight, faWrench } from '@fortawesome/free-solid-svg-icons';
 import { Subscription } from 'rxjs';
@@ -14,9 +13,6 @@ import { CourseStorageService } from 'app/course/manage/services/course-storage.
 import { ExerciseVariantGroupService, MilestoneStatusDTO } from 'app/course/manage/exercises/exercise-variant-group.service';
 import { CourseSidebarToggleButtonComponent } from 'app/course/shared/course-sidebar-toggle-button/course-sidebar-toggle-button.component';
 import { EntityTitleService, EntityType } from 'app/core/navbar/entity-title.service';
-import { ProgrammingExercisePlantUmlExtensionWrapper } from 'app/programming/shared/instructions-render/extensions/programming-exercise-plant-uml.extension';
-import { taskRegex } from 'app/programming/shared/instructions-render/extensions/programming-exercise-task.extension';
-import { htmlForMarkdown } from 'app/foundation/util/markdown.conversion.util';
 import { ArtemisDatePipe } from 'app/foundation/pipes/artemis-date.pipe';
 import { ArtemisTimeAgoPipe } from 'app/foundation/pipes/artemis-time-ago.pipe';
 import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pipe';
@@ -89,9 +85,6 @@ export class CourseExerciseGroupDetailComponent {
     private readonly exerciseVariantGroupService = inject(ExerciseVariantGroupService);
     private readonly entityTitleService = inject(EntityTitleService);
     private readonly destroyRef = inject(DestroyRef);
-    private readonly plantUmlWrapper = inject(ProgrammingExercisePlantUmlExtensionWrapper);
-    private readonly sanitizer = inject(DomSanitizer);
-    private readonly injector = inject(EnvironmentInjector);
     private readonly serverDateService = inject(ArtemisServerDateService);
     private readonly scoresStorageService = inject(ScoresStorageService);
     private readonly participationService = inject(ParticipationService);
@@ -115,7 +108,7 @@ export class CourseExerciseGroupDetailComponent {
     /*
      * The milestone state below is kept per group (and per participation), never as a single value. The router reuses this
      * component when only :groupId changes, and a group that was already loaded is not fetched again - so a single value
-     * would keep showing whichever group was loaded last: going 1 -> 2 -> 1 left group 2's description, task results and
+     * would keep showing whichever group was loaded last: going 1 -> 2 -> 1 left group 2's problem statement, task results and
      * code quality on group 1's page. Each response is stored under the key it was requested for and the current group's
      * entry is selected by computeds, which also keeps a late response for a group already left from overwriting the
      * one on screen.
@@ -123,7 +116,7 @@ export class CourseExerciseGroupDetailComponent {
 
     /** Each loaded group's milestone status, keyed by group id. */
     private readonly milestoneStatusByGroupId = signal<Map<number, MilestoneStatusDTO>>(new Map());
-    /** Whether the requesting student has started the current group's anchor milestone exercise; undefined until loaded. */
+    /** The current group's milestone status: its problem statement and the student's participation id; undefined until loaded. */
     protected readonly milestoneStatus = computed<MilestoneStatusDTO | undefined>(() => {
         const groupId = this.groupId();
         return groupId === undefined ? undefined : this.milestoneStatusByGroupId().get(groupId);
@@ -178,8 +171,27 @@ export class CourseExerciseGroupDetailComponent {
     /** Milestone participations already requested, so an unrelated re-render does not re-issue the request. */
     private readonly requestedMilestoneParticipationIds = new Set<number>();
 
-    /** The anchor milestone exercise itself, which is where static code analysis is configured. */
-    protected readonly milestoneExercise = computed<ProgrammingExercise | undefined>(() => this.milestoneParticipation()?.exercise);
+    /**
+     * The group's anchor milestone exercise, as both the instructions renderer and the build widgets need it. Once the
+     * student has started the milestone this is the participation's exercise, which carries the configuration the build
+     * widgets read (static code analysis, max points); before that it is a bare stand-in, since the milestone itself is
+     * never sent to students. Either way the problem statement comes from the milestone-status request, the documented
+     * source of it, rather than trusting the participation's nested exercise to carry it.
+     * <p>
+     * Rendered through `ProgrammingExerciseInstructionComponent` in both cases, so the statement looks the same before
+     * and after the start; once a participation exists, the milestone's `[task]` entries additionally show the outcome
+     * of the tests they reference in the student's latest milestone build.
+     */
+    protected readonly milestoneExercise = computed<ProgrammingExercise | undefined>(() => {
+        const status = this.milestoneStatus();
+        const milestoneExerciseId = this.group()?.milestoneExerciseId;
+        if (!status || milestoneExerciseId === undefined) {
+            return undefined;
+        }
+        const exercise =
+            this.milestoneParticipation()?.exercise ?? hydrate(new ProgrammingExercise(undefined, undefined), { id: milestoneExerciseId, type: ExerciseType.MILESTONE });
+        return cloneWith(exercise as ProgrammingExercise, { problemStatement: status.problemStatement });
+    });
 
     /**
      * The latest result of the milestone's own build, which carries the group's static code analysis feedback. Prefers
@@ -225,8 +237,6 @@ export class CourseExerciseGroupDetailComponent {
     private readonly sidebarToggle = signal<(() => void) | undefined>(undefined);
     protected readonly showSidebarToggle = computed(() => !!this.sidebarToggle());
     protected readonly toggleSidebar = () => this.sidebarToggle()?.();
-
-    private plantUmlCallbacks: Array<() => void> = [];
 
     protected readonly group = computed<CourseExerciseGroup | undefined>(() => {
         const groupId = this.groupId();
@@ -329,38 +339,6 @@ export class CourseExerciseGroupDetailComponent {
         computation: (source, previous) => (source.isBuildPending && previous !== undefined ? previous.value : source.points),
     });
 
-    /**
-     * The milestone as the instructions renderer needs it once the student has started it: the participation's exercise,
-     * carrying the problem statement from the milestone-status request. That request is the documented source of the
-     * statement (the milestone itself is never sent to students), so it is set explicitly rather than trusting the
-     * participation's nested exercise to carry it.
-     * <p>
-     * Rendered through `ProgrammingExerciseInstructionComponent`, the milestone's `[task]` entries show the tests they
-     * reference together with their outcome in the student's latest milestone build - the milestone owns the group's
-     * full test suite, so its own result is where those outcomes live.
-     */
-    protected readonly milestoneInstructionsExercise = computed<ProgrammingExercise | undefined>(() => {
-        const exercise = this.milestoneExercise();
-        const problemStatement = this.milestoneStatus()?.problemStatement;
-        if (!exercise || !problemStatement) {
-            return undefined;
-        }
-        return cloneWith(exercise, { problemStatement });
-    });
-
-    /**
-     * The milestone group's description, which is its anchor MilestoneExercise's problem statement, as shown before the
-     * student has started the milestone (see {@link milestoneInstructionsExercise} for afterwards). The milestone itself
-     * is never rendered to students, so it arrives via the milestone-status request the view already makes rather than
-     * with the dashboard payload — the callout therefore falls back to the generic heading until that resolves.
-     *
-     * Rendered by {@link renderMilestoneDescription} with the PlantUML extension, so diagrams in the description render
-     * before the milestone is started too. It is a signal rather than a
-     * computed because that extension is stateful (setExerciseId plus callbacks flushed in afterNextRender), which a pure
-     * computed cannot drive.
-     */
-    protected readonly milestoneDescriptionHtml = signal<SafeHtml | undefined>(undefined);
-
     protected readonly pointsInfoBoxData: InformationBox = {
         title: 'artemisApp.courseOverview.exerciseDetails.points',
         content: { type: 'string', value: '' },
@@ -435,17 +413,6 @@ export class CourseExerciseGroupDetailComponent {
         this.courseId = Number(this.route.parent?.parent?.snapshot.params['courseId']);
         this.route.params.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => this.groupId.set(Number(params['groupId'])));
 
-        this.plantUmlWrapper
-            .subscribeForInjectableElementsFound()
-            .pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe((cb) => this.plantUmlCallbacks.push(cb));
-
-        effect(() => {
-            const status = this.milestoneStatus();
-            const milestoneDescription = status?.problemStatement ? { milestoneExerciseId: status.milestoneExerciseId, problemStatement: status.problemStatement } : undefined;
-            untracked(() => this.renderMilestoneDescription(milestoneDescription));
-        });
-
         // The course itself is already loaded by the course overview container this route lives in; the only field read
         // from it here is maxComplaintTimeDays, via the exercise header.
         this.course.set(this.courseStorageService.getCourse(this.courseId));
@@ -493,8 +460,9 @@ export class CourseExerciseGroupDetailComponent {
         // IDE - the normal case for a milestone, whose repository is shared across the whole group - has to reach this
         // page without a reload, so the same participation is also followed live.
         effect(() => {
-            const status = this.milestoneStatus();
-            untracked(() => this.subscribeToMilestoneUpdates(status?.participationId, status?.milestoneExerciseId));
+            const participationId = this.milestoneStatus()?.participationId;
+            const milestoneExerciseId = this.group()?.milestoneExerciseId;
+            untracked(() => this.subscribeToMilestoneUpdates(participationId, milestoneExerciseId));
         });
 
         // Registering the member participations is what lets the websocket service merge an incoming result into a
@@ -677,23 +645,6 @@ export class CourseExerciseGroupDetailComponent {
     }
 
     /**
-     * Renders the milestone's description (see {@link milestoneDescriptionHtml}), including its PlantUML diagrams, which
-     * are injected once the rendered markup is in the DOM.
-     */
-    private renderMilestoneDescription(milestoneDescription?: { milestoneExerciseId: number; problemStatement: string }): void {
-        this.plantUmlCallbacks = [];
-        this.milestoneDescriptionHtml.set(milestoneDescription ? this.renderStatement(milestoneDescription.milestoneExerciseId, milestoneDescription.problemStatement) : undefined);
-
-        afterNextRender(
-            () => {
-                this.plantUmlCallbacks.forEach((cb) => cb());
-                this.plantUmlCallbacks = [];
-            },
-            { injector: this.injector },
-        );
-    }
-
-    /**
      * Hands this page the exercise sidebar's state and its toggle. Implementing it is what makes
      * {@code CourseExercisesComponent} recognise the activated route component as one that renders the expand button
      * itself, so a collapsed sidebar can be brought back from a group page rather than only from an exercise page.
@@ -701,14 +652,6 @@ export class CourseExerciseGroupDetailComponent {
     setSidebarToggle(isCollapsed: boolean, toggleSidebar: () => void): void {
         this.isSidebarCollapsed.set(isCollapsed);
         this.sidebarToggle.set(toggleSidebar);
-    }
-
-    /** A problem statement as preview HTML: task syntax stripped to its name, PlantUML diagrams scoped to the exercise. */
-    private renderStatement(exerciseId: number, problemStatement: string): SafeHtml {
-        // Strip task syntax — [task][Name](tests) → Name — so it renders as plain text instead of a link.
-        const preprocessed = problemStatement.replace(taskRegex, (_match, name: string) => name);
-        this.plantUmlWrapper.setExerciseId(exerciseId);
-        return this.sanitizer.bypassSecurityTrustHtml(htmlForMarkdown(preprocessed, [this.plantUmlWrapper.getExtension()]));
     }
 
     /**
@@ -746,22 +689,20 @@ export class CourseExerciseGroupDetailComponent {
     protected startMilestone(): void {
         const status = this.milestoneStatus();
         const groupId = this.groupId();
-        if (!status || groupId === undefined || status.started || this.isStartingMilestone()) {
+        const milestoneExercise = this.milestoneExercise();
+        if (!status || groupId === undefined || !milestoneExercise || status.participationId !== undefined || this.isStartingMilestone()) {
             return;
         }
         this.isStartingMilestone.set(true);
         this.courseExerciseService
-            // The milestone itself is never loaded before it is started; only the new participation is read below.
-            .startExercise(status.milestoneExerciseId, hydrate(new ProgrammingExercise(undefined, undefined), { id: status.milestoneExerciseId, type: ExerciseType.MILESTONE }))
+            // The milestone itself is never loaded before it is started, so this is the stand-in from milestoneExercise.
+            .startExercise(milestoneExercise.id!, milestoneExercise)
             .pipe(finalize(() => this.isStartingMilestone.set(false)))
             .subscribe({
                 next: (participation) => {
-                    const programmingParticipation = participation as ProgrammingExerciseStudentParticipation;
-                    // Stored under the group the start was requested for, which need not be the one on screen by now.
-                    this.setMilestoneStatus(
-                        groupId,
-                        cloneWith(status, { started: true, participationId: programmingParticipation.id, repositoryUri: programmingParticipation.repositoryUri }),
-                    );
+                    // Stored under the group the start was requested for, which need not be the one on screen by now. The
+                    // participation itself is then loaded with its latest result by the effect following the status.
+                    this.setMilestoneStatus(groupId, cloneWith(status, { participationId: participation.id }));
                 },
                 error: (error: HttpErrorResponse) => {
                     if (error.status !== 403) {
@@ -782,22 +723,17 @@ export class CourseExerciseGroupDetailComponent {
      * plain "started" text a normal exercise page would show once a participation exists.
      */
     protected readonly milestoneCodeButtonParticipations = computed<ProgrammingExerciseStudentParticipation[]>(() => {
-        const status = this.milestoneStatus();
-        if (!status?.started || status.participationId === undefined) {
-            return [];
-        }
-        const participation = new ProgrammingExerciseStudentParticipation();
-        participation.id = status.participationId;
-        participation.repositoryUri = status.repositoryUri;
-        return [participation];
+        const participation = this.milestoneParticipation();
+        return participation ? [participation] : [];
     });
 
     protected routerLinkForMilestoneRepository(): (string | number)[] {
-        const status = this.milestoneStatus();
-        if (!status?.participationId) {
-            return ['/courses', this.courseId, 'exercises', status?.milestoneExerciseId ?? 0];
+        const milestoneExerciseId = this.group()?.milestoneExerciseId ?? 0;
+        const participationId = this.milestoneStatus()?.participationId;
+        if (participationId === undefined) {
+            return ['/courses', this.courseId, 'exercises', milestoneExerciseId];
         }
-        return ['/courses', this.courseId, 'exercises', status.milestoneExerciseId, 'repository', status.participationId];
+        return ['/courses', this.courseId, 'exercises', milestoneExerciseId, 'repository', participationId];
     }
 }
 

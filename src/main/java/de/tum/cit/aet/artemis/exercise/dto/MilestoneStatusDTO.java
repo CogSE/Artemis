@@ -5,19 +5,15 @@ import org.jspecify.annotations.Nullable;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * Whether the requesting student has started the {@code MilestoneExercise} anchoring a {@code MilestoneExerciseGroup} -
- * the milestone itself is never shown to students (see {@code MilestoneExercise.isVisibleToStudents}), so the group view
- * needs this narrow status instead of the full exercise to decide whether to offer "Start exercise" or a "Code" button
- * for the shared repository.
+ * The requesting student's view of the {@code MilestoneExercise} anchoring a {@code MilestoneExerciseGroup}. The milestone
+ * itself is never shown to students (see {@code MilestoneExercise.isVisibleToStudents}), so this is the only way the group
+ * view can reach its problem statement and the student's participation in it. The milestone's id is not repeated here:
+ * clients already have it from the group reference ({@link ExerciseVariantGroupReferenceDTO#milestoneExerciseId()}).
  *
- * @param milestoneExerciseId the id of the group's anchor milestone exercise
- * @param started             whether the requesting student already has a participation in it
- * @param participationId     the id of that participation, or {@code null} if not started
- * @param repositoryUri       the participation's (shared) repository URI, or {@code null} if not started
- * @param problemStatement    the milestone exercise's problem statement, which doubles as the group's description in the
- *                                student group view - the milestone itself is never rendered, so this endpoint is the only
- *                                way to reach it; {@code null} when the instructor left it empty
+ * @param participationId  the id of the student's participation in the milestone, or {@code null} if not started yet
+ * @param problemStatement the milestone exercise's problem statement, which doubles as the group's description in the
+ *                             student group view; {@code null} when the instructor left it empty
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public record MilestoneStatusDTO(long milestoneExerciseId, boolean started, @Nullable Long participationId, @Nullable String repositoryUri, @Nullable String problemStatement) {
+public record MilestoneStatusDTO(@Nullable Long participationId, @Nullable String problemStatement) {
 }

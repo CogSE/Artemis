@@ -119,10 +119,10 @@
                         </ng-template>
                     }
                     @if (milestoneStatus(); as status) {
-                        @if (status.started) {
+                        @if (status.participationId !== undefined) {
                             <jhi-code-button
                                 [smallButtons]="false"
-                                [repositoryUri]="status.repositoryUri ?? ''"
+                                [repositoryUri]="milestoneParticipation()?.repositoryUri ?? ''"
                                 [routerLinkForRepositoryView]="routerLinkForMilestoneRepository()"
                                 [participations]="milestoneCodeButtonParticipations()"
                                 [hideLabelMobile]="true"
@@ -159,16 +159,15 @@
         <div class="d-flex flex-column h-100 overflow-hidden module-bg rounded-3 p-2">
             <div class="group-panel-scroll">
                 <div class="mb-3">
-                    @if (milestoneInstructionsExercise(); as milestoneInstructionsExercise) {
-                        <!-- Tasks can only show their tests' outcome against a participation, so the full renderer takes over
-                             once the milestone is started; until then the statement is shown with its task syntax stripped. -->
-                        <jhi-programming-exercise-instructions
-                            [exercise]="milestoneInstructionsExercise"
-                            [participation]="milestoneParticipation()"
-                            [personalParticipation]="true"
-                        />
-                    } @else if (milestoneDescriptionHtml(); as descriptionHtml) {
-                        <div class="markdown-preview" [innerHTML]="descriptionHtml"></div>
+                    @if (milestoneExercise()?.problemStatement) {
+                        <!-- Rendered the same way before and after the start; the participation, once there is one, only adds
+                             each task's test outcome. -->
+                        <jhi-programming-exercise-instructions [exercise]="milestoneExercise()" [participation]="milestoneParticipation()" [personalParticipation]="true" />
+                        @if (capReducesMaxPoints()) {
+                            <p class="mb-0 text-body-secondary">
+                                <span jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.cappedScore" [translateValues]="{ maxPoints: group.maxPoints }"></span>
+                            </p>
+                        }
                     } @else {
                         <div class="fw-semibold mb-1" jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.heading"></div>
                         <p class="mb-0 text-body-secondary">
@@ -176,11 +175,6 @@
                             @if (capReducesMaxPoints()) {
                                 <span jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.cappedScore" [translateValues]="{ maxPoints: group.maxPoints }"></span>
                             }
-                        </p>
-                    }
-                    @if ((milestoneInstructionsExercise() || milestoneDescriptionHtml()) && capReducesMaxPoints()) {
-                        <p class="mb-0 text-body-secondary">
-                            <span jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.cappedScore" [translateValues]="{ maxPoints: group.maxPoints }"></span>
                         </p>
                     }
                 </div>

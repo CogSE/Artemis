@@ -21,7 +21,6 @@ import { CourseExercisesForOverviewDTO } from 'app/course/shared/entities/course
 import { ExerciseVariantGroupService, MilestoneStatusDTO } from 'app/course/manage/exercises/exercise-variant-group.service';
 import { AlertService } from 'app/foundation/service/alert.service';
 import { EntityTitleService } from 'app/core/navbar/entity-title.service';
-import { ProgrammingExercisePlantUmlExtensionWrapper } from 'app/programming/shared/instructions-render/extensions/programming-exercise-plant-uml.extension';
 import { ArtemisServerDateService } from 'app/foundation/service/server-date.service';
 import { ScoresStorageService } from 'app/course/manage/course-scores/scores-storage.service';
 import { Course } from 'app/course/shared/entities/course.model';
@@ -106,13 +105,13 @@ describe('CourseExerciseGroupDetailComponent', () => {
 
     /** A milestone group member, so the component's milestone-status effect actually runs. */
     function milestoneGroupMember(): Exercise {
-        const reference = { id: GROUP_ID, title: 'Sprint 1', type: 'milestone' as const };
+        const reference = { id: GROUP_ID, title: 'Sprint 1', type: 'milestone' as const, milestoneExerciseId: 99 };
         return { id: 1, type: ExerciseType.USER_STORY, maxPoints: 10, exerciseVariantGroup: reference, problemStatement: 'a' } as unknown as Exercise;
     }
 
     /** A text exercise in the same milestone group, which counts on its own result rather than through the milestone. */
     function milestoneTextMember(): Exercise {
-        const reference = { id: GROUP_ID, title: 'Sprint 1', type: 'milestone' as const };
+        const reference = { id: GROUP_ID, title: 'Sprint 1', type: 'milestone' as const, milestoneExerciseId: 99 };
         return {
             id: 2,
             type: ExerciseType.TEXT,
@@ -465,7 +464,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
         }
 
         it('loads the milestone status for a milestone group', async () => {
-            const status = { milestoneExerciseId: 99, started: false } as MilestoneStatusDTO;
+            const status = {} as MilestoneStatusDTO;
             const statusSpy = vi.fn(() => of(status));
             await setup([milestoneGroupMember()], { getMilestoneStatus: statusSpy });
             fixture.detectChanges();
@@ -494,7 +493,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
         });
 
         it('retries the status request after a failure', async () => {
-            const status = { milestoneExerciseId: 99, started: false } as MilestoneStatusDTO;
+            const status = {} as MilestoneStatusDTO;
             let firstCall = true;
             const statusSpy = vi.fn(() => {
                 if (firstCall) {
@@ -523,14 +522,14 @@ describe('CourseExerciseGroupDetailComponent', () => {
         function milestone(): {
             milestoneExercise: () => ProgrammingExercise | undefined;
             milestoneResult: () => Result | undefined;
-            milestoneInstructionsExercise: () => ProgrammingExercise | undefined;
+            milestoneParticipation: () => ProgrammingExerciseStudentParticipation | undefined;
         } {
             return fixture.componentInstance as never;
         }
 
         /** A started milestone whose participation the code-quality panel would read the group's SCA feedback from. */
         function startedStatus(): MilestoneStatusDTO {
-            return { milestoneExerciseId: 99, started: true, participationId: 555 } as MilestoneStatusDTO;
+            return { participationId: 555 } as MilestoneStatusDTO;
         }
 
         function participationWithResult(result: Result): ProgrammingExerciseStudentParticipation {
@@ -624,27 +623,34 @@ describe('CourseExerciseGroupDetailComponent', () => {
             fixture.detectChanges();
             await fixture.whenStable();
 
-            const instructionsExercise = milestone().milestoneInstructionsExercise();
+            const instructionsExercise = milestone().milestoneExercise();
             expect(instructionsExercise?.id).toBe(99);
+            // The participation's exercise, so the build widgets get the milestone's real configuration.
+            expect(instructionsExercise?.staticCodeAnalysisEnabled).toBe(true);
             // Unstripped: the renderer needs the task syntax to resolve the tests against the milestone result.
             expect(instructionsExercise?.problemStatement).toBe(problemStatement);
             // A copy, so the participation's own exercise is left as the server sent it.
             expect(participation.exercise?.problemStatement).toBeUndefined();
         });
 
-        it('keeps the stripped description until the milestone participation is available', async () => {
+        it('renders the statement of a milestone that is not started yet the same way, just without a participation', async () => {
             const problemStatement = '[task][Sort the list](<testid>1</testid>)';
-            const notStarted = { milestoneExerciseId: 99, started: false, problemStatement } as MilestoneStatusDTO;
+            const notStarted = { problemStatement } as MilestoneStatusDTO;
             await setup([milestoneGroupMember()], { getMilestoneStatus: () => of(notStarted) });
             fixture.detectChanges();
             await fixture.whenStable();
 
-            expect(milestone().milestoneInstructionsExercise()).toBeUndefined();
+            const instructionsExercise = milestone().milestoneExercise();
+            expect(instructionsExercise?.id).toBe(99);
+            expect(instructionsExercise?.type).toBe(ExerciseType.MILESTONE);
+            // Unstripped, exactly as once the milestone is started.
+            expect(instructionsExercise?.problemStatement).toBe(problemStatement);
+            expect(milestone().milestoneParticipation()).toBeUndefined();
         });
 
         it('does not request a participation before the student has started the milestone', async () => {
             const participationSpy = vi.fn(() => EMPTY);
-            const notStarted = { milestoneExerciseId: 99, started: false } as MilestoneStatusDTO;
+            const notStarted = {} as MilestoneStatusDTO;
             await setup([milestoneGroupMember()], { getMilestoneStatus: () => of(notStarted), getStudentParticipationWithLatestResult: participationSpy as never });
             fixture.detectChanges();
             await fixture.whenStable();
@@ -663,7 +669,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
             await fixture.whenStable();
 
             expect(participationSpy).toHaveBeenCalledOnce();
-            expect(milestone().milestoneExercise()).toBeUndefined();
+            expect(milestone().milestoneParticipation()).toBeUndefined();
             expect(milestone().milestoneResult()).toBeUndefined();
             expect(alertSpy).not.toHaveBeenCalled();
             const requested = (fixture.componentInstance as unknown as { requestedMilestoneParticipationIds: Set<number> })['requestedMilestoneParticipationIds'];
@@ -684,7 +690,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
         }
 
         function startedStatus(): MilestoneStatusDTO {
-            return { milestoneExerciseId: 99, started: true, participationId: 555 } as MilestoneStatusDTO;
+            return { participationId: 555 } as MilestoneStatusDTO;
         }
 
         /**
@@ -874,14 +880,12 @@ describe('CourseExerciseGroupDetailComponent', () => {
         const OTHER_GROUP_ID = 20;
 
         function member(groupId: number, exerciseId: number): Exercise {
-            const reference = { id: groupId, title: `Sprint ${groupId}`, type: 'milestone' as const };
+            const reference = { id: groupId, title: `Sprint ${groupId}`, type: 'milestone' as const, milestoneExerciseId: groupId * 10 };
             return { id: exerciseId, type: ExerciseType.USER_STORY, maxPoints: 10, exerciseVariantGroup: reference, problemStatement: 'a' } as unknown as Exercise;
         }
 
         function statusOf(groupId: number): MilestoneStatusDTO {
             return {
-                milestoneExerciseId: groupId * 10,
-                started: true,
                 participationId: groupId * 100,
                 problemStatement: `Description of group ${groupId}`,
             } as MilestoneStatusDTO;
@@ -951,34 +955,15 @@ describe('CourseExerciseGroupDetailComponent', () => {
             expect(state().milestoneStatus()?.problemStatement).toBe('Description of group 10');
         });
 
-        it('renders the description of a milestone that is not started yet with its diagrams, scoped to the milestone', async () => {
-            const notStarted = {
-                milestoneExerciseId: 100,
-                started: false,
-                problemStatement: '[task][Implement A](testA)\n\n@startuml\nA -> B\n@enduml',
-            } as MilestoneStatusDTO;
-            await setup([member(GROUP_ID, 1)], { getMilestoneStatus: () => of(notStarted) });
-            const setExerciseId = vi.spyOn(TestBed.inject(ProgrammingExercisePlantUmlExtensionWrapper), 'setExerciseId');
-            fixture.detectChanges();
-            await fixture.whenStable();
-
-            // Scoped to the anchor, so its diagram containers cannot collide with a member preview's.
-            expect(setExerciseId).toHaveBeenCalledWith(100);
-            const description = String((fixture.componentInstance as unknown as { milestoneDescriptionHtml: () => unknown }).milestoneDescriptionHtml());
-            expect(description).toContain('Implement A');
-            expect(description).not.toContain('[task]');
-        });
-
-        it('re-renders the description for the group switched to', async () => {
-            await setup([member(GROUP_ID, 1), member(OTHER_GROUP_ID, 2)], { getMilestoneStatus: (_courseId, groupId) => of(statusOf(groupId)) });
-            const setExerciseId = vi.spyOn(TestBed.inject(ProgrammingExercisePlantUmlExtensionWrapper), 'setExerciseId');
-            fixture.detectChanges();
-            await fixture.whenStable();
+        it('hands the instructions renderer the statement of the group switched to', async () => {
+            await setupTwoGroups((_courseId, groupId) => of(statusOf(groupId)));
+            const exercise = () => (fixture.componentInstance as unknown as { milestoneExercise: () => ProgrammingExercise | undefined }).milestoneExercise();
+            expect(exercise()?.problemStatement).toBe('Description of group 10');
 
             await switchTo(OTHER_GROUP_ID);
 
-            expect(setExerciseId).toHaveBeenCalledWith(200);
-            expect(String((fixture.componentInstance as unknown as { milestoneDescriptionHtml: () => unknown }).milestoneDescriptionHtml())).toContain('Description of group 20');
+            expect(exercise()?.id).toBe(200);
+            expect(exercise()?.problemStatement).toBe('Description of group 20');
         });
 
         it("keeps each group's live milestone result to that group", async () => {

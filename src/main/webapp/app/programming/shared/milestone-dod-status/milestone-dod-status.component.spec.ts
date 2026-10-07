@@ -27,7 +27,7 @@ describe('MilestoneDodStatusComponent', () => {
     } as unknown as Exercise;
 
     function startedStatus(problemStatement: string | undefined = TASKS): MilestoneStatusDTO {
-        return { milestoneExerciseId: 99, started: true, participationId: 555, problemStatement } as MilestoneStatusDTO;
+        return { participationId: 555, problemStatement } as MilestoneStatusDTO;
     }
 
     function testFeedback(testId: number, positive: boolean | undefined): Feedback {
@@ -90,7 +90,7 @@ describe('MilestoneDodStatusComponent', () => {
     });
 
     it('is hidden while the milestone has not been started', async () => {
-        await setup(of({ milestoneExerciseId: 99, started: false, problemStatement: TASKS } as MilestoneStatusDTO));
+        await setup(of({ problemStatement: TASKS } as MilestoneStatusDTO));
         expect(status()).toBe('hidden');
         expect(renderedStatus()).toBeUndefined();
     });

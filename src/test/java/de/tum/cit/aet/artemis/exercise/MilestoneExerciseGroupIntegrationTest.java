@@ -285,16 +285,15 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
 
     /**
      * The anchor exercise is never part of any exercise listing, so this endpoint is the only way the student group view
-     * learns its id - and therefore what the group's "Start exercise" action addresses.
+     * reaches its problem statement and learns whether the student has started it.
      */
     @Test
     @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
-    void milestoneStatusNamesTheAnchorExerciseForAStudentWhoHasNotStartedIt() throws Exception {
+    void milestoneStatusCarriesTheProblemStatementForAStudentWhoHasNotStartedIt() throws Exception {
         MilestoneStatusDTO status = request.get(milestoneGroupsUrl() + "/" + milestoneGroup.getId() + "/milestone-status", HttpStatus.OK, MilestoneStatusDTO.class);
 
-        assertThat(status.milestoneExerciseId()).isEqualTo(milestoneExercise.getId());
-        assertThat(status.started()).isFalse();
         assertThat(status.participationId()).isNull();
+        assertThat(status.problemStatement()).isEqualTo(milestoneExercise.getProblemStatement());
     }
 
     @Test

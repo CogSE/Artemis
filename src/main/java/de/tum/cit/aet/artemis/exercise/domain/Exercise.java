@@ -151,7 +151,7 @@ public abstract class Exercise extends BaseExercise implements LearningObject {
     // exercise-detail fetch, ProgrammingExerciseRepository#findWithTemplateAndSolutionParticipationTeamAssignmentConfigCategoriesCompetenciesAndBuildConfigById)
     // never fetch-join - serializing it would hit an uninitialized proxy after the session has closed
     // (spring.jpa.open-in-view is disabled) and throw LazyInitializationException. Nothing on the client reads it off
-    // a nested exercise's exerciseVariantGroup; dedicated endpoints (e.g. ExerciseVariantGroupResource.getMilestoneStatus)
+    // a nested exercise's exerciseVariantGroup; dedicated endpoints (e.g. MilestoneExerciseGroupResource.getMilestoneStatus)
     // expose the milestone-specific fields a caller actually needs through their own DTOs instead.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "exercise_variant_group_id")

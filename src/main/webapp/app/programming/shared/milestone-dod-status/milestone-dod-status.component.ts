@@ -99,7 +99,7 @@ export class MilestoneDodStatusComponent {
 
     readonly status = computed<MilestoneDodStatus>(() => {
         const testIds = this.referencedTestIds();
-        if (!this.milestoneStatus()?.started || testIds.length === 0) {
+        if (this.milestoneStatus()?.participationId === undefined || testIds.length === 0) {
             return 'hidden';
         }
         const result = this.result();
@@ -133,14 +133,14 @@ export class MilestoneDodStatusComponent {
         });
 
         effect(() => {
-            const status = this.milestoneStatus();
-            const participationId = status?.participationId;
+            const participationId = this.milestoneStatus()?.participationId;
+            const milestoneExerciseId = this.exercise().exerciseVariantGroup?.milestoneExerciseId;
             if (participationId === undefined || participationId === this.requestedParticipationId) {
                 return;
             }
             untracked(() => {
                 this.loadMilestoneParticipation(participationId);
-                this.subscribeToResults(participationId, status!.milestoneExerciseId);
+                this.subscribeToResults(participationId, milestoneExerciseId);
             });
         });
 
@@ -171,7 +171,7 @@ export class MilestoneDodStatusComponent {
     }
 
     /** Follows the milestone's results live, the same way the milestone group page does. */
-    private subscribeToResults(participationId: number, milestoneExerciseId: number): void {
+    private subscribeToResults(participationId: number, milestoneExerciseId: number | undefined): void {
         if (participationId === this.subscribedParticipationId) {
             return;
         }

@@ -38,18 +38,15 @@ export interface ExerciseVariantGroupDTO {
 }
 
 /**
- * Whether the requesting student has started a milestone group's anchor milestone exercise (mirrors the server
+ * The requesting student's view of a milestone group's anchor milestone exercise (mirrors the server
  * {@code MilestoneStatusDTO}). The milestone exercise itself is never shown to students, so this is the only way the
- * group view can tell whether to offer "Start exercise" for it — and the only way it can reach the milestone's problem
- * statement, which doubles as the group's description.
+ * group view can tell whether the student has started it, and the only way it can reach the milestone's problem
+ * statement, which doubles as the group's description. The milestone's id comes from the group itself
+ * ({@link CourseExerciseGroup.milestoneExerciseId}).
  */
 export interface MilestoneStatusDTO {
-    milestoneExerciseId: number;
-    started: boolean;
-    /** Set only when {@link started} is `true`. */
+    /** The student's participation in the milestone; unset while they have not started it. */
     participationId?: number;
-    /** The (shared) repository URI of that participation. Set only when {@link started} is `true`. */
-    repositoryUri?: string;
     /** The milestone's problem statement, shown as the group's description. Unset when the instructor left it empty. */
     problemStatement?: string;
 }

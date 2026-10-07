@@ -299,13 +299,13 @@ public class MilestoneExerciseService {
     }
 
     /**
-     * Reports whether the student has started the group's anchor milestone exercise, along with the milestone's problem
+     * Reports the student's participation in the group's anchor milestone exercise, if any, along with the milestone's problem
      * statement (which doubles as the group's description in the student group view).
      *
      * @param groupId  the id of the milestone group to check
      * @param courseId the id of the course the group belongs to
      * @param user     the requesting student
-     * @return the milestone's id, whether the student has started it, and its problem statement
+     * @return the student's participation id in the milestone (if started) and the milestone's problem statement
      */
     public MilestoneStatusDTO getMilestoneStatus(Long groupId, Long courseId, User user) {
         // Deliberately the members-free lookup: this endpoint reads nothing but the anchor exercise, and it is the
@@ -317,9 +317,9 @@ public class MilestoneExerciseService {
         // The milestone's problem statement doubles as the group's description in the student group view - the milestone
         // itself is never rendered, so this endpoint is the only path that can hand it to the group view.
         String problemStatement = milestoneExerciseGroupRepository.findMilestoneProblemStatementByGroupId(groupId).orElse(null);
-        var participation = programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentId(milestoneExerciseId, user.getId());
-        return participation.map(p -> new MilestoneStatusDTO(milestoneExerciseId, true, p.getId(), p.getRepositoryUri(), problemStatement))
-                .orElseGet(() -> new MilestoneStatusDTO(milestoneExerciseId, false, null, null, problemStatement));
+        Long participationId = programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentId(milestoneExerciseId, user.getId())
+                .map(ProgrammingExerciseStudentParticipation::getId).orElse(null);
+        return new MilestoneStatusDTO(participationId, problemStatement);
     }
 
     /**
