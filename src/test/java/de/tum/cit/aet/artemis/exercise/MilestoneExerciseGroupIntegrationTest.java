@@ -581,6 +581,7 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         assertThat(assessment.milestoneExerciseId()).isEqualTo(milestoneExercise.getId());
         assertThat(assessment.problemStatement()).isEqualTo(milestoneExercise.getProblemStatement());
         assertThat(assessment.exercises()).extracting(MilestoneAssessmentExerciseDTO::exerciseId).containsExactly(first.getId(), second.getId());
+        assertThat(assessment.milestoneParticipationId()).isEqualTo(milestoneResult.getSubmission().getParticipation().getId());
         assertThat(assessment.milestoneResult()).isNotNull();
         // The rows live in a typed table and only reach the client through the synthesizer; without it the first tab
         // would render an empty issue list against a result that does have issues.

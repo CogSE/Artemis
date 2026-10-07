@@ -26,11 +26,14 @@ import de.tum.cit.aet.artemis.programming.dto.ResultDTO;
  *                                         when the instructor set none
  * @param milestoneMaxPoints           the milestone's points, which the server keeps equal to the sum of the stories'
  *                                         and which the penalty cap is a percentage of
+ * @param milestoneParticipationId     the student's milestone participation, which the problem statement's tasks are
+ *                                         judged against; {@code null} if they never started the milestone
  * @param milestoneResult              the student's latest milestone result with its synthesized static code analysis
  *                                         feedback, or {@code null} before their first build
  * @param exercises                    the group's exercises, user stories first, one tab each
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record MilestoneAssessmentDTO(long milestoneExerciseId, String milestoneTitle, @Nullable String problemStatement, boolean staticCodeAnalysisEnabled,
-        @Nullable Integer maxStaticCodeAnalysisPenalty, @Nullable Double milestoneMaxPoints, @Nullable ResultDTO milestoneResult, List<MilestoneAssessmentExerciseDTO> exercises) {
+        @Nullable Integer maxStaticCodeAnalysisPenalty, @Nullable Double milestoneMaxPoints, @Nullable Long milestoneParticipationId, @Nullable ResultDTO milestoneResult,
+        List<MilestoneAssessmentExerciseDTO> exercises) {
 }

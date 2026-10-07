@@ -129,9 +129,13 @@ public class MilestoneAssessmentService {
                 studentParticipationRepository.findWithSubmissionsResultsAndAssessorByExerciseIdAndStudentId(exercise.getId(), studentId).stream().findFirst().orElse(null)))
                 .toList();
 
+        Optional<ProgrammingExerciseStudentParticipation> milestoneParticipation = programmingExerciseStudentParticipationRepository
+                .findByExerciseIdAndStudentId(milestoneExerciseId, studentId);
+
         return new MilestoneAssessmentDTO(milestoneExerciseId, milestoneExercise.getTitle(), milestoneExercise.getProblemStatement(),
                 Boolean.TRUE.equals(milestoneExercise.isStaticCodeAnalysisEnabled()), milestoneExercise.getMaxStaticCodeAnalysisPenalty(), milestoneExercise.getMaxPoints(),
-                milestoneResult(milestoneExerciseId, studentId, milestoneExercise), exercises);
+                milestoneParticipation.map(ProgrammingExerciseStudentParticipation::getId).orElse(null),
+                milestoneParticipation.map(participation -> milestoneResult(participation, milestoneExercise)).orElse(null), exercises);
     }
 
     /**
@@ -142,13 +146,8 @@ public class MilestoneAssessmentService {
      * the synthesizer walk there itself would mean a lazy load that {@code open-in-view} being off does not allow.
      */
     @Nullable
-    private ResultDTO milestoneResult(long milestoneExerciseId, long studentId, MilestoneExercise milestoneExercise) {
-        Optional<ProgrammingExerciseStudentParticipation> milestoneParticipation = programmingExerciseStudentParticipationRepository
-                .findByExerciseIdAndStudentId(milestoneExerciseId, studentId);
-        if (milestoneParticipation.isEmpty()) {
-            return null;
-        }
-        Optional<Result> result = resultRepository.findLatestResultWithFeedbacksForParticipation(milestoneParticipation.get().getId(), true);
+    private ResultDTO milestoneResult(ProgrammingExerciseStudentParticipation milestoneParticipation, MilestoneExercise milestoneExercise) {
+        Optional<Result> result = resultRepository.findLatestResultWithFeedbacksForParticipation(milestoneParticipation.getId(), true);
         if (result.isEmpty()) {
             return null;
         }
@@ -157,7 +156,7 @@ public class MilestoneAssessmentService {
         // The submission came back with the result above, but its participation did not - and that is what the payload
         // is built from. Point it at the one already loaded rather than letting the DTO reach for an uninitialized proxy.
         if (milestoneResult.getSubmission() != null) {
-            milestoneResult.getSubmission().setParticipation(milestoneParticipation.get());
+            milestoneResult.getSubmission().setParticipation(milestoneParticipation);
         }
         return ResultDTO.of(milestoneResult);
     }

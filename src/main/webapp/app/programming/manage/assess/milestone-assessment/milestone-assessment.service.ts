@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Result } from 'app/exercise/shared/entities/result/result.model';
 import { ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
@@ -53,12 +53,14 @@ export interface MilestoneAssessment {
     staticCodeAnalysisEnabled?: boolean;
     maxStaticCodeAnalysisPenalty?: number;
     milestoneMaxPoints?: number;
+    /** The student's milestone participation, which the problem statement's tasks are judged against. */
+    milestoneParticipationId?: number;
     milestoneResult?: Result;
     exercises: MilestoneAssessmentExercise[];
 }
 
 /** Reads the two tutor-facing views of a milestone exercise group. */
-@Injectable({ providedIn: 'root' })
+@Service()
 export class MilestoneAssessmentService {
     private readonly http = inject(HttpClient);
 

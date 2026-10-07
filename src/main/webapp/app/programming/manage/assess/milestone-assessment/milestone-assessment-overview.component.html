@@ -1,8 +1,8 @@
 <div class="milestone-overview">
     <section>
         <h4 jhiTranslate="artemisApp.milestoneAssessment.overview.problemStatement"></h4>
-        @if (problemStatementHtml(); as html) {
-            <div class="markdown-preview" [innerHTML]="html"></div>
+        @if (milestoneExercise()?.problemStatement) {
+            <jhi-programming-exercise-instructions [exercise]="milestoneExercise()" [participation]="milestoneParticipation()" [personalParticipation]="false" />
         } @else {
             <p class="milestone-overview__empty" jhiTranslate="artemisApp.milestoneAssessment.overview.noProblemStatement"></p>
         }
