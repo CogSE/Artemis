@@ -77,6 +77,7 @@ export function buildGroupsFromExercises(exercises: Exercise[]): CourseExerciseG
         }
         (group.exercises ??= []).push(exercise);
     }
+    groupsById.forEach((value) => value.exercises?.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '')));
     return Array.from(groupsById.values());
 }
 
