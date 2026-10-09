@@ -384,7 +384,7 @@ public interface ProgrammingExerciseRepository extends DynamicSpecificationRepos
     @Query("""
             SELECT DISTINCT p.exercise.id
             FROM StudentParticipation p
-            WHERE TYPE(p.exercise) = ProgrammingExercise
+            WHERE TYPE(p.exercise) IN (ProgrammingExercise, MilestoneExercise, UserStoryExercise)
                 AND p.individualDueDate IS NOT NULL
                 AND p.individualDueDate > :now
             """)

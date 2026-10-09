@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import de.tum.cit.aet.artemis.exercise.domain.Exercise;
 import de.tum.cit.aet.artemis.exercise.domain.ExerciseType;
 
 /**
@@ -24,4 +25,13 @@ import de.tum.cit.aet.artemis.exercise.domain.ExerciseType;
 public record CourseGradeScoreDTO(long participationId, long userId, long exerciseId, double score, @Nullable Boolean rated, @Nullable Double presentationScore,
         @NotNull ExerciseType type) {
 
+    /**
+     * JPQL constructor accepting the entity class produced by Hibernate's {@code TYPE(...)} function, so the milestone
+     * subtypes are classified like every other projection (see {@link ExerciseType#getExerciseTypeFromClass}) instead of
+     * by a {@code CASE} that only matches the exact discriminator.
+     */
+    public CourseGradeScoreDTO(long participationId, long userId, long exerciseId, double score, @Nullable Boolean rated, @Nullable Double presentationScore,
+            Class<? extends Exercise> type) {
+        this(participationId, userId, exerciseId, score, rated, presentationScore, ExerciseType.getExerciseTypeFromClass(type));
+    }
 }

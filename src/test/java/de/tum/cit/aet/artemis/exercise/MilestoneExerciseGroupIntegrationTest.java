@@ -8,6 +8,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,13 +27,16 @@ import de.tum.cit.aet.artemis.assessment.domain.Result;
 import de.tum.cit.aet.artemis.assessment.domain.ScaFeedback;
 import de.tum.cit.aet.artemis.course.domain.Course;
 import de.tum.cit.aet.artemis.course.dto.CourseExercisesForOverviewDTO;
+import de.tum.cit.aet.artemis.course.service.CourseAdminService;
 import de.tum.cit.aet.artemis.exercise.domain.Exercise;
 import de.tum.cit.aet.artemis.exercise.domain.ExerciseType;
 import de.tum.cit.aet.artemis.exercise.domain.ExerciseVariantGroup;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.domain.SubmissionType;
 import de.tum.cit.aet.artemis.exercise.domain.participation.StudentParticipation;
+import de.tum.cit.aet.artemis.exercise.dto.CourseGradeScoreDTO;
 import de.tum.cit.aet.artemis.exercise.dto.CreateUserStoryExerciseDTO;
+import de.tum.cit.aet.artemis.exercise.dto.ExerciseDeletionInfoDTO;
 import de.tum.cit.aet.artemis.exercise.dto.ExerciseOverviewDTO;
 import de.tum.cit.aet.artemis.exercise.dto.ExerciseVariantGroupDTO;
 import de.tum.cit.aet.artemis.exercise.dto.MilestoneAssessmentDTO;
@@ -78,6 +82,9 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
 
     @Autowired
     private ExerciseVariantGroupRepository exerciseVariantGroupRepository;
+
+    @Autowired
+    private CourseAdminService courseAdminService;
 
     private Course course;
 
@@ -452,6 +459,46 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
 
         // Submitted, and no assessment due date holds it back: the tutor's result is what the student sees now.
         assertThat(overviewResultIdOf(member.getId())).isEqualTo(draft.getId());
+    }
+
+    /**
+     * The milestone subtypes are stored under discriminators of their own, and JPQL's {@code TYPE(...)} only matches the
+     * exact one - so every projection that classifies exercises by type has to recognise them as programming exercises
+     * explicitly, or they silently land in the wrong bucket (grade scores reported them as quizzes, the deletion progress
+     * had no type for them, the course summary did not count them, and their individual due dates were never scheduled).
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void theMilestoneSubtypesAreClassifiedAsProgrammingExercises() {
+        UserStoryExercise member = new UserStoryExercise();
+        member.setTitle("User story");
+        member.setShortName("ustype" + TEST_PREFIX);
+        member.setProgrammingLanguage(ProgrammingLanguage.JAVA);
+        member.setCourse(course);
+        member.setMaxPoints(10.0);
+        member.setReleaseDate(ZonedDateTime.now().minusDays(1).truncatedTo(ChronoUnit.MILLIS));
+        member.setExerciseVariantGroup(milestoneGroup);
+        member.generateAndSetProjectKey();
+        member = (UserStoryExercise) programmingExerciseRepository.save(member);
+        long memberId = member.getId();
+        Result memberResult = addRatedResult(member, 100.0);
+        addRatedResult(milestoneExercise, 100.0);
+        long studentId = userUtilService.getUserByLogin(TEST_PREFIX + "student1").getId();
+
+        assertThat(studentParticipationRepository.findIndividualGradesForCourseOverview(Set.of(memberId, milestoneExercise.getId()), studentId))
+                .extracting(CourseGradeScoreDTO::type).containsExactly(ExerciseType.PROGRAMMING, ExerciseType.PROGRAMMING);
+
+        assertThat(exerciseRepository.findDeletionInfoByCourseId(course.getId())).filteredOn(info -> info.id() == memberId || info.id() == milestoneExercise.getId())
+                .extracting(ExerciseDeletionInfoDTO::type).containsExactly(ExerciseType.PROGRAMMING, ExerciseType.PROGRAMMING);
+
+        long programmingExercisesInCourse = exerciseRepository.findAllExercisesByCourseId(course.getId()).stream().filter(exercise -> exercise instanceof ProgrammingExercise)
+                .count();
+        assertThat(courseAdminService.countByCourseIdGroupByType(course.getId())).containsEntry(ExerciseType.PROGRAMMING, programmingExercisesInCourse);
+
+        StudentParticipation memberParticipation = (StudentParticipation) memberResult.getSubmission().getParticipation();
+        memberParticipation.setIndividualDueDate(ZonedDateTime.now().plusDays(1).truncatedTo(ChronoUnit.MILLIS));
+        studentParticipationRepository.save(memberParticipation);
+        assertThat(programmingExerciseRepository.findAllExerciseIdsWithIndividualDueDatesAfter(ZonedDateTime.now())).contains(memberId);
     }
 
     /** The id of the single result the course overview shows {@code student1} for the given exercise. */

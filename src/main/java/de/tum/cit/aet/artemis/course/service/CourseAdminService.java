@@ -180,8 +180,9 @@ public class CourseAdminService {
      * @return the mapping from exercise type to course type. If a course has no exercises for a specific type, the map contains an entry for that type with value 0.
      */
     public Map<ExerciseType, Long> countByCourseIdGroupByType(long courseId) {
+        // The query groups by the concrete class, so the milestone subtypes arrive as rows of their own that map to PROGRAMMING too
         Map<ExerciseType, Long> exerciseTypeCountMap = exerciseRepository.countByCourseIdGroupedByType(courseId).stream()
-                .collect(Collectors.toMap(ExerciseTypeCountDTO::exerciseType, ExerciseTypeCountDTO::count));
+                .collect(Collectors.toMap(ExerciseTypeCountDTO::exerciseType, ExerciseTypeCountDTO::count, Long::sum));
 
         return Arrays.stream(ExerciseType.values()).collect(Collectors.toMap(type -> type, type -> exerciseTypeCountMap.getOrDefault(type, 0L)));
     }

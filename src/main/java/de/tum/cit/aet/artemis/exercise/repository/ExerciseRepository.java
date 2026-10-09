@@ -828,7 +828,7 @@ public interface ExerciseRepository extends ArtemisJpaRepository<Exercise, Long>
             FROM Course c
                 JOIN c.exercises e
             WHERE c.id = :courseId
-                AND TYPE(e) IN (ModelingExercise, TextExercise, ProgrammingExercise, QuizExercise, FileUploadExercise)
+                AND TYPE(e) IN (ModelingExercise, TextExercise, ProgrammingExercise, MilestoneExercise, UserStoryExercise, QuizExercise, FileUploadExercise)
             GROUP BY TYPE(e)
             """)
     List<ExerciseTypeCountDTO> countByCourseIdGroupedByType(@Param("courseId") long courseId);
@@ -904,13 +904,7 @@ public interface ExerciseRepository extends ArtemisJpaRepository<Exercise, Long>
             SELECT new de.tum.cit.aet.artemis.exercise.dto.ExerciseDeletionInfoDTO(
                 e.id,
                 e.title,
-                CASE TYPE(e)
-                    WHEN de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.PROGRAMMING
-                    WHEN de.tum.cit.aet.artemis.text.domain.TextExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.TEXT
-                    WHEN de.tum.cit.aet.artemis.modeling.domain.ModelingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.MODELING
-                    WHEN de.tum.cit.aet.artemis.fileupload.domain.FileUploadExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.FILE_UPLOAD
-                    WHEN de.tum.cit.aet.artemis.quiz.domain.QuizExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.QUIZ
-                END
+                TYPE(e)
             )
             FROM Exercise e
             WHERE e.course.id = :courseId

@@ -115,7 +115,7 @@ public interface CourseCompetencyRepository extends ArtemisJpaRepository<CourseC
                 e.id,
                 e.maxPoints,
                 e.difficulty,
-                CASE WHEN TYPE(e) = ProgrammingExercise THEN TRUE ELSE FALSE END,
+                CASE WHEN TYPE(e) IN (ProgrammingExercise, MilestoneExercise, UserStoryExercise) THEN TRUE ELSE FALSE END,
                 el.weight,
                 COALESCE(sS.lastScore, tS.lastScore),
                 COALESCE(sS.lastPoints, tS.lastPoints),

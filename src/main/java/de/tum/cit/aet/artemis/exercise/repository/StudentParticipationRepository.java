@@ -128,13 +128,7 @@ public interface StudentParticipationRepository extends ArtemisJpaRepository<Stu
     // NOTE: we add a minimal grace period of 1 second because processing a commit can take a bit of time
     @Query("""
             SELECT DISTINCT NEW de.tum.cit.aet.artemis.exercise.dto.CourseGradeScoreDTO(p.id, u.id, ex.id, r.score, r.rated, p.presentationScore,
-                CASE TYPE(ex)
-                    WHEN ProgrammingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.PROGRAMMING
-                    WHEN ModelingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.MODELING
-                    WHEN TextExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.TEXT
-                    WHEN FileUploadExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.FILE_UPLOAD
-                    ELSE de.tum.cit.aet.artemis.exercise.domain.ExerciseType.QUIZ
-                END)
+                TYPE(ex))
             FROM StudentParticipation p
                 JOIN p.student u
                 JOIN p.exercise ex
@@ -157,13 +151,7 @@ public interface StudentParticipationRepository extends ArtemisJpaRepository<Stu
     // Quizzes do not support team exercises, so we can safely ignore them here
     @Query("""
             SELECT DISTINCT NEW de.tum.cit.aet.artemis.exercise.dto.CourseGradeScoreDTO(p.id, u.id, ex.id, r.score, r.rated, p.presentationScore,
-                CASE TYPE(ex)
-                    WHEN ProgrammingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.PROGRAMMING
-                    WHEN ModelingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.MODELING
-                    WHEN TextExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.TEXT
-                    WHEN FileUploadExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.FILE_UPLOAD
-                    ELSE de.tum.cit.aet.artemis.exercise.domain.ExerciseType.QUIZ
-                END)
+                TYPE(ex))
             FROM StudentParticipation p
                 JOIN p.team t
                 JOIN t.students u
@@ -193,13 +181,7 @@ public interface StudentParticipationRepository extends ArtemisJpaRepository<Stu
      */
     @Query("""
             SELECT DISTINCT NEW de.tum.cit.aet.artemis.exercise.dto.CourseGradeScoreDTO(p.id, u.id, ex.id, r.score, r.rated, p.presentationScore,
-                CASE TYPE(ex)
-                    WHEN ProgrammingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.PROGRAMMING
-                    WHEN ModelingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.MODELING
-                    WHEN TextExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.TEXT
-                    WHEN FileUploadExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.FILE_UPLOAD
-                    ELSE de.tum.cit.aet.artemis.exercise.domain.ExerciseType.QUIZ
-                END)
+                TYPE(ex))
             FROM StudentParticipation p
                 JOIN p.student u
                 JOIN p.exercise ex
@@ -239,13 +221,7 @@ public interface StudentParticipationRepository extends ArtemisJpaRepository<Stu
      */
     @Query("""
             SELECT DISTINCT NEW de.tum.cit.aet.artemis.exercise.dto.CourseGradeScoreDTO(p.id, u.id, ex.id, r.score, r.rated, p.presentationScore,
-                CASE TYPE(ex)
-                    WHEN ProgrammingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.PROGRAMMING
-                    WHEN ModelingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.MODELING
-                    WHEN TextExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.TEXT
-                    WHEN FileUploadExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.FILE_UPLOAD
-                    ELSE de.tum.cit.aet.artemis.exercise.domain.ExerciseType.QUIZ
-                END)
+                TYPE(ex))
             FROM StudentParticipation p
                 JOIN p.team t
                 JOIN t.students u
@@ -298,13 +274,7 @@ public interface StudentParticipationRepository extends ArtemisJpaRepository<Stu
     // NOTE: we add a minimal grace period of 1 second because processing a commit can take a bit of time
     @Query("""
             SELECT DISTINCT NEW de.tum.cit.aet.artemis.exercise.dto.CourseGradeScoreDTO(p.id, u.id, ex.id, r.score, r.rated, p.presentationScore,
-                CASE TYPE(ex)
-                    WHEN ProgrammingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.PROGRAMMING
-                    WHEN ModelingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.MODELING
-                    WHEN TextExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.TEXT
-                    WHEN FileUploadExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.FILE_UPLOAD
-                    ELSE de.tum.cit.aet.artemis.exercise.domain.ExerciseType.QUIZ
-                END)
+                TYPE(ex))
             FROM StudentParticipation p
                 JOIN p.student u
                 JOIN p.exercise ex
@@ -327,13 +297,7 @@ public interface StudentParticipationRepository extends ArtemisJpaRepository<Stu
     // Quizzes do not support team exercises, so we can safely ignore them here
     @Query("""
             SELECT DISTINCT NEW de.tum.cit.aet.artemis.exercise.dto.CourseGradeScoreDTO(p.id, u.id, ex.id, r.score, r.rated, p.presentationScore,
-                CASE TYPE(ex)
-                    WHEN ProgrammingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.PROGRAMMING
-                    WHEN ModelingExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.MODELING
-                    WHEN TextExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.TEXT
-                    WHEN FileUploadExercise THEN de.tum.cit.aet.artemis.exercise.domain.ExerciseType.FILE_UPLOAD
-                    ELSE de.tum.cit.aet.artemis.exercise.domain.ExerciseType.QUIZ
-                END)
+                TYPE(ex))
             FROM StudentParticipation p
                 JOIN p.team t
                 JOIN t.students u
