@@ -410,8 +410,59 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         assertThat(overview.totalScores().studentScores().absoluteScore()).isEqualTo(6.0);
     }
 
+    /**
+     * Opening a submission for assessment leaves an empty, unrated SEMI_AUTOMATIC draft as its newest result (see
+     * {@code ProgrammingSubmissionService.lockSubmission}). Until that assessment is submitted the overview must keep
+     * showing the automatic result - judging the draft instead dropped the whole submission, and the sidebar then said
+     * "No Submission" for a user story the student had been graded on.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void theCourseOverviewShowsTheAutomaticResultWhileAManualAssessmentIsInProgress() throws Exception {
+        UserStoryExercise member = new UserStoryExercise();
+        member.setTitle("User story");
+        member.setShortName("usdraft" + TEST_PREFIX);
+        member.setProgrammingLanguage(ProgrammingLanguage.JAVA);
+        member.setCourse(course);
+        member.setMaxPoints(10.0);
+        member.setAssessmentType(AssessmentType.SEMI_AUTOMATIC);
+        member.setReleaseDate(ZonedDateTime.now().minusDays(7).truncatedTo(ChronoUnit.MILLIS));
+        member.setExerciseVariantGroup(milestoneGroup);
+        member.generateAndSetProjectKey();
+        member = (UserStoryExercise) programmingExerciseRepository.save(member);
+
+        Result automaticResult = addRatedResult(member, 100.0);
+        // The past due date is set only now, so the result above still counts as submitted in time.
+        member.setDueDate(ZonedDateTime.now().minusMinutes(1).truncatedTo(ChronoUnit.MILLIS));
+        member = (UserStoryExercise) programmingExerciseRepository.save(member);
+
+        Result draft = new Result();
+        draft.setAssessmentType(AssessmentType.SEMI_AUTOMATIC);
+        draft.setAssessor(userUtilService.getUserByLogin(TEST_PREFIX + "tutor1"));
+        draft.setExerciseId(member.getId());
+        draft.setSubmission(automaticResult.getSubmission());
+        draft = resultRepository.save(draft);
+
+        assertThat(overviewResultIdOf(member.getId())).isEqualTo(automaticResult.getId());
+
+        draft.setCompletionDate(ZonedDateTime.now().truncatedTo(ChronoUnit.MILLIS));
+        draft.setScore(80.0);
+        draft.setRated(true);
+        resultRepository.save(draft);
+
+        // Submitted, and no assessment due date holds it back: the tutor's result is what the student sees now.
+        assertThat(overviewResultIdOf(member.getId())).isEqualTo(draft.getId());
+    }
+
+    /** The id of the single result the course overview shows {@code student1} for the given exercise. */
+    private long overviewResultIdOf(long exerciseId) throws Exception {
+        var overview = request.get("/api/course/courses/" + course.getId() + "/exercises-for-overview", HttpStatus.OK, CourseExercisesForOverviewDTO.class);
+        ExerciseOverviewDTO exercise = overview.exercises().stream().filter(candidate -> candidate.id().equals(exerciseId)).findFirst().orElseThrow();
+        return exercise.studentParticipations().iterator().next().submissions().iterator().next().results().getFirst().id();
+    }
+
     /** Gives {@code student1} a participation on the exercise with one rated, completed result at the given percentage. */
-    private void addRatedResult(ProgrammingExercise exercise, double score) {
+    private Result addRatedResult(ProgrammingExercise exercise, double score) {
         ProgrammingExerciseStudentParticipation participation = participationUtilService.addStudentParticipationForProgrammingExercise(exercise, TEST_PREFIX + "student1");
 
         ProgrammingSubmission submission = new ProgrammingSubmission();
@@ -430,7 +481,7 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         result.setSubmission(submission);
         result.setScore(score);
         result.setRated(true);
-        resultRepository.save(result);
+        return resultRepository.save(result);
     }
 
     /**

@@ -294,16 +294,19 @@ public class CourseOverviewExerciseService {
                 boolean submittedInTime = latestAccepted == null || submissionRow.submissionDate() != null && !submissionRow.submissionDate().isAfter(latestAccepted);
                 return submittedInTime ? Optional.ofNullable(submissionRow.toSubmissionOverviewDTO(List.of(), exercise.type())) : Optional.empty();
             }
+            // A manual result only reaches the student once the assessment is submitted and its due date has passed. Until
+            // then - e.g. the empty, unrated draft lockSubmission adds as soon as a tutor opens the submission - the
+            // automatic result stays visible, so the draft must not be judged by the rated check below.
+            if (isManual(latestResultRow.resultAssessmentType()) && !(isAssessmentDone(exercise, calculationTime) && latestResultRow.resultCompletionDate() != null)) {
+                ParticipationOverviewRowDTO latestAutomaticResult = submissionRows.stream().filter(CourseOverviewExerciseService::isAutomatic)
+                        .max(Comparator.comparingLong(ParticipationOverviewRowDTO::resultId)).orElse(null);
+                return latestAutomaticResult == null ? Optional.empty()
+                        : Optional.ofNullable(submissionRow.toSubmissionOverviewDTO(List.of(latestAutomaticResult.toResultOverviewDTO()), exercise.type()));
+            }
             if (!Boolean.TRUE.equals(latestResultRow.resultRated())) {
                 return Optional.empty();
             }
-            if (!isManual(latestResultRow.resultAssessmentType()) || isAssessmentDone(exercise, calculationTime) && latestResultRow.resultCompletionDate() != null) {
-                return Optional.ofNullable(submissionRow.toSubmissionOverviewDTO(List.of(latestResultRow.toResultOverviewDTO()), exercise.type()));
-            }
-            ParticipationOverviewRowDTO latestAutomaticResult = submissionRows.stream().filter(CourseOverviewExerciseService::isAutomatic)
-                    .max(Comparator.comparingLong(ParticipationOverviewRowDTO::resultId)).orElse(null);
-            return latestAutomaticResult == null ? Optional.empty()
-                    : Optional.ofNullable(submissionRow.toSubmissionOverviewDTO(List.of(latestAutomaticResult.toResultOverviewDTO()), exercise.type()));
+            return Optional.ofNullable(submissionRow.toSubmissionOverviewDTO(List.of(latestResultRow.toResultOverviewDTO()), exercise.type()));
         }
 
         if (latestResultRow == null || !Boolean.TRUE.equals(latestResultRow.resultRated()) || !isAssessmentDone(exercise, calculationTime)) {
