@@ -48,6 +48,7 @@ import de.tum.cit.aet.artemis.exercise.dto.UpdateMilestoneExerciseGroupDTO;
 import de.tum.cit.aet.artemis.exercise.dto.UserStoryExerciseDTO;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseVariantGroupRepository;
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
+import de.tum.cit.aet.artemis.exercise.service.ExerciseVariantGroupService;
 import de.tum.cit.aet.artemis.fileupload.util.FileUploadExerciseFactory;
 import de.tum.cit.aet.artemis.programming.AbstractProgrammingIntegrationIndependentTest;
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
@@ -85,6 +86,9 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
 
     @Autowired
     private CourseAdminService courseAdminService;
+
+    @Autowired
+    private ExerciseVariantGroupService exerciseVariantGroupService;
 
     private Course course;
 
@@ -405,6 +409,64 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         MvcResult result = request.performMvcRequest(MockMvcRequestBuilders.get("/api/programming/programming-exercises/" + member.getId())).andExpect(status().isOk()).andReturn();
 
         assertThat(request.getObjectMapper().readTree(result.getResponse().getContentAsString()).get("showTestProgressAsScore").asBoolean()).isTrue();
+    }
+
+    /**
+     * Every update endpoint pins a group member back to its group's timeline before saving. A milestone group keeps no
+     * dates of its own - they are its anchor's - so an unfetched anchor read as "no dates" and saving a user story wiped
+     * its whole timeline.
+     */
+    @Test
+    void applyingTheOwningTimelineGivesAMilestoneMemberTheAnchorsDates() {
+        UserStoryExercise member = userStoryMember("timeline", false);
+        member.setReleaseDate(null);
+        member.setDueDate(null);
+
+        exerciseVariantGroupService.applyOwningGroupTimeline(member);
+
+        assertThat(member.getReleaseDate()).isEqualTo(milestoneExercise.getReleaseDate());
+        assertThat(member.getDueDate()).isEqualTo(milestoneExercise.getDueDate());
+    }
+
+    /**
+     * Editing the milestone exercise pushes its timeline onto the whole group, not only onto the user stories that share
+     * its repository: a text exercise in the group follows the milestone's dates as well. The group's dates are its
+     * anchor's, so the group handed to the fan-out must carry the milestone exercise.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "editor1", roles = "EDITOR")
+    void theMilestonesTimelineIsAppliedToEveryMemberOfItsGroup() {
+        Exercise essay = addMember(TextExerciseFactory.generateTextExercise(null, null, null, course), "An essay");
+        UserStoryExercise story = userStoryMember("fanout", false);
+        story.setReleaseDate(null);
+        story.setDueDate(null);
+        programmingExerciseRepository.save(story);
+        // updateTimeline reads the build config of every programming member it reschedules.
+        programmingExerciseBuildConfigRepository.saveForExercise(ProgrammingExerciseFactory.generateDefaultBuildConfig(), story);
+
+        MilestoneExerciseGroup group = milestoneExerciseGroupRepository.findByMilestoneExerciseIdWithExercises(milestoneExercise.getId()).orElseThrow();
+        group.setMilestoneExercise(milestoneExercise);
+        exerciseVariantGroupService.saveWithTimelineAppliedToMembers(group);
+
+        Exercise savedEssay = exerciseRepository.findByIdElseThrow(essay.getId());
+        assertThat(savedEssay.getReleaseDate()).isEqualTo(milestoneExercise.getReleaseDate());
+        assertThat(savedEssay.getDueDate()).isEqualTo(milestoneExercise.getDueDate());
+        assertThat(programmingExerciseRepository.findByIdElseThrow(story.getId()).getDueDate()).isEqualTo(milestoneExercise.getDueDate());
+    }
+
+    @Test
+    void applyingTheOwningTimelineStillGivesAVariantMemberItsGroupsDates() {
+        ZonedDateTime groupDueDate = ZonedDateTime.now().plusDays(3).truncatedTo(ChronoUnit.MILLIS);
+        variantGroup.setDueDate(groupDueDate);
+        variantGroup = exerciseVariantGroupRepository.save(variantGroup);
+        Exercise member = TextExerciseFactory.generateTextExercise(null, null, null, course);
+        member.setExerciseVariantGroup(variantGroup);
+        member = exerciseRepository.save(member);
+        member.setDueDate(null);
+
+        exerciseVariantGroupService.applyOwningGroupTimeline(member);
+
+        assertThat(member.getDueDate()).isEqualTo(groupDueDate);
     }
 
     private UserStoryExercise userStoryMember(String shortNameSuffix, boolean showTestProgressAsScore) {
