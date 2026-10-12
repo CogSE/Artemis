@@ -350,8 +350,13 @@ public class ProgrammingExerciseUpdateResource {
             milestoneExercisePointsService.syncMaxPoints(savedProgrammingExercise.getId());
             MilestoneExercise freshMilestoneExercise = (MilestoneExercise) programmingExerciseRepository
                     .findByIdWithTemplateAndSolutionParticipationTeamAssignmentConfigCategoriesCompetenciesAndVariantGroupElseThrow(savedProgrammingExercise.getId());
-            milestoneExerciseGroupRepository.findByMilestoneExerciseIdWithExercises(freshMilestoneExercise.getId())
-                    .ifPresent(milestoneGroup -> userStoryExerciseService.syncAllMembersConfig(milestoneGroup, freshMilestoneExercise));
+            milestoneExerciseGroupRepository.findByMilestoneExerciseIdWithExercises(freshMilestoneExercise.getId()).ifPresent(milestoneGroup -> {
+                userStoryExerciseService.syncAllMembersConfig(milestoneGroup, freshMilestoneExercise);
+                // The milestone's dates reach every member, user stories included, only through this fan-out. The group's
+                // dates are its anchor's, which the query above does not fetch, so hand it the freshly saved one.
+                milestoneGroup.setMilestoneExercise(freshMilestoneExercise);
+                exerciseVariantGroupService.saveWithTimelineAppliedToMembers(milestoneGroup);
+            });
         }
 
         return ResponseEntity.ok(ProgrammingExerciseResponseDTO.of(savedProgrammingExercise, buildConfig));

@@ -62,6 +62,7 @@ import de.tum.cit.aet.artemis.exercise.dto.SubmissionDTO;
 import de.tum.cit.aet.artemis.exercise.repository.ParticipationRepository;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationAuthorizationCheckService;
 import de.tum.cit.aet.artemis.localci.service.SharedQueueManagementService;
+import de.tum.cit.aet.artemis.localci.service.SharedQueueManagementService.BuildTimingInfo;
 import de.tum.cit.aet.artemis.localci.service.ci.ContinuousIntegrationTriggerService;
 import de.tum.cit.aet.artemis.localvc.service.LocalVCRepositoryUri;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
@@ -86,6 +87,7 @@ import de.tum.cit.aet.artemis.programming.repository.VcsAccessLogRepository;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseParticipationService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingSubmissionService;
 import de.tum.cit.aet.artemis.programming.service.RepositoryService;
+import de.tum.cit.aet.artemis.programming.service.UserStoryExerciseService;
 
 @Profile(PROFILE_CORE)
 @Lazy
@@ -135,13 +137,15 @@ public class ProgrammingExerciseParticipationResource {
 
     private final Optional<ContinuousIntegrationTriggerService> continuousIntegrationTriggerService;
 
+    private final UserStoryExerciseService userStoryExerciseService;
+
     public ProgrammingExerciseParticipationResource(ProgrammingExerciseParticipationService programmingExerciseParticipationService, ResultRepository resultRepository,
             ParticipationRepository participationRepository, ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository,
             ProgrammingSubmissionService submissionService, ProgrammingExerciseRepository programmingExerciseRepository, AuthorizationCheckService authCheckService,
             ResultService resultService, ParticipationAuthorizationCheckService participationAuthCheckService, RepositoryService repositoryService,
             Optional<StudentExamApi> studentExamApi, Optional<VcsAccessLogRepository> vcsAccessLogRepository, AuxiliaryRepositoryRepository auxiliaryRepositoryRepository,
             Optional<SharedQueueManagementService> sharedQueueManagementService, Optional<ExamApi> examApi,
-            Optional<ContinuousIntegrationTriggerService> continuousIntegrationTriggerService) {
+            Optional<ContinuousIntegrationTriggerService> continuousIntegrationTriggerService, UserStoryExerciseService userStoryExerciseService) {
         this.programmingExerciseParticipationService = programmingExerciseParticipationService;
         this.participationRepository = participationRepository;
         this.programmingExerciseStudentParticipationRepository = programmingExerciseStudentParticipationRepository;
@@ -158,6 +162,7 @@ public class ProgrammingExerciseParticipationResource {
         this.sharedQueueManagementService = sharedQueueManagementService;
         this.examApi = examApi;
         this.continuousIntegrationTriggerService = continuousIntegrationTriggerService;
+        this.userStoryExerciseService = userStoryExerciseService;
     }
 
     /**
@@ -354,7 +359,7 @@ public class ProgrammingExerciseParticipationResource {
         ZonedDateTime estimatedCompletionDate = null;
         if (sharedQueueManagementService.isPresent()) {
             try {
-                var buildTimingInfo = sharedQueueManagementService.get().isSubmissionProcessing(participationId, programmingSubmission.getCommitHash());
+                var buildTimingInfo = findBuildTimingInfo(sharedQueueManagementService.get(), participationId, programmingSubmission.getCommitHash());
                 if (buildTimingInfo != null) {
                     isSubmissionProcessing = true;
                     buildStartDate = buildTimingInfo.buildStartDate();
@@ -370,6 +375,28 @@ public class ProgrammingExerciseParticipationResource {
         programmingSubmission.setParticipation(null);
         var submissionDTO = SubmissionDTO.of(programmingSubmission, isSubmissionProcessing, buildStartDate, estimatedCompletionDate);
         return ResponseEntity.ok(submissionDTO);
+    }
+
+    /**
+     * The timing of the build job building {@code commitHash} for a participation, or {@code null} if no such job is running.
+     * <p>
+     * A user story has no build job of its own: a push builds on the milestone participation that shares its repository,
+     * and the fan-out copies that build's result onto the story. Its pending submission therefore reports the milestone
+     * job's timing. Reported as not processing, the client takes the story's build for lost and shows "No corresponding
+     * result available" until the fanned-out result arrives.
+     *
+     * @param sharedQueueManagementService the local CI queue to look the job up in
+     * @param participationId              the participation the pending submission belongs to
+     * @param commitHash                   the commit hash of the pending submission
+     * @return the running job's timing, or {@code null} if neither the participation nor its milestone is building that commit
+     */
+    private BuildTimingInfo findBuildTimingInfo(SharedQueueManagementService sharedQueueManagementService, long participationId, String commitHash) {
+        var buildTimingInfo = sharedQueueManagementService.isSubmissionProcessing(participationId, commitHash);
+        if (buildTimingInfo != null) {
+            return buildTimingInfo;
+        }
+        return programmingExerciseStudentParticipationRepository.findById(participationId).flatMap(userStoryExerciseService::findMilestoneParticipationForUserStory)
+                .map(milestoneParticipation -> sharedQueueManagementService.isSubmissionProcessing(milestoneParticipation.getId(), commitHash)).orElse(null);
     }
 
     /**

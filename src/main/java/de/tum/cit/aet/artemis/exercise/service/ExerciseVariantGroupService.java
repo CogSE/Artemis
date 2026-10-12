@@ -270,7 +270,11 @@ public class ExerciseVariantGroupService {
             // A brand-new exercise cannot be a group member yet.
             return;
         }
-        exerciseVariantGroupRepository.findByExerciseId(exercise.getId()).ifPresent(group -> applyGroupTimeline(group, exercise));
+        exerciseVariantGroupRepository.findByExerciseId(exercise.getId())
+                // A milestone group's dates are its anchor's, which findByExerciseId leaves unfetched - they would read as
+                // null and wipe the member's whole timeline.
+                .map(group -> group instanceof MilestoneExerciseGroup ? milestoneExerciseGroupRepository.findByIdWithMilestoneExercise(group.getId()).orElseThrow() : group)
+                .ifPresent(group -> applyGroupTimeline(group, exercise));
     }
 
     /**

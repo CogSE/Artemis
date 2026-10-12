@@ -42,6 +42,7 @@ import de.tum.cit.aet.artemis.programming.repository.VcsAccessLogRepository;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseParticipationService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingSubmissionService;
 import de.tum.cit.aet.artemis.programming.service.RepositoryService;
+import de.tum.cit.aet.artemis.programming.service.UserStoryExerciseService;
 import de.tum.cit.aet.artemis.programming.test_repository.ProgrammingExerciseStudentParticipationTestRepository;
 import de.tum.cit.aet.artemis.programming.test_repository.ProgrammingExerciseTestRepository;
 
@@ -91,6 +92,9 @@ class ProgrammingExerciseParticipationResourceResetTest {
     private RepositoryService repositoryService;
 
     @Mock
+    private UserStoryExerciseService userStoryExerciseService;
+
+    @Mock
     private StudentExamApi studentExamApi;
 
     @Mock
@@ -119,7 +123,7 @@ class ProgrammingExerciseParticipationResourceResetTest {
         resource = new ProgrammingExerciseParticipationResource(programmingExerciseParticipationService, resultRepository, participationRepository,
                 programmingExerciseStudentParticipationRepository, submissionService, programmingExerciseRepository, authCheckService, resultService, participationAuthCheckService,
                 repositoryService, Optional.of(studentExamApi), Optional.of(vcsAccessLogRepository), auxiliaryRepositoryRepository, Optional.of(sharedQueueManagementService),
-                Optional.of(examApi), Optional.of(continuousIntegrationTriggerService));
+                Optional.of(examApi), Optional.of(continuousIntegrationTriggerService), userStoryExerciseService);
         exercise = new ProgrammingExercise();
         exercise.setId(EXERCISE_ID);
         exercise.setTemplateParticipation(new TemplateProgrammingExerciseParticipation());
@@ -230,7 +234,7 @@ class ProgrammingExerciseParticipationResourceResetTest {
         var resourceWithoutCi = new ProgrammingExerciseParticipationResource(programmingExerciseParticipationService, resultRepository, participationRepository,
                 programmingExerciseStudentParticipationRepository, submissionService, programmingExerciseRepository, authCheckService, resultService, participationAuthCheckService,
                 repositoryService, Optional.of(studentExamApi), Optional.of(vcsAccessLogRepository), auxiliaryRepositoryRepository, Optional.of(sharedQueueManagementService),
-                Optional.of(examApi), Optional.empty());
+                Optional.of(examApi), Optional.empty(), userStoryExerciseService);
         withAResettableParticipation();
 
         assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(() -> resourceWithoutCi.resetRepository(PARTICIPATION_ID, null));
@@ -266,7 +270,7 @@ class ProgrammingExerciseParticipationResourceResetTest {
         var resourceWithoutLog = new ProgrammingExerciseParticipationResource(programmingExerciseParticipationService, resultRepository, participationRepository,
                 programmingExerciseStudentParticipationRepository, submissionService, programmingExerciseRepository, authCheckService, resultService, participationAuthCheckService,
                 repositoryService, Optional.of(studentExamApi), Optional.empty(), auxiliaryRepositoryRepository, Optional.of(sharedQueueManagementService), Optional.of(examApi),
-                Optional.of(continuousIntegrationTriggerService));
+                Optional.of(continuousIntegrationTriggerService), userStoryExerciseService);
 
         assertThat(resourceWithoutLog.getVcsAccessLogForParticipationRepo(PARTICIPATION_ID).getStatusCode().is4xxClientError()).isTrue();
     }

@@ -259,6 +259,22 @@ public interface MilestoneExerciseGroupRepository extends ArtemisJpaRepository<M
     Optional<MilestoneExerciseGroup> findByMilestoneExerciseIdWithExercises(@Param("milestoneExerciseId") long milestoneExerciseId);
 
     /**
+     * Loads a milestone group with its anchor {@code milestoneExercise}, which holds the group's whole timeline: the
+     * group's date getters delegate to the anchor and read as {@code null} while it is an unfetched proxy (see
+     * {@link MilestoneExerciseGroup}). Needed wherever those dates are copied onto a member.
+     *
+     * @param groupId the id of the milestone group to load
+     * @return the group with its anchor initialized, or empty if there is no milestone group with that id
+     */
+    @Query("""
+            SELECT g
+            FROM MilestoneExerciseGroup g
+                LEFT JOIN FETCH g.milestoneExercise
+            WHERE g.id = :groupId
+            """)
+    Optional<MilestoneExerciseGroup> findByIdWithMilestoneExercise(@Param("groupId") long groupId);
+
+    /**
      * Sums the {@code maxPoints} of a group's {@code UserStoryExercise} members, which is what the group's anchor
      * {@code MilestoneExercise} carries as its own {@code maxPoints}: the milestone is the only scored exercise of the
      * group, and its points are the group's points (see {@code MilestoneExerciseService.syncMilestoneMaxPoints}).

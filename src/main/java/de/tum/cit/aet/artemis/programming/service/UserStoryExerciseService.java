@@ -245,10 +245,11 @@ public class UserStoryExerciseService {
 
     /**
      * Runs {@link #applyMilestoneConfig} for every {@code UserStoryExercise} member of {@code milestoneGroup} and saves
-     * each one, additionally copying the milestone's release/start/due/assessment-due dates onto each member. Dates
-     * aren't part of {@code applyMilestoneConfig} itself since that method is also used at creation time, where a fresh
-     * member already inherits its dates directly from the group (see {@code ExerciseVariantGroupResource.createUserStoryExercise});
-     * copying them here is only needed once a member already exists and the milestone's own dates are edited later.
+     * each one. Dates are deliberately not copied here: the caller pushes the milestone's timeline onto every member of the
+     * group - user stories and the other exercise types alike - through
+     * {@code ExerciseVariantGroupService.saveWithTimelineAppliedToMembers}, which also re-derives each story's
+     * build-and-test date and notifies about the change. Writing the dates here first would make that pass see them as
+     * unchanged.
      * <p>
      * Called after a {@code MilestoneExercise} is edited (see {@code ProgrammingExerciseUpdateResource}), so every
      * sibling picks up the change without an edit of its own - the milestone create/edit page is deliberately the only
@@ -261,12 +262,7 @@ public class UserStoryExerciseService {
     public void syncAllMembersConfig(MilestoneExerciseGroup milestoneGroup, MilestoneExercise milestoneExercise) {
         for (var exercise : milestoneGroup.getExercises()) {
             if (exercise instanceof UserStoryExercise) {
-                UserStoryExercise userStoryExercise = applyMilestoneConfigFreshFromDatabase(exercise.getId(), milestoneExercise);
-                userStoryExercise.setReleaseDate(milestoneExercise.getReleaseDate());
-                userStoryExercise.setStartDate(milestoneExercise.getStartDate());
-                userStoryExercise.setDueDate(milestoneExercise.getDueDate());
-                userStoryExercise.setAssessmentDueDate(milestoneExercise.getAssessmentDueDate());
-                programmingExerciseRepository.save(userStoryExercise);
+                programmingExerciseRepository.save(applyMilestoneConfigFreshFromDatabase(exercise.getId(), milestoneExercise));
             }
         }
     }
