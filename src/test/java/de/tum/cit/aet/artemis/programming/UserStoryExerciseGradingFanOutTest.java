@@ -347,6 +347,23 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
         assertThat(aggregated.getScore()).isEqualTo(100.0);
     }
 
+    /**
+     * A milestone test weighted 0 still shows up in its task, but it only informs the student: failing it must not cost
+     * the group its points.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void failingTestWeightedZeroKeepsTheSummedUserStoryPoints() {
+        enableStaticCodeAnalysis(CategoryState.GRADED, 0.0, null);
+        ProgrammingExerciseTestCase informationalTest = defineMilestoneDefinitionOfDone("testA");
+        informationalTest.setWeight(0.0);
+        testCaseRepository.save(informationalTest);
+
+        Result aggregated = aggregateWithFullySolvedStories(List.of(testCaseFeedback(informationalTest, false)));
+
+        assertThat(aggregated.getScore()).isEqualTo(100.0);
+    }
+
     @Test
     @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
     void definitionOfDoneTestThatDidNotRunGradesTheMilestoneWithZeroPoints() {

@@ -33,6 +33,7 @@ import de.tum.cit.aet.artemis.programming.dto.ProgrammingExerciseTestCaseDTO;
 import de.tum.cit.aet.artemis.programming.dto.ProgrammingExerciseTestCaseResponseDTO;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseTestCaseRepository;
+import de.tum.cit.aet.artemis.programming.service.MilestoneExercisePointsService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseCreationScheduleService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseTestCaseService;
 
@@ -63,10 +64,12 @@ public class ProgrammingExerciseTestCaseResource {
 
     private final ExerciseVersionService exerciseVersionService;
 
+    private final MilestoneExercisePointsService milestoneExercisePointsService;
+
     public ProgrammingExerciseTestCaseResource(ProgrammingExerciseTestCaseRepository programmingExerciseTestCaseRepository,
             ProgrammingExerciseTestCaseService programmingExerciseTestCaseService, ProgrammingExerciseCreationScheduleService programmingExerciseCreationScheduleService,
             ProgrammingExerciseRepository programmingExerciseRepository, AuthorizationCheckService authCheckService, UserRepository userRepository,
-            ExerciseVersionService exerciseVersionService) {
+            ExerciseVersionService exerciseVersionService, MilestoneExercisePointsService milestoneExercisePointsService) {
         this.programmingExerciseTestCaseRepository = programmingExerciseTestCaseRepository;
         this.programmingExerciseTestCaseService = programmingExerciseTestCaseService;
         this.programmingExerciseCreationScheduleService = programmingExerciseCreationScheduleService;
@@ -74,6 +77,7 @@ public class ProgrammingExerciseTestCaseResource {
         this.authCheckService = authCheckService;
         this.userRepository = userRepository;
         this.exerciseVersionService = exerciseVersionService;
+        this.milestoneExercisePointsService = milestoneExercisePointsService;
     }
 
     /**
@@ -116,6 +120,8 @@ public class ProgrammingExerciseTestCaseResource {
         if (updatedTests.stream().anyMatch(ProgrammingExerciseTestCase::isAfterDueDate)) {
             programmingExerciseCreationScheduleService.scheduleOperations(programmingExercise.getId());
         }
+        // A milestone test weighted 0 drops out of its Definition of Done, which gates its students' points.
+        milestoneExercisePointsService.recomputeScores(programmingExercise);
 
         exerciseVersionService.createExerciseVersion(programmingExercise);
         Set<ProgrammingExerciseTestCaseResponseDTO> updatedTestDTOs = updatedTests.stream().map(ProgrammingExerciseTestCaseResponseDTO::of).collect(Collectors.toSet());
@@ -140,6 +146,8 @@ public class ProgrammingExerciseTestCaseResource {
         programmingExerciseTestCaseService.logTestCaseReset(user, programmingExercise, programmingExercise.getCourseViaExerciseGroupOrCourseMember());
 
         List<ProgrammingExerciseTestCase> testCases = programmingExerciseTestCaseService.reset(programmingExercise);
+        // Resetting the weights to 1 puts every referenced test back into a milestone's Definition of Done.
+        milestoneExercisePointsService.recomputeScores(programmingExercise);
         exerciseVersionService.createExerciseVersion(programmingExercise, user);
         List<ProgrammingExerciseTestCaseResponseDTO> testCaseDTOs = testCases.stream().map(ProgrammingExerciseTestCaseResponseDTO::of).toList();
         return ResponseEntity.ok(testCaseDTOs);

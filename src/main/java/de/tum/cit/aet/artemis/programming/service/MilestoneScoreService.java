@@ -26,7 +26,6 @@ import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
-import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseTestCase;
 import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseStudentParticipationRepository;
@@ -42,7 +41,8 @@ import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseTaskRepo
  *
  * and {@code 0} outright if the shared codebase violates a {@link CategoryState#BLOCKING} category, or if the milestone's
  * Definition of Done is failing: any test referenced by a task of the milestone's own problem statement has not passed in
- * the milestone's latest build (see {@link #isDefinitionOfDoneFailing}). Both zero the milestone - the group's user story
+ * the milestone's latest build (see {@link #isDefinitionOfDoneFailing}). A referenced test weighted 0 is only shown to the
+ * student and never fails it. Both zero the milestone - the group's user story
  * points - only; the group's other members count on their own results elsewhere and are unaffected.
  * <p>
  * <b>Why the penalty is applied here and nowhere else.</b> Every user story of a group shares one repository and one CI
@@ -207,8 +207,9 @@ public class MilestoneScoreService {
      * and a result without any test feedback (a build failure) all fail it - the same rule the student's Definition of
      * Done box applies ({@code MilestoneDodStatusComponent}).
      * <p>
-     * Only active test cases count: an inactive one is no longer executed, so it could never pass and would zero the
-     * milestone for good. A milestone whose tasks reference no test at all has no Definition of Done to fail.
+     * Which tests count is {@link ProgrammingExerciseTaskRepository#findDefinitionOfDoneTestCaseIdsByExerciseId}: active
+     * ones, and not those weighted 0, which an instructor uses to show a test's result without gating the points on it.
+     * A milestone whose tasks reference no such test has no Definition of Done to fail.
      * <p>
      * Both are loaded through repositories for the same reason as the static code analysis feedback in
      * {@link #recalculate}: this runs outside any session, and {@code Result#testCaseFeedbacks} is lazy.
@@ -218,9 +219,7 @@ public class MilestoneScoreService {
      * @return true if at least one referenced test has not passed
      */
     private boolean isDefinitionOfDoneFailing(long milestoneExerciseId, Result milestoneResult) {
-        Set<Long> referencedTestCaseIds = programmingExerciseTaskRepository.findByExerciseIdWithTestCases(milestoneExerciseId).stream()
-                .flatMap(task -> task.getTestCases().stream()).filter(testCase -> Boolean.TRUE.equals(testCase.isActive())).map(ProgrammingExerciseTestCase::getId)
-                .collect(Collectors.toSet());
+        Set<Long> referencedTestCaseIds = programmingExerciseTaskRepository.findDefinitionOfDoneTestCaseIdsByExerciseId(milestoneExerciseId);
         if (referencedTestCaseIds.isEmpty()) {
             return false;
         }

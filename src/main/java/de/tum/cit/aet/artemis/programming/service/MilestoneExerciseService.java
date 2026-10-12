@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.slf4j.Logger;
@@ -40,6 +41,7 @@ import de.tum.cit.aet.artemis.programming.exception.ContinuousIntegrationExcepti
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseBuildConfigRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseStudentParticipationRepository;
+import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseTaskRepository;
 
 /**
  * Owns everything specific to a {@link MilestoneExerciseGroup}: creating one (which provisions its anchor
@@ -100,6 +102,8 @@ public class MilestoneExerciseService {
 
     private final ProgrammingExerciseBuildConfigRepository programmingExerciseBuildConfigRepository;
 
+    private final ProgrammingExerciseTaskRepository programmingExerciseTaskRepository;
+
     public MilestoneExerciseService(CourseRepository courseRepository, MilestoneExerciseGroupRepository milestoneExerciseGroupRepository,
             ExerciseVariantGroupService exerciseVariantGroupService, ProgrammingExerciseValidationService programmingExerciseValidationService,
             ProgrammingExerciseCreationUpdateService programmingExerciseCreationUpdateService, StaticCodeAnalysisService staticCodeAnalysisService,
@@ -107,7 +111,8 @@ public class MilestoneExerciseService {
             ChannelService channelService, ParticipationService participationService, ProgrammingExerciseGradingService programmingExerciseGradingService,
             ResultRepository resultRepository, ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository,
             MilestoneExercisePointsService milestoneExercisePointsService, CompetencyExerciseLinkService competencyExerciseLinkService,
-            ProgrammingExerciseRepository programmingExerciseRepository, ProgrammingExerciseBuildConfigRepository programmingExerciseBuildConfigRepository) {
+            ProgrammingExerciseRepository programmingExerciseRepository, ProgrammingExerciseBuildConfigRepository programmingExerciseBuildConfigRepository,
+            ProgrammingExerciseTaskRepository programmingExerciseTaskRepository) {
         this.courseRepository = courseRepository;
         this.milestoneExerciseGroupRepository = milestoneExerciseGroupRepository;
         this.exerciseVariantGroupService = exerciseVariantGroupService;
@@ -126,6 +131,7 @@ public class MilestoneExerciseService {
         this.competencyExerciseLinkService = competencyExerciseLinkService;
         this.programmingExerciseRepository = programmingExerciseRepository;
         this.programmingExerciseBuildConfigRepository = programmingExerciseBuildConfigRepository;
+        this.programmingExerciseTaskRepository = programmingExerciseTaskRepository;
     }
 
     /**
@@ -300,12 +306,14 @@ public class MilestoneExerciseService {
 
     /**
      * Reports the student's participation in the group's anchor milestone exercise, if any, along with the milestone's problem
-     * statement (which doubles as the group's description in the student group view).
+     * statement (which doubles as the group's description in the student group view) and the tests its Definition of Done
+     * consists of.
      *
      * @param groupId  the id of the milestone group to check
      * @param courseId the id of the course the group belongs to
      * @param user     the requesting student
-     * @return the student's participation id in the milestone (if started) and the milestone's problem statement
+     * @return the student's participation id in the milestone (if started), the milestone's problem statement and its
+     *         Definition of Done tests
      */
     public MilestoneStatusDTO getMilestoneStatus(Long groupId, Long courseId, User user) {
         // Deliberately the members-free lookup: this endpoint reads nothing but the anchor exercise, and it is the
@@ -319,7 +327,9 @@ public class MilestoneExerciseService {
         String problemStatement = milestoneExerciseGroupRepository.findMilestoneProblemStatementByGroupId(groupId).orElse(null);
         Long participationId = programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentId(milestoneExerciseId, user.getId())
                 .map(ProgrammingExerciseStudentParticipation::getId).orElse(null);
-        return new MilestoneStatusDTO(participationId, problemStatement);
+        // The very set MilestoneScoreService gates the points on, so the student's Definition of Done box cannot disagree with it.
+        Set<Long> definitionOfDoneTestCaseIds = programmingExerciseTaskRepository.findDefinitionOfDoneTestCaseIdsByExerciseId(milestoneExerciseId);
+        return new MilestoneStatusDTO(participationId, problemStatement, definitionOfDoneTestCaseIds);
     }
 
     /**

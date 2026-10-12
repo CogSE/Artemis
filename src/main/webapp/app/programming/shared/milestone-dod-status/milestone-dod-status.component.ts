@@ -14,7 +14,6 @@ import { getLatestSubmissionResult } from 'app/exercise/shared/entities/submissi
 import { convertDateFromServer } from 'app/foundation/util/date.utils';
 import { cloneWith } from 'app/foundation/util/deep-clone.util';
 import { ProgrammingExerciseParticipationService } from 'app/programming/manage/services/programming-exercise-participation.service';
-import { taskRegex } from 'app/programming/shared/instructions-render/extensions/programming-exercise-task.extension';
 import { ProgrammingExerciseInstructionService, TestCaseState } from 'app/programming/shared/instructions-render/services/programming-exercise-instruction.service';
 import { milestoneScaPenalty } from 'app/programming/shared/milestone-code-quality/milestone-code-quality.util';
 import { InformationBox, InformationBoxComponent } from 'app/shared-ui/information-box/information-box.component';
@@ -22,17 +21,16 @@ import { InformationBox, InformationBoxComponent } from 'app/shared-ui/informati
 /**
  * Where the milestone's Definition of Done stands, in the order the box escalates through them.
  * <p>
- * `hidden` when there is nothing to judge (no milestone, not started, or a problem statement naming no tests),
- * `noResult` before the first milestone build, `failing` while any test the milestone's tasks reference has not
- * passed, `deducting` when they all pass but static code analysis costs points, and `met` otherwise.
+ * `hidden` when there is nothing to judge (no milestone, not started, or no Definition of Done tests),
+ * `noResult` before the first milestone build, `failing` while any Definition of Done test has not passed, `deducting` when they all pass but static code analysis costs points, and `met` otherwise.
  */
 export type MilestoneDodStatus = 'hidden' | 'noResult' | 'failing' | 'deducting' | 'met';
 
 /**
  * The milestone's Definition of Done as an information box on a user story's page.
  * <p>
- * The DoD is what the milestone's own problem statement demands: the tests its `[task]` entries reference must pass,
- * and the group's code quality decides whether points are deducted. Both live on the milestone's result only - the
+ * The DoD is what the milestone's own problem statement demands: the tests its `[task]` entries reference must pass -
+ * except those weighted 0, which are only shown - and the group's code quality decides whether points are deducted. Both live on the milestone's result only - the
  * fan-out copies a story just its own tests, and never the static code analysis feedback - so a student working on a
  * story would otherwise not learn that the group as a whole is failing until they open the milestone overview page,
  * which is where the tooltip sends them for the details.
@@ -75,18 +73,10 @@ export class MilestoneDodStatusComponent {
     private resultSubscription?: Subscription;
 
     /**
-     * The ids of every test the milestone's `[task]` entries reference. The stored statement carries them as
-     * `<testid>` markers; a name that never resolved to a test case (a typo, or a test that does not exist yet) has no
-     * id and cannot be judged, so it is left out rather than counted as failing forever.
+     * The ids of the tests the Definition of Done consists of, as the server determines them for the milestone's points
+     * (see {@link MilestoneStatusDTO.definitionOfDoneTestCaseIds}), so the box cannot disagree with the score.
      */
-    protected readonly referencedTestIds = computed<number[]>(() => {
-        const problemStatement = this.milestoneStatus()?.problemStatement;
-        if (!problemStatement) {
-            return [];
-        }
-        const ids = [...problemStatement.matchAll(taskRegex)].flatMap((match) => (match[2] ? this.instructionService.convertTestListToIds(match[2], undefined) : []));
-        return [...new Set(ids.filter((id) => id >= 0))];
-    });
+    protected readonly definitionOfDoneTestIds = computed<number[]>(() => this.milestoneStatus()?.definitionOfDoneTestCaseIds ?? []);
 
     protected readonly result = computed<Result | undefined>(() => {
         const liveResult = this.liveResult();
@@ -98,7 +88,7 @@ export class MilestoneDodStatusComponent {
     });
 
     readonly status = computed<MilestoneDodStatus>(() => {
-        const testIds = this.referencedTestIds();
+        const testIds = this.definitionOfDoneTestIds();
         if (this.milestoneStatus()?.participationId === undefined || testIds.length === 0) {
             return 'hidden';
         }
@@ -106,7 +96,7 @@ export class MilestoneDodStatusComponent {
         if (!result) {
             return 'noResult';
         }
-        // Anything short of every referenced test passing - a failure, a test that never ran, or a result without any
+        // Anything short of every Definition of Done test passing - a failure, a test that never ran, or a result without any
         // test feedback at all (e.g. a build failure) - means the Definition of Done is not met.
         if (this.instructionService.testStatusForTask(testIds, result).testCaseState !== TestCaseState.SUCCESS) {
             return 'failing';

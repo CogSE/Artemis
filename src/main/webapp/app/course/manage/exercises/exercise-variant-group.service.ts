@@ -49,6 +49,11 @@ export interface MilestoneStatusDTO {
     participationId?: number;
     /** The milestone's problem statement, shown as the group's description. Unset when the instructor left it empty. */
     problemStatement?: string;
+    /**
+     * The tests the milestone's Definition of Done consists of: the active tests its tasks reference, except those weighted 0,
+     * which are only shown. Omitted when there are none.
+     */
+    definitionOfDoneTestCaseIds?: number[];
 }
 
 /** The date fields a group payload carries, as the client holds them. */
