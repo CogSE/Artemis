@@ -95,6 +95,7 @@ export interface UpdateProgrammingExerciseDTO {
     submissionPolicy?: SubmissionPolicy;
     projectType?: ProjectType;
     releaseTestsWithExampleSolution: boolean;
+    showTestProgressAsScore?: boolean;
 
     // Build config
     buildConfig?: UpdateProgrammingExerciseBuildConfigDTO;
@@ -211,6 +212,7 @@ export function toUpdateProgrammingExerciseDTO(exercise: ProgrammingExercise): U
         submissionPolicy: exercise.submissionPolicy,
         projectType: exercise.projectType,
         releaseTestsWithExampleSolution: exercise.releaseTestsWithExampleSolution ?? false,
+        showTestProgressAsScore: exercise.showTestProgressAsScore,
         buildConfig: buildConfigDTO,
         plagiarismDetectionConfig: exercise.plagiarismDetectionConfig,
     };

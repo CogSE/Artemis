@@ -21,6 +21,7 @@ import { Participation, ParticipationType } from 'app/exercise/shared/entities/p
 import { AssessmentType } from 'app/assessment/shared/entities/assessment-type.model';
 import { SubmissionService } from 'app/exercise/submission/submission.service';
 import {
+    getTestProgressScore,
     isAIResultAndFailed,
     isAIResultAndIsBeingProcessed,
     isAIResultAndProcessed,
@@ -97,7 +98,8 @@ export class ResultService implements IResultService {
      * @param short flag that indicates if the resultString should use the short format
      */
     private getResultStringDefinedParameters(result: Result, exercise: Exercise, participation: Participation | undefined, short: boolean | undefined): string {
-        const relativeScore = roundValueSpecifiedByCourseSettings(result.score, getCourseFromExercise(exercise));
+        const testProgressScore = getTestProgressScore(result, exercise);
+        const relativeScore = roundValueSpecifiedByCourseSettings(testProgressScore ?? result.score, getCourseFromExercise(exercise));
         const points = roundValueSpecifiedByCourseSettings((result.score! * exercise.maxPoints!) / 100, getCourseFromExercise(exercise));
         if (!isProgrammingExerciseType(exercise.type)) {
             if (isAthenaAIResult(result)) {
@@ -105,7 +107,8 @@ export class ResultService implements IResultService {
             }
             return this.getResultStringNonProgrammingExercise(relativeScore, points, short);
         } else {
-            return this.getResultStringProgrammingExercise(result, exercise, participation, relativeScore, points, short);
+            // Test progress has no points of its own, and those of the score would contradict the percentage next to them.
+            return this.getResultStringProgrammingExercise(result, exercise, participation, relativeScore, testProgressScore === undefined ? points : undefined, short);
         }
     }
 
@@ -153,7 +156,7 @@ export class ResultService implements IResultService {
      * @param exercise the exercise where the result belongs to
      * @param participation the participation of the exercise and result
      * @param relativeScore the achieved score in percent
-     * @param points the amount of achieved points
+     * @param points the amount of achieved points, or undefined when the percentage is test progress rather than a score
      * @param short flag that indicates if the resultString should use the short format
      */
     private getResultStringProgrammingExercise(
@@ -161,7 +164,7 @@ export class ResultService implements IResultService {
         exercise: ProgrammingExercise,
         participation: Participation | undefined,
         relativeScore: number,
-        points: number,
+        points: number | undefined,
         short: boolean | undefined,
     ): string {
         const latestSubmission = (result.submission ?? participation?.submissions?.[0]) as ProgrammingSubmission;
@@ -204,11 +207,17 @@ export class ResultService implements IResultService {
      * Generates the result string for a programming exercise
      * @param result the result containing all necessary information like the achieved points
      * @param relativeScore the achieved score in percent
-     * @param points the amount of achieved points
+     * @param points the amount of achieved points, or undefined when the percentage is test progress rather than a score
      * @param buildAndTestMessage the string containing information about the build. Either about the build failure or the passed tests
      * @param short flag that indicates if the resultString should use the short format
      */
-    private getBaseResultStringProgrammingExercise(result: Result, relativeScore: number, points: number, buildAndTestMessage: string, short: boolean | undefined): string {
+    private getBaseResultStringProgrammingExercise(
+        result: Result,
+        relativeScore: number,
+        points: number | undefined,
+        buildAndTestMessage: string,
+        short: boolean | undefined,
+    ): string {
         if (isAthenaAIResult(result)) {
             return buildAndTestMessage;
         }
@@ -223,6 +232,12 @@ export class ResultService implements IResultService {
                     relativeScore,
                 });
             }
+        } else if (points === undefined) {
+            // Test progress: the percentage and the passed tests it is made of, without points that do not belong to it.
+            return this.translateService.instant('artemisApp.result.resultString.programmingShort', {
+                relativeScore,
+                buildAndTestMessage,
+            });
         } else if (result.codeIssueCount && result.codeIssueCount > 0) {
             return this.translateService.instant('artemisApp.result.resultString.programmingCodeIssues', {
                 relativeScore,

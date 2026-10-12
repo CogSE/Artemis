@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -80,7 +82,7 @@ class CreateUserStoryExerciseDTOTest {
     void toUserStoryExerciseMapsTheSettingsAUserStoryOwns() {
         CreateUserStoryExerciseDTO dto = new CreateUserStoryExerciseDTO("Render the board", "board", "board-channel", "Draw it", Set.of("{\"category\":\"ui\"}"),
                 DifficultyLevel.MEDIUM, ExerciseMode.INDIVIDUAL, 5.0, 1.0, AssessmentType.AUTOMATIC, true, false, true, "Be fair",
-                Set.of(new GradingCriterionDTO(null, "Style", null)), null);
+                Set.of(new GradingCriterionDTO(null, "Style", null)), null, null);
 
         UserStoryExercise exercise = dto.toUserStoryExercise();
 
@@ -103,6 +105,19 @@ class CreateUserStoryExerciseDTOTest {
             assertThat(criterion.getTitle()).isEqualTo("Style");
             assertThat(criterion.getExercise()).isSameAs(exercise);
         });
+    }
+
+    /**
+     * Showing test progress instead of the score only makes sense while a tutor's assessment is outstanding, so only a
+     * manually assessed user story keeps the flag; any other assessment type drops it rather than storing a dead setting.
+     */
+    @ParameterizedTest
+    @EnumSource(AssessmentType.class)
+    void showTestProgressAsScoreIsOnlyKeptWithManualAssessment(AssessmentType assessmentType) {
+        CreateUserStoryExerciseDTO dto = new CreateUserStoryExerciseDTO("Render the board", "board", null, null, null, null, null, 5.0, null, assessmentType, null, null, null,
+                null, null, null, true);
+
+        assertThat(dto.toUserStoryExercise().isShowTestProgressAsScore()).isEqualTo(assessmentType == AssessmentType.SEMI_AUTOMATIC);
     }
 
     /**

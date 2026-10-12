@@ -64,6 +64,11 @@ export class ProgrammingExercise extends Exercise {
     public submissionPolicy?: SubmissionPolicy;
     public buildConfig?: ProgrammingExerciseBuildConfig;
     public releaseTestsWithExampleSolution?: boolean;
+    /**
+     * User stories only: show the share of passed tests instead of the score while the result is still automatic.
+     * Only settable with manual assessment, where 0-point tests would otherwise read 0% until a tutor has assessed it.
+     */
+    public showTestProgressAsScore?: boolean;
 
     public buildAndTestStudentSubmissionsAfterDueDate?: dayjs.Dayjs;
     public testCasesChanged?: boolean;

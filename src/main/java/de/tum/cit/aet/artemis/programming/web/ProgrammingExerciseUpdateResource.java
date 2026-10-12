@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import de.tum.cit.aet.artemis.account.repository.UserRepository;
+import de.tum.cit.aet.artemis.assessment.domain.AssessmentType;
 import de.tum.cit.aet.artemis.assessment.domain.GradingCriterion;
 import de.tum.cit.aet.artemis.core.exception.BadRequestAlertException;
 import de.tum.cit.aet.artemis.core.exception.ConflictException;
@@ -418,6 +419,12 @@ public class ProgrammingExerciseUpdateResource {
         }
         if (dto.secondCorrectionEnabled() != null) {
             exercise.setSecondCorrectionEnabled(dto.secondCorrectionEnabled());
+        }
+        if (exercise instanceof UserStoryExercise userStory) {
+            boolean showTestProgressAsScore = dto.showTestProgressAsScore() != null ? dto.showTestProgressAsScore() : userStory.isShowTestProgressAsScore();
+            // Only manual assessment leaves the score at 0% until a tutor has assessed the story, so only it may show test
+            // progress; switching to automatic assessment clears the flag rather than leaving it to resurface later.
+            userStory.setShowTestProgressAsScore(showTestProgressAsScore && userStory.getAssessmentType() == AssessmentType.SEMI_AUTOMATIC);
         }
 
         exercise.setGradingInstructions(dto.gradingInstructions());

@@ -313,6 +313,46 @@ describe('ResultService', () => {
             }
         });
 
+        describe('user story showing its test progress instead of its score', () => {
+            const userStory: ProgrammingExercise = {
+                ...programmingExercise,
+                type: ExerciseType.USER_STORY,
+                assessmentType: AssessmentType.SEMI_AUTOMATIC,
+                showTestProgressAsScore: true,
+            };
+            // 0-point tests under manual assessment: the score stays 0 however many tests pass.
+            const automaticResult: Result = { id: 20, score: 0, assessmentType: AssessmentType.AUTOMATIC, testCaseCount: 4, passedTestCaseCount: 3 };
+
+            it('shows the share of passed tests in the short format', () => {
+                expect(resultService.getResultString(automaticResult, userStory, undefined, true)).toBe('artemisApp.result.resultString.short');
+                expect(translateServiceSpy).toHaveBeenCalledWith('artemisApp.result.resultString.short', { relativeScore: 75 });
+            });
+
+            it('shows the share of passed tests without points in the long format', () => {
+                expect(resultService.getResultString(automaticResult, userStory, undefined)).toBe('artemisApp.result.resultString.programmingShort');
+                expect(translateServiceSpy).toHaveBeenCalledWith('artemisApp.result.resultString.programmingShort', {
+                    relativeScore: 75,
+                    buildAndTestMessage: 'artemisApp.result.resultString.buildSuccessfulTests',
+                });
+            });
+
+            it('shows the assessed score once the result is manual', () => {
+                const assessedResult: Result = { ...automaticResult, score: 40, assessmentType: AssessmentType.SEMI_AUTOMATIC };
+                expect(resultService.getResultString(assessedResult, userStory, undefined)).toBe('artemisApp.result.resultString.programming');
+                expect(translateServiceSpy).toHaveBeenCalledWith('artemisApp.result.resultString.programming', {
+                    relativeScore: 40,
+                    buildAndTestMessage: 'artemisApp.result.resultString.buildSuccessfulTests',
+                    points: 80,
+                });
+            });
+
+            it('shows the score when the user story has not opted in', () => {
+                const optedOut: ProgrammingExercise = { ...userStory, showTestProgressAsScore: false };
+                resultService.getResultString(automaticResult, optedOut, undefined, true);
+                expect(translateServiceSpy).toHaveBeenCalledWith('artemisApp.result.resultString.short', { relativeScore: 0 });
+            });
+        });
+
         it('should return correct string for programming exercise with code issues', () => {
             expect(resultService.getResultString(result4, programmingExercise, participation1)).toBe('artemisApp.result.resultString.programmingCodeIssues');
             expect(translateServiceSpy).toHaveBeenCalledTimes(2);

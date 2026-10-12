@@ -55,6 +55,20 @@
                     }
                 </div>
             }
+            @if (isShowTestProgressAsScoreToggleVisible()) {
+                <div class="form-check">
+                    <input
+                        type="checkbox"
+                        class="form-check-input"
+                        name="showTestProgressAsScore"
+                        [(ngModel)]="showTestProgressAsScore"
+                        id="showTestProgressAsScore"
+                        data-testid="show-test-progress-as-score"
+                    />
+                    <label class="form-control-label" for="showTestProgressAsScore" jhiTranslate="artemisApp.programmingExercise.timeline.showTestProgressAsScore"></label>
+                    <jhi-help-icon placement="right auto" text="artemisApp.programmingExercise.timeline.showTestProgressAsScoreTooltip" />
+                </div>
+            }
             @if (isExampleSolutionPublicationDateToggleVisible()) {
                 <div class="form-check">
                     <input

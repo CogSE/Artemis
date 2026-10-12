@@ -88,6 +88,7 @@ public interface ExerciseRepository extends ArtemisJpaRepository<Exercise, Long>
                 programmingExercise.allowOfflineIde,
                 programmingExercise.staticCodeAnalysisEnabled,
                 programmingExercise.buildAndTestStudentSubmissionsAfterDueDate,
+                userStory.showTestProgressAsScore,
                 variantGroup.id,
                 variantGroup.title,
                 CASE WHEN variantGroup.id IS NULL THEN NULL
@@ -102,6 +103,7 @@ public interface ExerciseRepository extends ArtemisJpaRepository<Exercise, Long>
                 variantGroup.exampleSolutionPublicationDate)
             FROM Exercise exercise
                 LEFT JOIN ProgrammingExercise programmingExercise ON exercise.id = programmingExercise.id
+                LEFT JOIN UserStoryExercise userStory ON exercise.id = userStory.id
                 LEFT JOIN exercise.exerciseVariantGroup variantGroup
                 LEFT JOIN exercise.course course
                 LEFT JOIN course.athenaConfig athenaConfig

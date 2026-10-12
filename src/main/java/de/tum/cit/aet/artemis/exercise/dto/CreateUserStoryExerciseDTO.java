@@ -47,7 +47,7 @@ public record CreateUserStoryExerciseDTO(@NotBlank @Size(max = 255) String title
         @Nullable String problemStatement, @Nullable Set<String> categories, @Nullable DifficultyLevel difficulty, @Nullable ExerciseMode mode, @NotNull Double maxPoints,
         @Nullable Double bonusPoints, @Nullable AssessmentType assessmentType, @Nullable Boolean allowComplaintsForAutomaticAssessments, @Nullable Boolean presentationScoreEnabled,
         @Nullable Boolean secondCorrectionEnabled, @Nullable String gradingInstructions, @Nullable Set<GradingCriterionDTO> gradingCriteria,
-        @Nullable Set<CompetencyLinkDTO> competencyLinks) implements CompetencyLinksHolderDTO {
+        @Nullable Set<CompetencyLinkDTO> competencyLinks, @Nullable Boolean showTestProgressAsScore) implements CompetencyLinksHolderDTO {
 
     /**
      * Builds the (still transient) user story exercise this payload describes. Only the fields a user story owns for
@@ -73,6 +73,8 @@ public record CreateUserStoryExerciseDTO(@NotBlank @Size(max = 255) String title
         exercise.setAllowComplaintsForAutomaticAssessments(Boolean.TRUE.equals(allowComplaintsForAutomaticAssessments));
         exercise.setPresentationScoreEnabled(Boolean.TRUE.equals(presentationScoreEnabled));
         exercise.setSecondCorrectionEnabled(Boolean.TRUE.equals(secondCorrectionEnabled));
+        // Only manual assessment leaves the score at 0% until a tutor has assessed the story, so only it may show test progress.
+        exercise.setShowTestProgressAsScore(Boolean.TRUE.equals(showTestProgressAsScore) && assessmentType == AssessmentType.SEMI_AUTOMATIC);
         exercise.setGradingInstructions(gradingInstructions);
         if (gradingCriteria != null) {
             // setGradingCriteria reconnects each criterion's back-reference, so they cascade with the exercise's own save.

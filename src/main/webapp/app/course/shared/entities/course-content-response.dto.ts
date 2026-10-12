@@ -272,6 +272,8 @@ export interface CourseDashboardExerciseResponseDTO {
     staticCodeAnalysisEnabled?: boolean;
     maxStaticCodeAnalysisPenalty?: number;
     showTestNamesToStudents?: boolean;
+    /** Only sent, as true, for a user story that shows its test progress instead of its score until assessed. */
+    showTestProgressAsScore?: boolean;
     programmingLanguage?: ProgrammingLanguage;
     buildAndTestStudentSubmissionsAfterDueDate?: string;
     quizEnded?: boolean;

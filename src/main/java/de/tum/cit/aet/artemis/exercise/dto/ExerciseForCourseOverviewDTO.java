@@ -30,10 +30,10 @@ public record ExerciseForCourseOverviewDTO(ExerciseType type, String typeDiscrim
         @Nullable ZonedDateTime releaseDate, @Nullable ZonedDateTime startDate, @Nullable ZonedDateTime dueDate, @Nullable ZonedDateTime assessmentDueDate,
         AssessmentType assessmentType, @Nullable DifficultyLevel difficulty, ExerciseMode mode, IncludedInOverallScore includedInOverallScore,
         @Nullable Boolean presentationScoreEnabled, boolean allowFeedbackRequests, @Nullable Boolean allowOnlineEditor, @Nullable Boolean allowOfflineIde,
-        @Nullable Boolean staticCodeAnalysisEnabled, @Nullable ZonedDateTime buildAndTestStudentSubmissionsAfterDueDate, @Nullable Long variantGroupId,
-        @Nullable String variantGroupTitle, @Nullable String variantGroupType, @Nullable Long variantGroupMilestoneExerciseId, @Nullable Double variantGroupMaxPoints,
-        @Nullable ZonedDateTime variantGroupReleaseDate, @Nullable ZonedDateTime variantGroupStartDate, @Nullable ZonedDateTime variantGroupDueDate,
-        @Nullable ZonedDateTime variantGroupAssessmentDueDate, @Nullable ZonedDateTime variantGroupExampleSolutionPublicationDate) {
+        @Nullable Boolean staticCodeAnalysisEnabled, @Nullable ZonedDateTime buildAndTestStudentSubmissionsAfterDueDate, @Nullable Boolean showTestProgressAsScore,
+        @Nullable Long variantGroupId, @Nullable String variantGroupTitle, @Nullable String variantGroupType, @Nullable Long variantGroupMilestoneExerciseId,
+        @Nullable Double variantGroupMaxPoints, @Nullable ZonedDateTime variantGroupReleaseDate, @Nullable ZonedDateTime variantGroupStartDate,
+        @Nullable ZonedDateTime variantGroupDueDate, @Nullable ZonedDateTime variantGroupAssessmentDueDate, @Nullable ZonedDateTime variantGroupExampleSolutionPublicationDate) {
 
     /**
      * JPQL constructor accepting the entity class produced by Hibernate's {@code TYPE(...)} function for the exercise
@@ -47,14 +47,14 @@ public record ExerciseForCourseOverviewDTO(ExerciseType type, String typeDiscrim
             @Nullable ZonedDateTime startDate, @Nullable ZonedDateTime dueDate, @Nullable ZonedDateTime assessmentDueDate, AssessmentType assessmentType,
             @Nullable DifficultyLevel difficulty, ExerciseMode mode, IncludedInOverallScore includedInOverallScore, @Nullable Boolean presentationScoreEnabled,
             boolean allowFeedbackRequests, @Nullable Boolean allowOnlineEditor, @Nullable Boolean allowOfflineIde, @Nullable Boolean staticCodeAnalysisEnabled,
-            @Nullable ZonedDateTime buildAndTestStudentSubmissionsAfterDueDate, @Nullable Long variantGroupId, @Nullable String variantGroupTitle,
-            @Nullable String variantGroupType, @Nullable Long variantGroupMilestoneExerciseId, @Nullable Double variantGroupMaxPoints,
+            @Nullable ZonedDateTime buildAndTestStudentSubmissionsAfterDueDate, @Nullable Boolean showTestProgressAsScore, @Nullable Long variantGroupId,
+            @Nullable String variantGroupTitle, @Nullable String variantGroupType, @Nullable Long variantGroupMilestoneExerciseId, @Nullable Double variantGroupMaxPoints,
             @Nullable ZonedDateTime variantGroupReleaseDate, @Nullable ZonedDateTime variantGroupStartDate, @Nullable ZonedDateTime variantGroupDueDate,
             @Nullable ZonedDateTime variantGroupAssessmentDueDate, @Nullable ZonedDateTime variantGroupExampleSolutionPublicationDate) {
         this(ExerciseType.getExerciseTypeFromClass(type), ExerciseType.getDiscriminatorFromClass(type), id, title, maxPoints, bonusPoints, releaseDate, startDate, dueDate,
                 assessmentDueDate, assessmentType, difficulty, mode, includedInOverallScore, presentationScoreEnabled, allowFeedbackRequests, allowOnlineEditor, allowOfflineIde,
-                staticCodeAnalysisEnabled, buildAndTestStudentSubmissionsAfterDueDate, variantGroupId, variantGroupTitle, variantGroupType, variantGroupMilestoneExerciseId,
-                variantGroupMaxPoints, variantGroupReleaseDate, variantGroupStartDate, variantGroupDueDate, variantGroupAssessmentDueDate,
+                staticCodeAnalysisEnabled, buildAndTestStudentSubmissionsAfterDueDate, showTestProgressAsScore, variantGroupId, variantGroupTitle, variantGroupType,
+                variantGroupMilestoneExerciseId, variantGroupMaxPoints, variantGroupReleaseDate, variantGroupStartDate, variantGroupDueDate, variantGroupAssessmentDueDate,
                 variantGroupExampleSolutionPublicationDate);
     }
 
@@ -82,6 +82,7 @@ public record ExerciseForCourseOverviewDTO(ExerciseType type, String typeDiscrim
         Set<QuizBatchOverviewDTO> quizBatches = quizBatchStarted ? Set.of(QuizBatchOverviewDTO.STARTED) : Set.of();
         return new ExerciseOverviewDTO(typeDiscriminator, id, title, maxPoints, bonusPoints, releaseDate, startDate, dueDate, assessmentDueDate, assessmentType, difficulty, mode,
                 teamMode, includedInOverallScore, categories, presentationScoreEnabled, allowFeedbackRequests, allowOnlineEditor, allowOfflineIde, staticCodeAnalysisEnabled,
+                Boolean.TRUE.equals(showTestProgressAsScore) ? Boolean.TRUE : null,
                 // the programming configuration stays off the overview wire (see CourseOverviewLoadProfileTest); only lecture exercise units carry it
                 null, null, null, null, null, quizEnded, quizBatches, studentAssignedTeamId, teamMode, variantGroup, studentParticipations);
     }

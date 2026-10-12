@@ -6,6 +6,7 @@ import {
     evaluateTemplateStatus,
     getManualUnreferencedFeedback,
     getResultIconClass,
+    getTestProgressScore,
     getTextColorClass,
     getUnreferencedFeedback,
     isBuildFailedAndResultIsAutomatic,
@@ -23,6 +24,7 @@ import { faCircleNotch } from '@fortawesome/free-solid-svg-icons';
 import { Exercise, ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { Result } from 'app/exercise/shared/entities/result/result.model';
 import dayjs from 'dayjs/esm';
+import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
 
 describe('ResultUtils', () => {
     const fixedNow = new Date('2026-07-29T12:00:00.000Z');
@@ -282,6 +284,34 @@ describe('ResultUtils', () => {
         },
     ])('should correctly determine text color class', ({ result, participation, templateStatus, expected }) => {
         expect(getTextColorClass(result, participation, templateStatus!)).toBe(expected);
+    });
+
+    describe('test progress of a user story', () => {
+        const userStory = { type: ExerciseType.USER_STORY, showTestProgressAsScore: true } as ProgrammingExercise;
+        const automaticResult: Result = { score: 0, assessmentType: AssessmentType.AUTOMATIC, testCaseCount: 4, passedTestCaseCount: 4 };
+
+        it('replaces the score of an automatic result with the share of passed tests', () => {
+            expect(getTestProgressScore(automaticResult, userStory)).toBe(100);
+            expect(getTestProgressScore({ ...automaticResult, passedTestCaseCount: undefined }, userStory)).toBe(0);
+        });
+
+        it.each([
+            { name: 'a manual result', result: { ...automaticResult, assessmentType: AssessmentType.SEMI_AUTOMATIC }, exercise: userStory },
+            { name: 'a result without tests', result: { ...automaticResult, testCaseCount: 0 }, exercise: userStory },
+            { name: 'a user story that has not opted in', result: automaticResult, exercise: { type: ExerciseType.USER_STORY } as ProgrammingExercise },
+            { name: 'a plain programming exercise', result: automaticResult, exercise: { type: ExerciseType.PROGRAMMING, showTestProgressAsScore: true } as ProgrammingExercise },
+        ])('keeps the score for $name', ({ result, exercise }) => {
+            expect(getTestProgressScore(result, exercise)).toBeUndefined();
+        });
+
+        it('colours the result by its test progress', () => {
+            const participation = {} as Participation;
+            expect(getTextColorClass(automaticResult, participation, ResultTemplateStatus.HAS_RESULT, userStory)).toBe('text-state-success');
+            expect(getResultIconClass(automaticResult, participation, ResultTemplateStatus.HAS_RESULT, userStory)).toBe(faCheckCircle);
+            const optedOut = { type: ExerciseType.USER_STORY } as ProgrammingExercise;
+            expect(getTextColorClass(automaticResult, participation, ResultTemplateStatus.HAS_RESULT, optedOut)).toBe('text-state-danger');
+            expect(getResultIconClass(automaticResult, participation, ResultTemplateStatus.HAS_RESULT, optedOut)).toBe(faTimesCircle);
+        });
     });
 
     describe('getResultIconClass', () => {

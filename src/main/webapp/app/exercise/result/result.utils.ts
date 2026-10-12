@@ -16,6 +16,7 @@ import dayjs from 'dayjs/esm';
 import { ResultWithPointsPerGradingCriterion } from 'app/exercise/shared/entities/result/result-with-points-per-grading-criterion.model';
 import { TestCaseResult } from 'app/programming/shared/entities/test-case-result.model';
 import { isPracticeMode } from 'app/exercise/shared/entities/participation/student-participation.model';
+import type { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
 
 /**
  * Enumeration object representing the possible options that
@@ -282,6 +283,29 @@ export const getSubmissionUnderReview = (result: Result | undefined, participati
 };
 
 /**
+ * The share of passed tests, in percent, for a user story that shows its test progress instead of its score (see
+ * {@link ProgrammingExercise#showTestProgressAsScore}), or undefined when the result is displayed by its score.
+ *
+ * Only an automatic result qualifies: such a story is manually assessed, its tests usually carry no points, and its
+ * score would read 0% until a tutor has assessed it. Once the manual assessment is shown, its score is what counts.
+ */
+export const getTestProgressScore = (result: Result, exercise: Exercise | undefined): number | undefined => {
+    if (exercise?.type !== ExerciseType.USER_STORY || !(exercise as ProgrammingExercise).showTestProgressAsScore) {
+        return undefined;
+    }
+    if (result.assessmentType !== AssessmentType.AUTOMATIC || !result.testCaseCount) {
+        return undefined;
+    }
+    return ((result.passedTestCaseCount ?? 0) * 100) / result.testCaseCount;
+};
+
+/**
+ * The percentage a result is displayed and coloured by: its score, or its test progress where that replaces it (see
+ * {@link getTestProgressScore}).
+ */
+const getDisplayedScore = (result: Result, exercise: Exercise | undefined): number | undefined => getTestProgressScore(result, exercise) ?? result.score;
+
+/**
  * Checks if only compilation was tested. This is the case, when a successful result is present with 0 of 0 passed tests
  * This could be because all test cases are only visible after the due date.
  */
@@ -334,7 +358,8 @@ export const getTextColorClass = (result: Result | undefined, participation: Par
         return 'text-muted-color';
     }
 
-    if (result?.score === undefined) {
+    const displayedScore = getDisplayedScore(result, exercise ?? participation?.exercise);
+    if (displayedScore === undefined) {
         return result?.successful ? 'text-state-success' : 'text-state-danger';
     }
 
@@ -342,11 +367,11 @@ export const getTextColorClass = (result: Result | undefined, participation: Par
         return 'text-state-success';
     }
 
-    if (result.score >= MIN_SCORE_GREEN) {
+    if (displayedScore >= MIN_SCORE_GREEN) {
         return 'text-state-success';
     }
 
-    if (result.score >= MIN_SCORE_ORANGE) {
+    if (displayedScore >= MIN_SCORE_ORANGE) {
         return 'result-orange';
     }
 
@@ -394,10 +419,11 @@ export const getResultIconClass = (result: Result | undefined, participation: Pa
         return faCheckCircle;
     }
 
-    if (result?.score == undefined) {
+    const displayedScore = getDisplayedScore(result, exercise ?? participation?.exercise);
+    if (displayedScore == undefined) {
         return result?.successful ? faCheckCircle : faTimesCircle;
     }
-    if (result.score >= MIN_SCORE_GREEN) {
+    if (displayedScore >= MIN_SCORE_GREEN) {
         return faCheckCircle;
     }
     return faTimesCircle;

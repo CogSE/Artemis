@@ -278,6 +278,7 @@ export interface CreateUserStoryExerciseDTO {
     gradingInstructions?: string;
     gradingCriteria?: GradingCriterionDTO[];
     competencyLinks?: CompetencyLinkDTO[];
+    showTestProgressAsScore?: boolean;
 }
 
 /**
@@ -323,6 +324,7 @@ export function toCreateUserStoryExercisePayload(exercise: ProgrammingExercise):
         allowComplaintsForAutomaticAssessments: exercise.allowComplaintsForAutomaticAssessments,
         presentationScoreEnabled: exercise.presentationScoreEnabled,
         secondCorrectionEnabled: exercise.secondCorrectionEnabled,
+        showTestProgressAsScore: exercise.showTestProgressAsScore,
         gradingInstructions: exercise.gradingInstructions,
         gradingCriteria: exercise.gradingCriteria?.map((criterion) => ({
             id: criterion.id,

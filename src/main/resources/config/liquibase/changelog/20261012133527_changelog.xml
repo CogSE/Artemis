@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+    A manually assessed user story whose tests carry no points shows 0% to the student until a tutor has assessed it. This
+    flag lets the instructor show the share of passed tests instead while the result is still automatic. Only user stories
+    use it, but exercise is a single table, so every row gets the column.
+
+    NOT NULL with a default rather than without one, so that the previous version, which does not know the column, can
+    still insert exercises after a rollback to it.
+    -->
+    <changeSet id="20261012133527-01-user-story-show-test-progress-as-score" author="markus">
+        <comment>Add whether a user story displays its test progress instead of its score until it is assessed.</comment>
+        <addColumn tableName="exercise">
+            <column name="show_test_progress_as_score" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

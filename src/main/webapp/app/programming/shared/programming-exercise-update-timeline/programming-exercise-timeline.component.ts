@@ -7,6 +7,7 @@ import { ProfileService } from 'app/core/layouts/profiles/shared/profile.service
 import { Dayjs } from 'dayjs/esm';
 import { AssessmentType } from 'app/assessment/shared/entities/assessment-type.model';
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
+import { ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { EMPTY, Subject } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
 import { catchError, map, switchMap } from 'rxjs/operators';
@@ -68,6 +69,7 @@ export class ProgrammingExerciseTimelineComponent implements OnInit {
     allowComplaintsForAutomaticAssessments = model<boolean>();
     releaseTestsWithExampleSolution = model<boolean>();
     showTestNamesToStudents = model<boolean>();
+    showTestProgressAsScore = model<boolean>();
 
     isDatePickerForReleaseDateVisible = computed(() => this.computeIsDatePickerForReleaseDateVisible());
     isDatePickerForStartDateVisible = computed(() => this.computeIsDatePickerForStartDateVisible());
@@ -77,6 +79,13 @@ export class ProgrammingExerciseTimelineComponent implements OnInit {
     isDatePickerForRunningTestsAfterDueDateVisible = signal(false);
     isSemiAutomaticAssessmentToggleVisible = computed(() => this.computeIsSemiAutomaticAssessmentToggleVisible());
     isSemiAutomaticAssessmentToggleEnabled = computed(() => this.isExamMode() || this.isImport() || !!this.dueDate());
+    /**
+     * Only a manually assessed user story may show its test progress instead of its score: without a tutor's assessment
+     * to wait for, the score already is what the tests earned.
+     */
+    isShowTestProgressAsScoreToggleVisible = computed(
+        () => this.exercise().type === ExerciseType.USER_STORY && this.isSemiAutomaticAssessmentToggleVisible() && this.assessmentType() === AssessmentType.SEMI_AUTOMATIC,
+    );
     isDatePickerForSemiAutomaticAssessmentDueDateVisible = computed<boolean>(() => this.computeIfDatePickableForSemiAutomaticAssessmentDueDateVisible());
     isExampleSolutionPublicationDateToggleVisible = computed(() => this.computeIsExampleSolutionPublicationDateToggleVisible());
     isDatePickerForExampleSolutionPublicationDateVisible = signal(false);
@@ -144,6 +153,8 @@ export class ProgrammingExerciseTimelineComponent implements OnInit {
                 if (!this.isMilestoneMode()) {
                     this.assessmentDueDate.set(undefined);
                 }
+                // Only meaningful with manual assessment; the server clears it as well, this keeps the form in line.
+                this.showTestProgressAsScore.set(false);
                 // Do NOT reset allowComplaintsForAutomaticAssessments here: AUTOMATIC is the only assessment type
                 // where this setting is meaningful, and this effect also runs on load, so resetting it would wipe
                 // the persisted value every time the exercise editor is opened (issue #13070).

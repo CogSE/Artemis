@@ -22,6 +22,7 @@ import { BuildPhasesTemplateService } from 'app/programming/shared/services/buil
 import { PROFILE_LOCALCI } from 'app/app.constants';
 import { ExerciseGroupDateNoticeComponent } from 'app/exercise/exercise-group-date-notice/exercise-group-date-notice.component';
 import { TimelineComponent } from 'app/shared-ui/timeline/timeline.component';
+import { ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 
 describe('ProgrammingExerciseUpdateTimelineComponent', () => {
     let fixture: ComponentFixture<ProgrammingExerciseTimelineComponent>;
@@ -570,6 +571,51 @@ describe('ProgrammingExerciseUpdateTimelineComponent', () => {
         // Switching to automatic assessment must preserve the user's complaint-on-automatic choice (issue #13070);
         // only fields that are meaningless in automatic mode (assessment due date) reset.
         expect(component.allowComplaintsForAutomaticAssessments()).toBe(true);
+    });
+
+    describe('show test progress as score toggle', () => {
+        const toggle = () => fixture.debugElement.query(By.css('[data-testid="show-test-progress-as-score"]'));
+
+        it('is offered for a manually assessed user story', () => {
+            exercise.type = ExerciseType.USER_STORY;
+            exercise.assessmentType = AssessmentType.SEMI_AUTOMATIC;
+            createTestComponent();
+
+            expect(component.isShowTestProgressAsScoreToggleVisible()).toBe(true);
+            expect(toggle()).not.toBeNull();
+        });
+
+        it('is not offered for an automatically assessed user story', () => {
+            exercise.type = ExerciseType.USER_STORY;
+            exercise.assessmentType = AssessmentType.AUTOMATIC;
+            createTestComponent();
+
+            expect(component.isShowTestProgressAsScoreToggleVisible()).toBe(false);
+            expect(toggle()).toBeNull();
+        });
+
+        it('is not offered for a plain programming exercise', () => {
+            exercise.type = ExerciseType.PROGRAMMING;
+            exercise.assessmentType = AssessmentType.SEMI_AUTOMATIC;
+            createTestComponent();
+
+            expect(component.isShowTestProgressAsScoreToggleVisible()).toBe(false);
+            expect(toggle()).toBeNull();
+        });
+
+        it('is cleared when manual assessment is switched off', () => {
+            exercise.type = ExerciseType.USER_STORY;
+            exercise.assessmentType = AssessmentType.SEMI_AUTOMATIC;
+            createTestComponent();
+            component.showTestProgressAsScore.set(true);
+            fixture.detectChanges();
+
+            component.assessmentType.set(AssessmentType.AUTOMATIC);
+            fixture.detectChanges();
+
+            expect(component.showTestProgressAsScore()).toBe(false);
+            expect(toggle()).toBeNull();
+        });
     });
 
     it('should emit timeline status changes', () => {

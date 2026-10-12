@@ -315,7 +315,7 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
 
     private CreateUserStoryExerciseDTO userStoryPayload(String shortNameSuffix) {
         return new CreateUserStoryExerciseDTO("User story", "us" + shortNameSuffix + TEST_PREFIX, null, "Implement the thing", null, null, null, 5.0, null, null, null, null, null,
-                null, null, null);
+                null, null, null, null);
     }
 
     // The happy path is not covered here: creating a user story runs the whole programming-exercise creation pipeline,
@@ -327,7 +327,7 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
     @WithMockUser(username = TEST_PREFIX + "editor1", roles = "EDITOR")
     void creatingAUserStoryExerciseRejectsABlankTitle() throws Exception {
         CreateUserStoryExerciseDTO blankTitle = new CreateUserStoryExerciseDTO(" ", "us3" + TEST_PREFIX, null, null, null, null, null, 5.0, null, null, null, null, null, null,
-                null, null);
+                null, null, null);
 
         request.postWithResponseBody(userStoryExercisesUrl(milestoneGroup.getId()), blankTitle, UserStoryExerciseDTO.class, HttpStatus.BAD_REQUEST);
     }
@@ -372,6 +372,54 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
             assertThat(exercise.exerciseVariantGroup().type()).isEqualTo("milestone");
             assertThat(exercise.exerciseVariantGroup().milestoneExerciseId()).isEqualTo(milestoneExercise.getId());
         });
+    }
+
+    /**
+     * The sidebar and the group page render a user story's result from the course overview, so that is where a user story
+     * that shows its test progress instead of its score has to say so. Every other exercise leaves the field off the wire.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void theCourseOverviewReportsWhetherAUserStoryShowsItsTestProgress() throws Exception {
+        UserStoryExercise showsTestProgress = userStoryMember("progress", true);
+        UserStoryExercise showsScore = userStoryMember("score", false);
+
+        var overview = request.get("/api/course/courses/" + course.getId() + "/exercises-for-overview", HttpStatus.OK, CourseExercisesForOverviewDTO.class);
+
+        assertThat(overview.exercises()).filteredOn(exercise -> exercise.id().equals(showsTestProgress.getId())).singleElement()
+                .satisfies(exercise -> assertThat(exercise.showTestProgressAsScore()).isTrue());
+        assertThat(overview.exercises()).filteredOn(exercise -> exercise.id().equals(showsScore.getId())).singleElement()
+                .satisfies(exercise -> assertThat(exercise.showTestProgressAsScore()).isNull());
+    }
+
+    /**
+     * The exercise form edits a user story through the programming exercise endpoint, so it has to load the flag it
+     * would otherwise send back unset.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "editor1", roles = "EDITOR")
+    void theExerciseEndpointReportsWhetherAUserStoryShowsItsTestProgress() throws Exception {
+        UserStoryExercise member = userStoryMember("endpoint", true);
+        programmingExerciseBuildConfigRepository.saveForExercise(ProgrammingExerciseFactory.generateDefaultBuildConfig(), member);
+
+        MvcResult result = request.performMvcRequest(MockMvcRequestBuilders.get("/api/programming/programming-exercises/" + member.getId())).andExpect(status().isOk()).andReturn();
+
+        assertThat(request.getObjectMapper().readTree(result.getResponse().getContentAsString()).get("showTestProgressAsScore").asBoolean()).isTrue();
+    }
+
+    private UserStoryExercise userStoryMember(String shortNameSuffix, boolean showTestProgressAsScore) {
+        UserStoryExercise member = new UserStoryExercise();
+        member.setTitle("User story " + shortNameSuffix);
+        member.setShortName("us" + shortNameSuffix + TEST_PREFIX);
+        member.setProgrammingLanguage(ProgrammingLanguage.JAVA);
+        member.setCourse(course);
+        member.setMaxPoints(10.0);
+        member.setReleaseDate(ZonedDateTime.now().minusDays(1).truncatedTo(ChronoUnit.MILLIS));
+        member.setAssessmentType(AssessmentType.SEMI_AUTOMATIC);
+        member.setShowTestProgressAsScore(showTestProgressAsScore);
+        member.setExerciseVariantGroup(milestoneGroup);
+        member.generateAndSetProjectKey();
+        return (UserStoryExercise) programmingExerciseRepository.save(member);
     }
 
     /**

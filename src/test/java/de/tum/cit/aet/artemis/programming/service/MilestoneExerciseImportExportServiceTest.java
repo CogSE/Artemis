@@ -276,7 +276,8 @@ class MilestoneExerciseImportExportServiceTest {
     }
 
     private static MilestoneUserStoryExportDTO storyDetails(String title, String shortName) {
-        return new MilestoneUserStoryExportDTO(title, shortName, "[task][" + title + "](test" + title + ")", null, null, null, 5.0, 0.0, null, null, null, null, null, List.of());
+        return new MilestoneUserStoryExportDTO(title, shortName, "[task][" + title + "](test" + title + ")", null, null, null, 5.0, 0.0, null, null, null, null, null, List.of(),
+                null);
     }
 
     /**

@@ -41,13 +41,14 @@ import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
  * @param secondCorrectionEnabled                whether a second correction round is enabled
  * @param gradingInstructions                    the unstructured grading instructions
  * @param gradingCriteria                        the structured grading criteria, without ids
+ * @param showTestProgressAsScore                whether students see the test progress instead of the score until assessed
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record MilestoneUserStoryExportDTO(String title, String shortName, @Nullable String problemStatement, @Nullable Set<String> categories, @Nullable DifficultyLevel difficulty,
         @Nullable ExerciseMode mode, Double maxPoints, @Nullable Double bonusPoints, @Nullable AssessmentType assessmentType,
         @Nullable Boolean allowComplaintsForAutomaticAssessments, @Nullable Boolean presentationScoreEnabled, @Nullable Boolean secondCorrectionEnabled,
-        @Nullable String gradingInstructions, @Nullable List<GradingCriterionDTO> gradingCriteria) {
+        @Nullable String gradingInstructions, @Nullable List<GradingCriterionDTO> gradingCriteria, @Nullable Boolean showTestProgressAsScore) {
 
     /**
      * Describes a user story for the export. The caller has already replaced the test ids in its problem statement
@@ -61,7 +62,7 @@ public record MilestoneUserStoryExportDTO(String title, String shortName, @Nulla
                 : exercise.getGradingCriteria().stream().map(GradingCriterionDTO::of).map(GradingCriterionDTO::withoutIds).toList();
         return new MilestoneUserStoryExportDTO(exercise.getTitle(), exercise.getShortName(), exercise.getProblemStatement(), exercise.getCategories(), exercise.getDifficulty(),
                 exercise.getMode(), exercise.getMaxPoints(), exercise.getBonusPoints(), exercise.getAssessmentType(), exercise.getAllowComplaintsForAutomaticAssessments(),
-                exercise.getPresentationScoreEnabled(), exercise.getSecondCorrectionEnabled(), exercise.getGradingInstructions(), criteria);
+                exercise.getPresentationScoreEnabled(), exercise.getSecondCorrectionEnabled(), exercise.getGradingInstructions(), criteria, exercise.isShowTestProgressAsScore());
     }
 
     /**
@@ -75,6 +76,6 @@ public record MilestoneUserStoryExportDTO(String title, String shortName, @Nulla
         // The channel name is left out: it is derived from the (possibly renamed) title, which keeps it unique as well.
         return new CreateUserStoryExerciseDTO(newTitle, newShortName, null, problemStatement, categories, difficulty, mode, maxPoints == null ? 0.0 : maxPoints, bonusPoints,
                 assessmentType, allowComplaintsForAutomaticAssessments, presentationScoreEnabled, secondCorrectionEnabled, gradingInstructions,
-                gradingCriteria == null ? null : new HashSet<>(gradingCriteria), null);
+                gradingCriteria == null ? null : new HashSet<>(gradingCriteria), null, showTestProgressAsScore);
     }
 }

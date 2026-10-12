@@ -674,6 +674,8 @@
                 "assessmentDueDateTooltip": "Die Frist für manuelle Reviews. Sobald das Datum erreicht ist, werden alle manuellen Ergebnisse an die Studierenden veröffentlicht!",
                 "enableManualAssessment": "Manuelle Bewertung aktivieren",
                 "enableManualAssessmentTooltip": "Diese Option ist nur verfügbar, wenn eine Einreichungsfrist konfiguriert wurde.",
+                "showTestProgressAsScore": "Testfortschritt statt Punktzahl anzeigen, bis bewertet wurde",
+                "showTestProgressAsScoreTooltip": "Studierende sehen den Anteil bestandener Tests als Prozentwert, bis die manuelle Bewertung veröffentlicht ist, statt 0 %, wenn die Tests keine Punkte geben. Die Bewertung selbst ändert sich nicht.",
                 "configureExampleSolutionPublication": "Konfiguriere Veröffentlichungsdatum für Lösungsvorschlag",
                 "notSet": "nicht gesetzt",
                 "feedbackRequestsEnabled": "Korrekturanfragen sind möglich",

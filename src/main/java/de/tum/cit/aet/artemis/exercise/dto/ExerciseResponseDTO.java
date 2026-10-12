@@ -31,6 +31,7 @@ import de.tum.cit.aet.artemis.modeling.domain.ModelingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.domain.ProjectType;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.dto.TemplateSolutionParticipationDTO;
 import de.tum.cit.aet.artemis.quiz.domain.QuizExercise;
 import de.tum.cit.aet.artemis.quiz.domain.QuizMode;
@@ -98,6 +99,7 @@ import de.tum.cit.aet.artemis.text.domain.TextExercise;
  * @param projectKey                                 the project key the scores page builds build plan links from, for programming exercises
  * @param testRepositoryUri                          the test repository uri, for programming exercises, cleared for students
  * @param testCasesChanged                           whether test cases changed since the last build, for programming exercises
+ * @param showTestProgressAsScore                    whether the result is displayed as the share of passed tests until it is assessed, for user stories
  * @param defaultTestCaseVisibility                  the visibility a test case falls back to, for programming exercises
  * @param templateParticipation                      the template participation, on the assessment dashboard of a programming exercise
  * @param solutionParticipation                      the solution participation, on the assessment dashboard of a programming exercise
@@ -128,7 +130,7 @@ public record ExerciseResponseDTO(long id, String type, ExerciseType exerciseTyp
         @Nullable Boolean staticCodeAnalysisEnabled, @Nullable Integer maxStaticCodeAnalysisPenalty, @Nullable Boolean showTestNamesToStudents,
         @Nullable ZonedDateTime buildAndTestStudentSubmissionsAfterDueDate, @Nullable Boolean releaseTestsWithExampleSolution, @Nullable ProgrammingLanguage programmingLanguage,
         @Nullable ProjectType projectType, @Nullable String packageName, @Nullable String projectKey, @Nullable String testRepositoryUri, @Nullable Boolean testCasesChanged,
-        @Nullable Visibility defaultTestCaseVisibility, @Nullable TemplateSolutionParticipationDTO templateParticipation,
+        @Nullable Boolean showTestProgressAsScore, @Nullable Visibility defaultTestCaseVisibility, @Nullable TemplateSolutionParticipationDTO templateParticipation,
         @Nullable TemplateSolutionParticipationDTO solutionParticipation, @Nullable Boolean randomizeQuestionOrder, @Nullable Integer allowedNumberOfAttempts,
         @Nullable Integer remainingNumberOfAttempts, @Nullable QuizMode quizMode, @Nullable Integer duration, @Nullable Boolean quizStarted, @Nullable Boolean quizEnded,
         @Nullable String exampleSolution, @Nullable String filePattern, @Nullable DiagramType diagramType, @Nullable String exampleSolutionModel,
@@ -155,6 +157,7 @@ public record ExerciseResponseDTO(long id, String type, ExerciseType exerciseTyp
         String projectKey = null;
         String testRepositoryUri = null;
         Boolean testCasesChanged = null;
+        Boolean showTestProgressAsScore = null;
         Visibility defaultTestCaseVisibility = null;
         TemplateSolutionParticipationDTO templateParticipation = null;
         TemplateSolutionParticipationDTO solutionParticipation = null;
@@ -188,6 +191,9 @@ public record ExerciseResponseDTO(long id, String type, ExerciseType exerciseTyp
                 // read off the already filtered exercise: filterSensitiveInformation cleared the uri for students
                 testRepositoryUri = programmingExercise.getTestRepositoryUri();
                 testCasesChanged = programmingExercise.getTestCasesChanged();
+                if (programmingExercise instanceof UserStoryExercise userStory) {
+                    showTestProgressAsScore = userStory.isShowTestProgressAsScore();
+                }
                 defaultTestCaseVisibility = programmingExercise.getDefaultTestCaseVisibility();
                 templateParticipation = TemplateSolutionParticipationDTO.ofTemplate(programmingExercise.getTemplateParticipation());
                 solutionParticipation = TemplateSolutionParticipationDTO.ofSolution(programmingExercise.getSolutionParticipation());
@@ -226,7 +232,7 @@ public record ExerciseResponseDTO(long id, String type, ExerciseType exerciseTyp
                 gradingCriteria(exercise), exampleSubmissions(exercise), tutorParticipations(exercise), exercise.getLatestExamEndDate(), exercise.getAssessmentPossibleFrom(),
                 allowOnlineEditor, allowOfflineIde, allowOnlineIde, staticCodeAnalysisEnabled, maxStaticCodeAnalysisPenalty, showTestNamesToStudents,
                 buildAndTestStudentSubmissionsAfterDueDate, releaseTestsWithExampleSolution, programmingLanguage, projectType, packageName, projectKey, testRepositoryUri,
-                testCasesChanged, defaultTestCaseVisibility, templateParticipation, solutionParticipation, randomizeQuestionOrder, allowedNumberOfAttempts,
+                testCasesChanged, showTestProgressAsScore, defaultTestCaseVisibility, templateParticipation, solutionParticipation, randomizeQuestionOrder, allowedNumberOfAttempts,
                 remainingNumberOfAttempts, quizMode, duration, quizStarted, quizEnded, exampleSolution, filePattern, diagramType, exampleSolutionModel, exampleSolutionExplanation);
     }
 

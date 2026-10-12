@@ -674,6 +674,8 @@
                 "assessmentDueDateTooltip": "The due date for manual reviews. As soon as the specified date passes, all manual assessments will be released to students!",
                 "enableManualAssessment": "Enable manual assessment",
                 "enableManualAssessmentTooltip": "This option is only available if a due date has been configured.",
+                "showTestProgressAsScore": "Show test progress instead of score until assessed",
+                "showTestProgressAsScoreTooltip": "Students see the share of passed tests as their percentage until the manual assessment is published, instead of a score of 0% when the tests carry no points. Grading is not affected.",
                 "configureExampleSolutionPublication": "Configure example solution publication date",
                 "notSet": "not set",
                 "feedbackRequestsEnabled": "Feedback requests are enabled.",

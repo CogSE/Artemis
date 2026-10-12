@@ -1,5 +1,6 @@
 package de.tum.cit.aet.artemis.programming.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 
@@ -30,8 +31,25 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class UserStoryExercise extends ProgrammingExercise {
 
+    /**
+     * Whether students see the share of passed tests instead of the score while their result is still automatic. Only
+     * meaningful with manual assessment, where the tests often carry no points and the score would read 0% until a
+     * tutor has assessed the story, so creation and update clear it for any other assessment type. Display only: grading
+     * and the milestone's points are unaffected.
+     */
+    @Column(name = "show_test_progress_as_score", nullable = false)
+    private boolean showTestProgressAsScore = false;
+
     @Override
     public String getType() {
         return "user-story";
+    }
+
+    public boolean isShowTestProgressAsScore() {
+        return showTestProgressAsScore;
+    }
+
+    public void setShowTestProgressAsScore(boolean showTestProgressAsScore) {
+        this.showTestProgressAsScore = showTestProgressAsScore;
     }
 }

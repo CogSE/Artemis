@@ -30,6 +30,7 @@ import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseBuildConfig;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.domain.ProjectType;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 
 /**
  * The single response record for a programming exercise.
@@ -104,6 +105,8 @@ import de.tum.cit.aet.artemis.programming.domain.ProjectType;
  * @param studentAssignedTeamIdComputed              whether the transient team assignment was computed for the
  *                                                       requesting user
  * @param defaultTestCaseVisibility                  the visibility new test cases get; derived from course vs. exam
+ * @param showTestProgressAsScore                    whether a user story shows its test progress instead of its score
+ *                                                       until it is assessed; {@code null} for every other exercise
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record ProgrammingExerciseResponseDTO(Long id, String type, String title, String shortName, String channelName, String problemStatement, Set<String> categories,
@@ -118,7 +121,8 @@ public record ProgrammingExerciseResponseDTO(Long id, String type, String title,
         SubmissionPolicyDTO submissionPolicy, ProgrammingExerciseCourseDTO course, ProgrammingExerciseExamGroupDTO exerciseGroup,
         TemplateSolutionParticipationDTO templateParticipation, TemplateSolutionParticipationDTO solutionParticipation, ExerciseVariantGroupReferenceDTO exerciseVariantGroup,
         List<ProgrammingExerciseStudentParticipationDTO> studentParticipations, List<AuxiliaryRepositoryDTO> auxiliaryRepositories, ExerciseType exerciseType,
-        boolean visibleToStudents, boolean studentAssignedTeamIdComputed, Visibility defaultTestCaseVisibility) implements Serializable, CourseManagementExerciseDTO {
+        boolean visibleToStudents, boolean studentAssignedTeamIdComputed, Visibility defaultTestCaseVisibility, @Nullable Boolean showTestProgressAsScore)
+        implements Serializable, CourseManagementExerciseDTO {
 
     /**
      * The constant Jackson subtype id of {@link ProgrammingExercise}.
@@ -272,7 +276,7 @@ public record ProgrammingExerciseResponseDTO(Long id, String type, String title,
                 exercise.isAllowOnlineEditor(), exercise.isAllowOfflineIde(), exercise.isAllowOnlineIde(), gradingInstructionFeedbackUsed, buildConfig, submissionPolicy, course,
                 exerciseGroup, templateParticipation, solutionParticipation, ExerciseVariantGroupReferenceDTO.ofNullable(exercise.getExerciseVariantGroup()), studentParticipations,
                 auxiliaryRepositories, exercise.getExerciseType(), exercise.isVisibleToStudents(), exercise.isStudentAssignedTeamIdComputed(),
-                exercise.getDefaultTestCaseVisibility());
+                exercise.getDefaultTestCaseVisibility(), exercise instanceof UserStoryExercise userStory ? userStory.isShowTestProgressAsScore() : null);
     }
 
     /**

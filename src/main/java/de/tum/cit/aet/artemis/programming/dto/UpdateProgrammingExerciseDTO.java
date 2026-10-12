@@ -25,6 +25,7 @@ import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseBuildConfig;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.domain.ProjectType;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 
 /**
  * DTO for updating ProgrammingExercise.
@@ -60,7 +61,10 @@ public record UpdateProgrammingExerciseDTO(
         UpdateProgrammingExerciseBuildConfigDTO buildConfig,
 
         // Plagiarism detection config
-        PlagiarismDetectionConfigDTO plagiarismDetectionConfig) implements CompetencyLinksHolderDTO {
+        PlagiarismDetectionConfigDTO plagiarismDetectionConfig,
+
+        // User story only: show the test progress instead of the score until assessed
+        @Nullable Boolean showTestProgressAsScore) implements CompetencyLinksHolderDTO {
 
     /**
      * Creates a DTO from a ProgrammingExercise entity.
@@ -117,6 +121,7 @@ public record UpdateProgrammingExerciseDTO(
                 exercise.isStaticCodeAnalysisEnabled(), exercise.getMaxStaticCodeAnalysisPenalty(), exercise.getProgrammingLanguage(), exercise.getPackageName(),
                 exercise.getShowTestNamesToStudents(), exercise.getBuildAndTestStudentSubmissionsAfterDueDate(), exercise.getTestCasesChanged(), exercise.getProjectKey(),
                 submissionPolicyDTO, exercise.getProjectType(), exercise.isReleaseTestsWithExampleSolution(), exercise.getAssessmentType(),
-                UpdateProgrammingExerciseBuildConfigDTO.of(buildConfig), plagiarismDetectionConfigDTO);
+                UpdateProgrammingExerciseBuildConfigDTO.of(buildConfig), plagiarismDetectionConfigDTO,
+                exercise instanceof UserStoryExercise userStory ? userStory.isShowTestProgressAsScore() : null);
     }
 }
