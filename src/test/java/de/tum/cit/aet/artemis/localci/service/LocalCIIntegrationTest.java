@@ -84,17 +84,23 @@ import de.tum.cit.aet.artemis.buildagent.dto.ResultBuildJob;
 import de.tum.cit.aet.artemis.core.service.distributed.api.map.DistributedMap;
 import de.tum.cit.aet.artemis.core.service.distributed.api.queue.DistributedQueue;
 import de.tum.cit.aet.artemis.exercise.domain.ExerciseMode;
+import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
+import de.tum.cit.aet.artemis.exercise.domain.SubmissionType;
 import de.tum.cit.aet.artemis.exercise.domain.Team;
 import de.tum.cit.aet.artemis.exercise.dto.SubmissionDTO;
+import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
 import de.tum.cit.aet.artemis.localci.domain.BuildJob;
 import de.tum.cit.aet.artemis.localvc.util.LocalVCTestRepository;
 import de.tum.cit.aet.artemis.notification.dto.MailRecipientDTO;
 import de.tum.cit.aet.artemis.programming.AbstractProgrammingIntegrationLocalCILocalVCTestBase;
+import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseBuildConfig;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseBuildStatistics;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
+import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingSubmission;
 import de.tum.cit.aet.artemis.programming.domain.RepositoryType;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.domain.build.BuildStatus;
 import de.tum.cit.aet.artemis.programming.dto.BuildPlanPhasesDTO;
 import de.tum.cit.aet.artemis.programming.exception.VersionControlException;
@@ -138,6 +144,9 @@ class LocalCIIntegrationTest extends AbstractProgrammingIntegrationLocalCILocalV
     @SuppressWarnings("unused")
     @Autowired
     private LocalCIEventListenerService localCIEventListenerService;
+
+    @Autowired
+    private MilestoneExerciseGroupRepository milestoneExerciseGroupRepository;
 
     @Value("${artemis.continuous-integration.build-agent.short-name}")
     private String buildAgentShortName;
@@ -890,6 +899,69 @@ class LocalCIIntegrationTest extends AbstractProgrammingIntegrationLocalCILocalV
         assertThat(submissionDto.isProcessing()).isTrue();
         assertThat(submissionDto.buildStartDate()).isNotNull();
         assertThat(submissionDto.estimatedCompletionDate()).isNotNull();
+    }
+
+    /**
+     * A user story has no build job of its own: the push builds on the milestone participation sharing its repository.
+     * Its pending submission must still read as processing, or the client takes the build for lost and shows "No
+     * corresponding result available" until the fan-out delivers the story's result.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void testGetSubmissionOfUserStoryReturnsProcessingWhileTheMilestoneBuilds() throws Exception {
+        MilestoneExercise milestoneExercise = new MilestoneExercise();
+        milestoneExercise.setTitle("Milestone");
+        milestoneExercise.setShortName("milestone" + TEST_PREFIX);
+        milestoneExercise.setProgrammingLanguage(ProgrammingLanguage.JAVA);
+        milestoneExercise.setCourse(course);
+        milestoneExercise.setMaxPoints(0.0);
+        milestoneExercise.generateAndSetProjectKey();
+        milestoneExercise = (MilestoneExercise) programmingExerciseRepository.save(milestoneExercise);
+
+        MilestoneExerciseGroup group = new MilestoneExerciseGroup();
+        group.setTitle("Milestone group " + TEST_PREFIX);
+        group.setMilestoneExercise(milestoneExercise);
+        group.setCourse(course);
+        group = milestoneExerciseGroupRepository.save(group);
+
+        UserStoryExercise userStory = new UserStoryExercise();
+        userStory.setTitle("User story");
+        userStory.setShortName("userstory" + TEST_PREFIX);
+        userStory.setProgrammingLanguage(ProgrammingLanguage.JAVA);
+        userStory.setCourse(course);
+        userStory.setMaxPoints(1.0);
+        userStory.setExerciseVariantGroup(group);
+        userStory.generateAndSetProjectKey();
+        userStory = (UserStoryExercise) programmingExerciseRepository.save(userStory);
+
+        ProgrammingExerciseStudentParticipation milestoneParticipation = participationUtilService.addStudentParticipationForProgrammingExercise(milestoneExercise,
+                TEST_PREFIX + "student1");
+        ProgrammingExerciseStudentParticipation userStoryParticipation = participationUtilService.addStudentParticipationForProgrammingExercise(userStory,
+                TEST_PREFIX + "student1");
+        userStoryParticipation.setRepositoryUri(milestoneParticipation.getRepositoryUri());
+        programmingExerciseStudentParticipationRepository.save(userStoryParticipation);
+
+        ProgrammingSubmission submission = new ProgrammingSubmission();
+        submission.setParticipation(userStoryParticipation);
+        submission.setCommitHash(commitHash);
+        submission.setType(SubmissionType.MANUAL);
+        submission.setSubmissionDate(ZonedDateTime.now().minusSeconds(61L));
+        submission.setSubmitted(true);
+        programmingSubmissionRepository.save(submission);
+
+        JobTimingInfo jobTimingInfo = new JobTimingInfo(ZonedDateTime.now().minusSeconds(30), ZonedDateTime.now(), null, ZonedDateTime.now().plusSeconds(30), 60);
+        BuildConfig buildConfig = new BuildConfig(null, null, commitHash, commitHash, null, null, null, null, false, false, null, 0, null, null, null, null);
+        BuildJobQueueItem buildJobQueueItem = new BuildJobQueueItem("1", "1", null, milestoneParticipation.getId(), 1L, milestoneExercise.getId(), 0, 1, null, null, jobTimingInfo,
+                buildConfig, null);
+
+        processingJobs.put(buildJobQueueItem.id(), buildJobQueueItem);
+        var submissionDto = request.get("/api/programming/programming-exercise-participations/" + userStoryParticipation.getId() + "/latest-pending-submission", HttpStatus.OK,
+                SubmissionDTO.class);
+        processingJobs.remove(buildJobQueueItem.id());
+
+        assertThat(submissionDto).isNotNull();
+        assertThat(submissionDto.isProcessing()).isTrue();
+        assertThat(submissionDto.estimatedCompletionDate()).isCloseTo(jobTimingInfo.estimatedCompletionDate(), within(1, ChronoUnit.SECONDS));
     }
 
     @Test
