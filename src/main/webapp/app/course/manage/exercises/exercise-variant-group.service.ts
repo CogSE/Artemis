@@ -27,6 +27,8 @@ export interface ExerciseVariantGroupDTO {
     dueDate?: dayjs.Dayjs;
     assessmentDueDate?: dayjs.Dayjs;
     exampleSolutionPublicationDate?: dayjs.Dayjs;
+    descriptionHeading?: string;
+    descriptionBody?: string;
     /**
      * Only set when {@link type} is `'milestone'` — the anchor MilestoneExercise's own language/project type, which
      * every member of the group inherits. The user story create form hides both fields, so these are what lets it seed
@@ -72,6 +74,8 @@ export interface CreateExerciseVariantGroupDTO {
     dueDate?: dayjs.Dayjs;
     assessmentDueDate?: dayjs.Dayjs;
     exampleSolutionPublicationDate?: dayjs.Dayjs;
+    descriptionHeading?: string;
+    descriptionBody?: string;
 }
 
 /**
@@ -363,6 +367,8 @@ export function toCreateGroupPayload(group: PersistableGroup): CreateExerciseVar
         dueDate: group.dueDate,
         assessmentDueDate: group.assessmentDueDate,
         exampleSolutionPublicationDate: group.exampleSolutionPublicationDate,
+        descriptionHeading: group.descriptionHeading,
+        descriptionBody: group.descriptionBody,
     };
 }
 
@@ -391,6 +397,8 @@ export function toCourseExerciseGroup(dto: ExerciseVariantGroupDTO, exercisesByI
         dueDate: dto.dueDate,
         assessmentDueDate: dto.assessmentDueDate,
         exampleSolutionPublicationDate: dto.exampleSolutionPublicationDate,
+        descriptionHeading: dto.descriptionHeading,
+        descriptionBody: dto.descriptionBody,
         programmingLanguage: dto.programmingLanguage,
         projectType: dto.projectType,
         exercises: (dto.exerciseIds ?? []).map((id) => exercisesById.get(id)).filter((exercise): exercise is Exercise => exercise !== undefined),

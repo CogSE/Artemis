@@ -100,7 +100,9 @@ public interface ExerciseRepository extends ArtemisJpaRepository<Exercise, Long>
                 variantGroup.startDate,
                 variantGroup.dueDate,
                 variantGroup.assessmentDueDate,
-                variantGroup.exampleSolutionPublicationDate)
+                variantGroup.exampleSolutionPublicationDate,
+                variantGroup.descriptionHeading,
+                variantGroup.descriptionBody)
             FROM Exercise exercise
                 LEFT JOIN ProgrammingExercise programmingExercise ON exercise.id = programmingExercise.id
                 LEFT JOIN UserStoryExercise userStory ON exercise.id = userStory.id

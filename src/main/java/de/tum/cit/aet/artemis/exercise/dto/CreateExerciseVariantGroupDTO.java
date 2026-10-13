@@ -22,8 +22,11 @@ import de.tum.cit.aet.artemis.exercise.domain.ExerciseVariantGroup;
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record CreateExerciseVariantGroupDTO(@NotBlank @Size(max = 255) String title, @Nullable @PositiveOrZero Double maxPoints, @Nullable ZonedDateTime releaseDate,
-        @Nullable ZonedDateTime startDate, @Nullable ZonedDateTime dueDate, @Nullable ZonedDateTime assessmentDueDate, @Nullable ZonedDateTime exampleSolutionPublicationDate)
-        implements Serializable {
+        @Nullable ZonedDateTime startDate, @Nullable ZonedDateTime dueDate, @Nullable ZonedDateTime assessmentDueDate, @Nullable ZonedDateTime exampleSolutionPublicationDate,
+        @Nullable @Size(max = 255) String descriptionHeading, @Nullable @Size(max = MAX_DESCRIPTION_BODY_LENGTH) String descriptionBody) implements Serializable {
+
+    /** Upper bound for the description body, so the callout above the variants stays a short introduction. */
+    public static final int MAX_DESCRIPTION_BODY_LENGTH = 5000;
 
     /**
      * Converts this DTO into a new, unsaved {@link ExerciseVariantGroup} entity.
@@ -39,6 +42,8 @@ public record CreateExerciseVariantGroupDTO(@NotBlank @Size(max = 255) String ti
         group.setDueDate(dueDate);
         group.setAssessmentDueDate(assessmentDueDate);
         group.setExampleSolutionPublicationDate(exampleSolutionPublicationDate);
+        group.setDescriptionHeading(descriptionHeading);
+        group.setDescriptionBody(descriptionBody);
         return group;
     }
 }

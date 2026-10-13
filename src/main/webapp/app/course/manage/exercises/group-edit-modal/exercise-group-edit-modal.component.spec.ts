@@ -164,6 +164,36 @@ describe('ExerciseGroupEditModalComponent', () => {
         expect(component.visible()).toBe(false);
     });
 
+    it('saves the description, trimmed, and treats a blank field as unset', () => {
+        fixture.componentRef.setInput('group', buildGroup({ descriptionHeading: 'Old heading' }));
+        fixture.componentRef.setInput('visible', true);
+        fixture.detectChanges();
+        expect(component.draftDescriptionHeading()).toBe('Old heading');
+        const saved: CourseExerciseGroup[] = [];
+        component.saved.subscribe((group) => saved.push(group));
+
+        component.draftDescriptionHeading.set('   ');
+        component.draftDescriptionBody.set('  Any variant counts.  ');
+        component.onSave();
+
+        expect(saved).toHaveLength(1);
+        expect(saved[0].descriptionHeading).toBeUndefined();
+        expect(saved[0].descriptionBody).toBe('Any variant counts.');
+    });
+
+    it('offers the description fields for a variant group but not for a milestone group', () => {
+        fixture.componentRef.setInput('group', buildGroup());
+        fixture.componentRef.setInput('visible', true);
+        fixture.detectChanges();
+        expect(document.querySelector('[data-testid="group-edit-description-heading"]')).not.toBeNull();
+        expect(document.querySelector('[data-testid="group-edit-description-body"]')).not.toBeNull();
+
+        fixture.componentRef.setInput('group', buildGroup({ type: 'milestone' }));
+        fixture.detectChanges();
+        expect(document.querySelector('[data-testid="group-edit-description-heading"]')).toBeNull();
+        expect(document.querySelector('[data-testid="group-edit-description-body"]')).toBeNull();
+    });
+
     it('closes without emitting saved on cancel', () => {
         fixture.componentRef.setInput('group', buildGroup());
         fixture.componentRef.setInput('visible', true);
