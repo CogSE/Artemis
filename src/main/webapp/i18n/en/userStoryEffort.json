@@ -4,6 +4,8 @@
             "title": "Effort",
             "estimatedEffortShort": "Estimated effort",
             "actualEffortShort": "Actual effort",
+            "estimatedEffortTooltip": "The sum of the estimated effort of your tasks. To change it, edit the estimated effort of your tasks in the Tasks section.",
+            "actualEffortTooltip": "The sum of the effort you logged on your tasks. To change it, log or edit the effort of your tasks in the Tasks section.",
             "notReported": "–"
         }
     }

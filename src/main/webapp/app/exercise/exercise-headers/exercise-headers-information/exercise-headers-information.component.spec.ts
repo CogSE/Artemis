@@ -490,6 +490,16 @@ describe('ExerciseHeadersInformationComponent', () => {
             expect(effortItems[1].borderColor).toBe('state-warning');
         });
 
+        it('should explain on both boxes that the effort is changed through the tasks', () => {
+            const effortService = TestBed.inject(UserStoryEffortService);
+            vi.spyOn(effortService, 'getEffort').mockReturnValue(of({ estimatedEffort: 2, actualEffort: 1 }));
+
+            renderUserStory(true);
+
+            const effortItems = component.informationBoxItems().filter((item) => item.content.type === 'userStoryEffort');
+            expect(effortItems.map((item) => item.tooltip)).toEqual(['artemisApp.userStoryEffort.estimatedEffortTooltip', 'artemisApp.userStoryEffort.actualEffortTooltip']);
+        });
+
         it('should give neither box a border once both are reported', () => {
             const effortService = TestBed.inject(UserStoryEffortService);
             vi.spyOn(effortService, 'getEffort').mockReturnValue(of({ estimatedEffort: 2, actualEffort: 1 }));

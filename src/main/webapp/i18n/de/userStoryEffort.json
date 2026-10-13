@@ -4,6 +4,8 @@
             "title": "Aufwand",
             "estimatedEffortShort": "Geschätzter Aufwand",
             "actualEffortShort": "Tatsächlicher Aufwand",
+            "estimatedEffortTooltip": "Die Summe des geschätzten Aufwands deiner Tasks. Um ihn zu ändern, bearbeite den geschätzten Aufwand deiner Tasks im Bereich „Tasks“.",
+            "actualEffortTooltip": "Die Summe des Aufwands, den du für deine Tasks erfasst hast. Um ihn zu ändern, erfasse oder bearbeite den Aufwand deiner Tasks im Bereich „Tasks“.",
             "notReported": "–"
         }
     }
