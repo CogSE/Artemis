@@ -2,6 +2,7 @@ package de.tum.cit.aet.artemis.programming.repository;
 
 import static de.tum.cit.aet.artemis.core.config.Constants.PROFILE_CORE;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.context.annotation.Lazy;
@@ -31,6 +32,15 @@ public interface UserStoryTaskRepository extends ArtemisJpaRepository<UserStoryT
      * @return the tasks created on that participation's board
      */
     List<UserStoryTask> findAllByParticipationIdOrderByOrderIndexAsc(long participationId);
+
+    /**
+     * Every task on several participations' boards at once, each board in the participant's own manual order. Used by
+     * the milestone assessment to show a tutor one student's boards for all stories of a group in a single query.
+     *
+     * @param participationIds the ids of the participations
+     * @return the tasks created on those participations' boards
+     */
+    List<UserStoryTask> findAllByParticipationIdInOrderByOrderIndexAsc(Collection<Long> participationIds);
 
     /**
      * How many tasks are already on a participation's board - used to append a newly created one at the end.

@@ -77,6 +77,17 @@
                 "codeQuality": "Code quality",
                 "codeQualityDisabled": "Static code analysis is switched off for this milestone."
             },
+            "tasks": {
+                "title": "Student tasks ({{ count }})",
+                "totals": "Estimated {{ estimated }} · logged {{ actual }}",
+                "empty": "The student created no tasks for this story.",
+                "task": "Task",
+                "state": "State",
+                "priority": "Priority",
+                "points": "Points",
+                "estimatedEffort": "Estimated",
+                "actualEffort": "Logged"
+            },
             "dashboard": {
                 "title": "Milestone assessment dashboard",
                 "student": "Student",

@@ -4,6 +4,7 @@ import static de.tum.cit.aet.artemis.core.config.Constants.PROFILE_CORE;
 
 import java.math.BigInteger;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,8 +34,10 @@ import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
 import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.dto.ResultDTO;
+import de.tum.cit.aet.artemis.programming.dto.UserStoryTaskDTO;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseStudentParticipationRepository;
+import de.tum.cit.aet.artemis.programming.repository.UserStoryTaskRepository;
 
 /**
  * Assembles the tutor-facing views of a {@code MilestoneExerciseGroup}: the dashboard a tutor picks a student from, and
@@ -46,6 +49,10 @@ import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseStudentP
  * Both views here are therefore keyed on the student. A group may also hold text, modeling, file upload and quiz
  * exercises; both views list those after the user stories, in the same order, so a tab index means the same thing on
  * either page.
+ * <p>
+ * The assessment page also carries the tasks the student broke each user story down into. That board is the student's
+ * own and only they can change it, but how a story was planned and how much effort was logged on it is part of what a
+ * tutor judges, so it is shown to them read-only next to the story's code.
  */
 @Profile(PROFILE_CORE)
 @Lazy
@@ -66,10 +73,12 @@ public class MilestoneAssessmentService {
 
     private final UserRepository userRepository;
 
+    private final UserStoryTaskRepository userStoryTaskRepository;
+
     public MilestoneAssessmentService(MilestoneExerciseGroupRepository milestoneExerciseGroupRepository,
             ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository, StudentParticipationRepository studentParticipationRepository,
             ProgrammingExerciseRepository programmingExerciseRepository, ResultRepository resultRepository,
-            ProgrammingFeedbackSynthesizerService programmingFeedbackSynthesizerService, UserRepository userRepository) {
+            ProgrammingFeedbackSynthesizerService programmingFeedbackSynthesizerService, UserRepository userRepository, UserStoryTaskRepository userStoryTaskRepository) {
         this.milestoneExerciseGroupRepository = milestoneExerciseGroupRepository;
         this.programmingExerciseStudentParticipationRepository = programmingExerciseStudentParticipationRepository;
         this.studentParticipationRepository = studentParticipationRepository;
@@ -77,6 +86,7 @@ public class MilestoneAssessmentService {
         this.resultRepository = resultRepository;
         this.programmingFeedbackSynthesizerService = programmingFeedbackSynthesizerService;
         this.userRepository = userRepository;
+        this.userStoryTaskRepository = userStoryTaskRepository;
     }
 
     /**
@@ -105,14 +115,14 @@ public class MilestoneAssessmentService {
                 .map(milestoneParticipation -> {
                     var student = milestoneParticipation.getStudent().orElseThrow();
                     List<MilestoneAssessmentExerciseDTO> exerciseStates = exercises.stream()
-                            .map(exercise -> toExerciseDTO(exercise, participationsByExercise.get(exercise.getId()).get(student.getLogin()))).toList();
+                            .map(exercise -> toExerciseDTO(exercise, participationsByExercise.get(exercise.getId()).get(student.getLogin()), List.of())).toList();
                     return new MilestoneAssessmentStudentDTO(student.getLogin(), student.getName(), milestoneParticipation.getId(), exerciseStates);
                 }).toList();
     }
 
     /**
      * Everything the milestone assessment page renders for one student: the group-level information of its first tab
-     * and the exercises its remaining tabs grade.
+     * and the exercises its remaining tabs grade, each user story with the tasks the student created for it.
      *
      * @param groupId      the id of the milestone exercise group
      * @param courseId     the id of the course the group belongs to
@@ -125,9 +135,19 @@ public class MilestoneAssessmentService {
         MilestoneExercise milestoneExercise = (MilestoneExercise) programmingExerciseRepository.findByIdElseThrow(milestoneExerciseId);
         long studentId = userRepository.getArbitraryValueElseThrow(userRepository.findIdByLogin(studentLogin), studentLogin);
 
-        List<MilestoneAssessmentExerciseDTO> exercises = orderedExercises(group).stream().map(exercise -> toExerciseDTO(exercise,
-                studentParticipationRepository.findWithSubmissionsResultsAndAssessorByExerciseIdAndStudentId(exercise.getId(), studentId).stream().findFirst().orElse(null)))
-                .toList();
+        List<Exercise> orderedExercises = orderedExercises(group);
+        Map<Long, StudentParticipation> participationsByExercise = new HashMap<>();
+        for (Exercise exercise : orderedExercises) {
+            studentParticipationRepository.findWithSubmissionsResultsAndAssessorByExerciseIdAndStudentId(exercise.getId(), studentId).stream().findFirst()
+                    .ifPresent(participation -> participationsByExercise.put(exercise.getId(), participation));
+        }
+        Map<Long, List<UserStoryTaskDTO>> tasksByParticipation = tasksByParticipation(orderedExercises, participationsByExercise);
+
+        List<MilestoneAssessmentExerciseDTO> exercises = orderedExercises.stream().map(exercise -> {
+            StudentParticipation participation = participationsByExercise.get(exercise.getId());
+            List<UserStoryTaskDTO> tasks = participation == null ? List.of() : tasksByParticipation.getOrDefault(participation.getId(), List.of());
+            return toExerciseDTO(exercise, participation, tasks);
+        }).toList();
 
         Optional<ProgrammingExerciseStudentParticipation> milestoneParticipation = programmingExerciseStudentParticipationRepository
                 .findByExerciseIdAndStudentId(milestoneExerciseId, studentId);
@@ -136,6 +156,21 @@ public class MilestoneAssessmentService {
                 Boolean.TRUE.equals(milestoneExercise.isStaticCodeAnalysisEnabled()), milestoneExercise.getMaxStaticCodeAnalysisPenalty(), milestoneExercise.getMaxPoints(),
                 milestoneParticipation.map(ProgrammingExerciseStudentParticipation::getId).orElse(null),
                 milestoneParticipation.map(participation -> milestoneResult(participation, milestoneExercise)).orElse(null), exercises);
+    }
+
+    /**
+     * The tasks on the student's board of every user story they started, keyed by the story participation, each list in
+     * the student's own board order. One query for the whole group rather than one per story.
+     */
+    private Map<Long, List<UserStoryTaskDTO>> tasksByParticipation(List<Exercise> exercises, Map<Long, StudentParticipation> participationsByExercise) {
+        List<Long> storyParticipationIds = exercises.stream().filter(exercise -> exercise instanceof UserStoryExercise)
+                .map(exercise -> participationsByExercise.get(exercise.getId())).filter(Objects::nonNull).map(StudentParticipation::getId).toList();
+        if (storyParticipationIds.isEmpty()) {
+            return Map.of();
+        }
+        // The repository returns the tasks ordered by their board index, and groupingBy into lists keeps that order.
+        return userStoryTaskRepository.findAllByParticipationIdInOrderByOrderIndexAsc(storyParticipationIds).stream()
+                .collect(Collectors.groupingBy(task -> task.getParticipation().getId(), Collectors.mapping(UserStoryTaskDTO::of, Collectors.toList())));
     }
 
     /**
@@ -165,18 +200,18 @@ public class MilestoneAssessmentService {
      * One exercise's standing for a single student. An exercise the student never started still produces an entry, with
      * everything but the exercise itself unset - "not started" is information a tutor needs, not a row to hide.
      */
-    private MilestoneAssessmentExerciseDTO toExerciseDTO(Exercise exercise, @Nullable StudentParticipation participation) {
+    private MilestoneAssessmentExerciseDTO toExerciseDTO(Exercise exercise, @Nullable StudentParticipation participation, List<UserStoryTaskDTO> tasks) {
         boolean userStory = exercise instanceof UserStoryExercise;
         if (participation == null) {
             return new MilestoneAssessmentExerciseDTO(exercise.getId(), exercise.getTitle(), exercise.getExerciseType(), userStory, exercise.getMaxPoints(), null, null, null, null,
-                    false);
+                    false, List.of());
         }
         Submission latestSubmission = participation.findLatestSubmission().orElse(null);
         Result latestResult = latestSubmission == null ? null : latestSubmission.getLatestResult();
         String assessorLogin = latestResult == null || latestResult.getAssessor() == null ? null : latestResult.getAssessor().getLogin();
         boolean assessed = latestResult != null && latestResult.isManual() && latestResult.getCompletionDate() != null;
         return new MilestoneAssessmentExerciseDTO(exercise.getId(), exercise.getTitle(), exercise.getExerciseType(), userStory, exercise.getMaxPoints(), participation.getId(),
-                latestSubmission == null ? null : latestSubmission.getId(), latestResult == null ? null : latestResult.getScore(), assessorLogin, assessed);
+                latestSubmission == null ? null : latestSubmission.getId(), latestResult == null ? null : latestResult.getScore(), assessorLogin, assessed, tasks);
     }
 
     /**

@@ -11,7 +11,7 @@ import {
     TumAetUiTagComponent,
     TumAetUiTooltipDirective,
 } from '@tumaet/ui-angular';
-import { TaskPriority, TaskState, UserStoryTask } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
+import { UserStoryTask } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
 import { UserStoryTaskService } from 'app/programming/shared/services/user-story-task.service';
 import { AlertService } from 'app/foundation/service/alert.service';
 import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pipe';
@@ -19,6 +19,7 @@ import { TranslateDirective } from 'app/foundation/language/translate.directive'
 import { DeleteButtonDirective } from 'app/shared-ui/delete-dialog/directive/delete-button.directive';
 import { UserStoryTaskEditModalComponent } from 'app/course/overview/exercise-details/user-story-tasks/user-story-task-edit-modal.component';
 import { formatEffortHours, parseEffortHours } from 'app/course/overview/exercise-details/user-story-tasks/task-effort-format.util';
+import { priorityLabelKey, prioritySeverity, stateLabelKey, stateSeverity } from 'app/course/overview/exercise-details/user-story-tasks/user-story-task-display.util';
 import { cloneWith } from 'app/foundation/util/deep-clone.util';
 
 /**
@@ -65,6 +66,10 @@ export class UserStoryTasksComponent implements OnInit {
 
     protected readonly formatEffortHours = formatEffortHours;
     protected readonly parseEffortHours = parseEffortHours;
+    protected readonly priorityLabelKey = priorityLabelKey;
+    protected readonly prioritySeverity = prioritySeverity;
+    protected readonly stateLabelKey = stateLabelKey;
+    protected readonly stateSeverity = stateSeverity;
 
     protected readonly tasks = signal<UserStoryTask[]>([]);
     protected readonly modalVisible = signal(false);
@@ -119,50 +124,6 @@ export class UserStoryTasksComponent implements OnInit {
                 this.loadTasks();
             },
         });
-    }
-
-    protected priorityLabelKey(priority: TaskPriority): string {
-        switch (priority) {
-            case 'LOW':
-                return 'artemisApp.courseOverview.exerciseDetails.tasks.priorityLow';
-            case 'MEDIUM':
-                return 'artemisApp.courseOverview.exerciseDetails.tasks.priorityMedium';
-            case 'HIGH':
-                return 'artemisApp.courseOverview.exerciseDetails.tasks.priorityHigh';
-        }
-    }
-
-    protected prioritySeverity(priority: TaskPriority): 'success' | 'warn' | 'danger' {
-        switch (priority) {
-            case 'LOW':
-                return 'success';
-            case 'MEDIUM':
-                return 'warn';
-            case 'HIGH':
-                return 'danger';
-        }
-    }
-
-    protected stateLabelKey(state: TaskState): string {
-        switch (state) {
-            case 'NEW':
-                return 'artemisApp.courseOverview.exerciseDetails.tasks.stateNew';
-            case 'IN_PROGRESS':
-                return 'artemisApp.courseOverview.exerciseDetails.tasks.stateInProgress';
-            case 'DONE':
-                return 'artemisApp.courseOverview.exerciseDetails.tasks.stateDone';
-        }
-    }
-
-    protected stateSeverity(state: TaskState): 'contrast' | 'info' | 'success' {
-        switch (state) {
-            case 'NEW':
-                return 'contrast';
-            case 'IN_PROGRESS':
-                return 'info';
-            case 'DONE':
-                return 'success';
-        }
     }
 
     /** Time logging is meaningless before a task is started, so it stays hidden until it leaves NEW. */
