@@ -314,7 +314,7 @@
                     "createButton": "Neue Aufgabe erstellen",
                     "dragHandle": "Zum Sortieren ziehen",
                     "advanceButton": "Zum nächsten Status",
-                    "advanceButtonRequiresEffort": "Tatsächlichen Aufwand erfassen, bevor als erledigt markiert wird",
+                    "advanceButtonRequiresEffort": "Tatsächlicher Aufwand muss erfasst werden, bevor Task als erledigt markiert werden kann",
                     "createHeader": "Aufgabe erstellen",
                     "editHeader": "Aufgabe bearbeiten",
                     "emptyState": "Noch keine Aufgaben erstellt.",

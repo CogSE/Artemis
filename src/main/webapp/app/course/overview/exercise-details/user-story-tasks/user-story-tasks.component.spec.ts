@@ -1,3 +1,4 @@
+import { ApplicationRef } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -184,6 +185,27 @@ describe('UserStoryTasksComponent', () => {
 
         expect(component['advanceButtonTooltipKey'](withoutEffort)).toBe('artemisApp.courseOverview.exerciseDetails.tasks.advanceButtonRequiresEffort');
         expect(component['advanceButtonTooltipKey'](withEffort)).toBe('artemisApp.courseOverview.exerciseDetails.tasks.advanceButton');
+    });
+
+    it('should explain why the disabled advance button cannot be used when hovering it', () => {
+        vi.useFakeTimers();
+        try {
+            mockUserStoryTaskService.getTasks.mockReturnValue(of([{ ...tasks[0], state: 'IN_PROGRESS', actualEffortHours: undefined }]));
+            fixture.detectChanges();
+
+            const button: HTMLButtonElement = fixture.nativeElement.querySelector('[data-testid="advance-task-btn"]');
+            expect(button.disabled).toBe(true);
+
+            // The disabled button itself gets no pointer events, so the hint must react to its wrapper.
+            const hint: HTMLElement = fixture.nativeElement.querySelector('[data-testid="advance-task-hint"]');
+            hint.dispatchEvent(new MouseEvent('mouseenter'));
+            vi.advanceTimersByTime(200);
+            TestBed.inject(ApplicationRef).tick();
+
+            expect(document.body.textContent).toContain('artemisApp.courseOverview.exerciseDetails.tasks.advanceButtonRequiresEffort');
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('should format estimated effort hours as H:MMh', () => {
