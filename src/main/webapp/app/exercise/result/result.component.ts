@@ -124,6 +124,12 @@ export class ResultComponent {
      * are boxes of their own on the same bar, so its status box is purely about whether the shared build came through.
      */
     readonly buildOutcomeOnly = input(false);
+    /**
+     * Whether a successful build still failed the Definition of Done, which turns the outcome-only badge into
+     * "Build successful, DoD tests failed". Only read with {@link buildOutcomeOnly}; the milestone group page sets it
+     * from the milestone's Definition of Done tests.
+     */
+    readonly definitionOfDoneFailed = input(false);
     readonly missingResultInfo = input(MissingResultInformation.NONE);
     readonly estimatedCompletionDate = input<dayjs.Dayjs>();
     readonly buildStartDate = input<dayjs.Dayjs>();
@@ -169,7 +175,7 @@ export class ResultComponent {
             return '';
         }
         if (this.buildOutcomeOnly()) {
-            return this.buildFailed() ? 'text-state-danger' : 'text-state-success';
+            return this.buildFailed() || this.definitionOfDoneFailed() ? 'text-state-danger' : 'text-state-success';
         }
         return getTextColorClass(this.result(), this.resolvedParticipation(), status, this.resolvedExercise());
     });
@@ -180,7 +186,7 @@ export class ResultComponent {
             return undefined;
         }
         if (this.buildOutcomeOnly()) {
-            return this.buildFailed() ? faTimesCircle : faCheckCircle;
+            return this.buildFailed() || this.definitionOfDoneFailed() ? faTimesCircle : faCheckCircle;
         }
         return getResultIconClass(this.result(), this.resolvedParticipation(), status, this.resolvedExercise());
     });
@@ -192,7 +198,12 @@ export class ResultComponent {
             return '';
         }
         if (this.buildOutcomeOnly()) {
-            return this.translateService.instant(this.buildFailed() ? 'artemisApp.result.resultString.buildFailed' : 'artemisApp.result.resultString.buildSuccessful');
+            if (this.buildFailed()) {
+                return this.translateService.instant('artemisApp.result.resultString.buildFailed');
+            }
+            return this.translateService.instant(
+                this.definitionOfDoneFailed() ? 'artemisApp.result.resultString.buildSuccessfulDodFailed' : 'artemisApp.result.resultString.buildSuccessful',
+            );
         }
         return this.resultService.getResultString(this.result(), this.resolvedExercise(), this.resolvedParticipation(), this.short());
     });

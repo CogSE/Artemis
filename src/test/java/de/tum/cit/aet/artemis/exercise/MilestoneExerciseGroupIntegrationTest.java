@@ -54,6 +54,7 @@ import de.tum.cit.aet.artemis.programming.AbstractProgrammingIntegrationIndepend
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
+import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseTestCase;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingSubmission;
 import de.tum.cit.aet.artemis.programming.domain.ProjectType;
@@ -64,6 +65,7 @@ import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.domain.UserStoryTask;
 import de.tum.cit.aet.artemis.programming.dto.UserStoryTaskDTO;
 import de.tum.cit.aet.artemis.programming.repository.UserStoryTaskRepository;
+import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseTaskService;
 import de.tum.cit.aet.artemis.programming.util.ProgrammingExerciseFactory;
 import de.tum.cit.aet.artemis.text.domain.TextSubmission;
 import de.tum.cit.aet.artemis.text.util.TextExerciseFactory;
@@ -97,6 +99,9 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
 
     @Autowired
     private UserStoryTaskRepository userStoryTaskRepository;
+
+    @Autowired
+    private ProgrammingExerciseTaskService programmingExerciseTaskService;
 
     private Course course;
 
@@ -313,6 +318,25 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
 
         assertThat(status.participationId()).isNull();
         assertThat(status.problemStatement()).isEqualTo(milestoneExercise.getProblemStatement());
+    }
+
+    /**
+     * The student's Definition of Done box judges exactly the tests the milestone's points are gated on: a test the tasks
+     * reference but that is weighted 0 is only shown, and an inactive one can no longer pass.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void milestoneStatusListsTheDefinitionOfDoneTestsWithoutThoseWeightedZero() throws Exception {
+        ProgrammingExerciseTestCase gating = testCaseRepository.save(new ProgrammingExerciseTestCase().testName("gating").weight(1.0).active(true).exercise(milestoneExercise));
+        testCaseRepository.save(new ProgrammingExerciseTestCase().testName("informational").weight(0.0).active(true).exercise(milestoneExercise));
+        testCaseRepository.save(new ProgrammingExerciseTestCase().testName("retired").weight(1.0).active(false).exercise(milestoneExercise));
+        milestoneExercise.setProblemStatement("[task][Gating](gating)\n[task][Informational](informational)\n[task][Retired](retired)");
+        milestoneExercise = (MilestoneExercise) programmingExerciseRepository.save(milestoneExercise);
+        programmingExerciseTaskService.updateTasksFromProblemStatement(milestoneExercise);
+
+        MilestoneStatusDTO status = request.get(milestoneGroupsUrl() + "/" + milestoneGroup.getId() + "/milestone-status", HttpStatus.OK, MilestoneStatusDTO.class);
+
+        assertThat(status.definitionOfDoneTestCaseIds()).containsExactly(gating.getId());
     }
 
     @Test

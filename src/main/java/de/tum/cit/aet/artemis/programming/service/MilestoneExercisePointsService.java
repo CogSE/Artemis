@@ -88,7 +88,8 @@ public class MilestoneExercisePointsService {
      * <li>its own results were re-graded from its test cases (re-evaluation, or the score update at the due date), which
      * rewrites each result's score as the raw build score - capped at the milestone's points - over the aggregated group
      * points {@code MilestoneScoreService} had stored there; call this once the re-graded results are saved;</li>
-     * <li>the tasks of its problem statement changed, which changes the Definition of Done that gates its points.</li>
+     * <li>the tasks of its problem statement changed, which changes the Definition of Done that gates its points;</li>
+     * <li>its test case weights changed: a test weighted 0 is not part of the Definition of Done.</li>
      * </ul>
      * A no-op for every exercise that is not a milestone.
      *
