@@ -312,6 +312,30 @@ describe('ResultUtils', () => {
             expect(getTextColorClass(automaticResult, participation, ResultTemplateStatus.HAS_RESULT, optedOut)).toBe('text-state-danger');
             expect(getResultIconClass(automaticResult, participation, ResultTemplateStatus.HAS_RESULT, optedOut)).toBe(faTimesCircle);
         });
+
+        describe('before the tutor has assessed it', () => {
+            const participation = { id: 42, type: ParticipationType.PROGRAMMING } as Participation;
+            const preliminaryResult: Result = { ...automaticResult, completionDate: dayjs().subtract(1, 'minute') };
+            const manuallyAssessed = (showTestProgressAsScore: boolean) =>
+                ({
+                    type: ExerciseType.USER_STORY,
+                    assessmentType: AssessmentType.SEMI_AUTOMATIC,
+                    assessmentDueDate: dayjs().add(1, 'day'),
+                    showTestProgressAsScore,
+                }) as ProgrammingExercise;
+
+            it('colours the test progress but keeps marking it as preliminary', () => {
+                const exercise = manuallyAssessed(true);
+                expect(resultIsPreliminary(preliminaryResult, participation, exercise)).toBe(true);
+                expect(getTextColorClass(preliminaryResult, participation, ResultTemplateStatus.HAS_RESULT, exercise)).toBe('text-state-success');
+                expect(getTextColorClass({ ...preliminaryResult, passedTestCaseCount: 1 }, participation, ResultTemplateStatus.HAS_RESULT, exercise)).toBe('text-state-danger');
+                expect(getResultIconClass(preliminaryResult, participation, ResultTemplateStatus.HAS_RESULT, exercise)).toBe(faQuestionCircle);
+            });
+
+            it('stays muted when the story shows its score', () => {
+                expect(getTextColorClass(preliminaryResult, participation, ResultTemplateStatus.HAS_RESULT, manuallyAssessed(false))).toBe('text-muted-color');
+            });
+        });
     });
 
     describe('getResultIconClass', () => {

@@ -51,13 +51,24 @@ class ExerciseVariantGroupTest {
     }
 
     @Test
+    void testDescriptionIsStrippedAndBlankBecomesNull() {
+        ExerciseVariantGroup group = new ExerciseVariantGroup();
+        group.setDescriptionHeading("  Pick one  ");
+        group.setDescriptionBody("\n");
+        assertThat(group.getDescriptionHeading()).isEqualTo("Pick one");
+        assertThat(group.getDescriptionBody()).isNull();
+    }
+
+    @Test
     void testCreateDtoToEntityMapsAllSettings() {
-        CreateExerciseVariantGroupDTO dto = new CreateExerciseVariantGroupDTO("Loop variants", 100.0, null, null, null, null, null);
+        CreateExerciseVariantGroupDTO dto = new CreateExerciseVariantGroupDTO("Loop variants", 100.0, null, null, null, null, null, "Pick one", "Any variant counts.");
 
         ExerciseVariantGroup entity = dto.toEntity();
 
         assertThat(entity.getTitle()).isEqualTo("Loop variants");
         assertThat(entity.getMaxPoints()).isEqualTo(100.0);
+        assertThat(entity.getDescriptionHeading()).isEqualTo("Pick one");
+        assertThat(entity.getDescriptionBody()).isEqualTo("Any variant counts.");
         assertThat(entity.getExercises()).isEmpty();
     }
 
@@ -65,7 +76,7 @@ class ExerciseVariantGroupTest {
     void testUpdateDtoApplyToLeavesExercisesUntouched() {
         ExerciseVariantGroup group = new ExerciseVariantGroup();
         group.addExercise(new TextExercise());
-        UpdateExerciseVariantGroupDTO dto = new UpdateExerciseVariantGroupDTO(1L, "Renamed", 50.0, null, null, null, null, null);
+        UpdateExerciseVariantGroupDTO dto = new UpdateExerciseVariantGroupDTO(1L, "Renamed", 50.0, null, null, null, null, null, null, null);
 
         dto.applyTo(group);
 

@@ -3,6 +3,7 @@ import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Result } from 'app/exercise/shared/entities/result/result.model';
 import { ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { UserStoryTask } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
 
 /**
  * One exercise of a milestone group as it stands for a single student (mirrors the server
@@ -29,6 +30,11 @@ export interface MilestoneAssessmentExercise {
      * `NON_EMPTY`, which drops a `false` on the wire - so absent means "not assessed".
      */
     assessed?: boolean;
+    /**
+     * The tasks the student (or their team) broke a user story down into, in their own board order. Only sent on the
+     * assessment page, never on the dashboard, and dropped on the wire when empty.
+     */
+    tasks?: UserStoryTask[];
 }
 
 /** One student's standing across a whole milestone group (mirrors the server {@code MilestoneAssessmentStudentDTO}). */

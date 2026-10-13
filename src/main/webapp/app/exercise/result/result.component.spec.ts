@@ -547,6 +547,44 @@ describe('ResultComponent', () => {
         expect(fixture.debugElement.query(By.css('#code-issue-warnings-icon'))).toBeNull();
     });
 
+    // A milestone build can come through while the tests its Definition of Done demands do not pass.
+    it('should state a passed build whose Definition of Done failed as failed', () => {
+        fixture.componentRef.setInput('exercise', mockExercise);
+        fixture.componentRef.setInput('participation', mockParticipation);
+        fixture.componentRef.setInput('result', {
+            id: 1,
+            completionDate: dayjs().subtract(2, 'hours'),
+            score: 50,
+            rated: true,
+            submission: { id: 42, submissionExerciseType: SubmissionExerciseType.PROGRAMMING, buildFailed: false } as ProgrammingSubmission,
+        } as Result);
+        fixture.componentRef.setInput('buildOutcomeOnly', true);
+        fixture.componentRef.setInput('definitionOfDoneFailed', true);
+        fixture.detectChanges();
+
+        expect(comp.resultString()).toContain('artemisApp.result.resultString.buildSuccessfulDodFailed');
+        expect(comp.textColorClass()).toBe('text-state-danger');
+        expect(comp.resultIconClass()).toBe(faTimesCircle);
+    });
+
+    it('should state a failed build as failed even when its Definition of Done failed too', () => {
+        fixture.componentRef.setInput('exercise', mockExercise);
+        fixture.componentRef.setInput('participation', mockParticipation);
+        fixture.componentRef.setInput('result', {
+            id: 1,
+            completionDate: dayjs().subtract(2, 'hours'),
+            score: 0,
+            rated: true,
+            submission: { id: 42, submissionExerciseType: SubmissionExerciseType.PROGRAMMING, buildFailed: true } as ProgrammingSubmission,
+        } as Result);
+        fixture.componentRef.setInput('buildOutcomeOnly', true);
+        fixture.componentRef.setInput('definitionOfDoneFailed', true);
+        fixture.detectChanges();
+
+        expect(comp.resultString()).toContain('artemisApp.result.resultString.buildFailed');
+        expect(comp.resultString()).not.toContain('DodFailed');
+    });
+
     it('should display building message for IS_BUILDING status', () => {
         fixture.componentRef.setInput('isBuilding', true);
         fixture.detectChanges();

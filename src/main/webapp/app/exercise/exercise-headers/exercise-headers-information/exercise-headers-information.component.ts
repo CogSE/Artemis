@@ -292,12 +292,15 @@ export class ExerciseHeadersInformationComponent {
             {
                 title: 'artemisApp.userStoryEffort.estimatedEffortShort',
                 content: { type: 'userStoryEffort', value: 'estimatedEffort' },
+                // The box is read-only: the value is the sum over the student's tasks, so it changes only through them.
+                tooltip: 'artemisApp.userStoryEffort.estimatedEffortTooltip',
                 isContentComponent: true,
                 borderColor: !effort?.estimatedEffort ? 'state-warning' : undefined,
             },
             {
                 title: 'artemisApp.userStoryEffort.actualEffortShort',
                 content: { type: 'userStoryEffort', value: 'actualEffort' },
+                tooltip: 'artemisApp.userStoryEffort.actualEffortTooltip',
                 isContentComponent: true,
                 borderColor: effort?.actualEffort === undefined ? 'state-warning' : undefined,
             },

@@ -36,6 +36,13 @@ export class CourseExerciseGroup {
     maxPoints?: number;
 
     /**
+     * Custom heading and text of the callout students see above the variants; either one unset shows the default.
+     * Never set on a milestone group, whose milestone problem statement takes the callout's place.
+     */
+    descriptionHeading?: string;
+    descriptionBody?: string;
+
+    /**
      * Only set when {@link type} is `'milestone'` — the anchor MilestoneExercise's own language/project type, which
      * every member inherits. Served by the milestone group endpoint (see {@link ExerciseVariantGroupDTO}); the
      * student-side groups rebuilt by {@link buildGroupsFromExercises} leave them undefined, which is fine: only the
@@ -71,6 +78,8 @@ export function buildGroupsFromExercises(exercises: Exercise[]): CourseExerciseG
                 dueDate: convertDateFromServer(reference.dueDate),
                 assessmentDueDate: convertDateFromServer(reference.assessmentDueDate),
                 exampleSolutionPublicationDate: convertDateFromServer(reference.exampleSolutionPublicationDate),
+                descriptionHeading: reference.descriptionHeading,
+                descriptionBody: reference.descriptionBody,
                 exercises: [],
             };
             groupsById.set(reference.id, group);

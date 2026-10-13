@@ -63,6 +63,8 @@ export interface ExerciseVariantGroupReferenceDto {
     dueDate?: string;
     assessmentDueDate?: string;
     exampleSolutionPublicationDate?: string;
+    descriptionHeading?: string;
+    descriptionBody?: string;
 }
 
 export interface FileUploadExerciseDto {
@@ -302,6 +304,8 @@ function toExerciseVariantGroup(dto: ExerciseVariantGroupReferenceDto): Exercise
         dueDate: convertDateStringFromServer(dto.dueDate),
         assessmentDueDate: convertDateStringFromServer(dto.assessmentDueDate),
         exampleSolutionPublicationDate: convertDateStringFromServer(dto.exampleSolutionPublicationDate),
+        descriptionHeading: dto.descriptionHeading,
+        descriptionBody: dto.descriptionBody,
     };
 }
 

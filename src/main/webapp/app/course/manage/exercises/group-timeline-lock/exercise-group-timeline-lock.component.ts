@@ -78,6 +78,9 @@ function referenceToGroup(reference: ExerciseVariantGroupReference | undefined):
         dueDate: reference?.dueDate,
         assessmentDueDate: reference?.assessmentDueDate,
         exampleSolutionPublicationDate: reference?.exampleSolutionPublicationDate,
+        // Carried through because saving sends the whole group: dropping these would clear the description on every timeline edit.
+        descriptionHeading: reference?.descriptionHeading,
+        descriptionBody: reference?.descriptionBody,
         exercises: [],
     };
 }
@@ -110,6 +113,8 @@ function withGroupTimeline(exercise: Exercise, dto: ExerciseVariantGroupDTO): Ex
         dueDate: dto.dueDate,
         assessmentDueDate: dto.assessmentDueDate,
         exampleSolutionPublicationDate: dto.exampleSolutionPublicationDate,
+        descriptionHeading: dto.descriptionHeading,
+        descriptionBody: dto.descriptionBody,
     };
     return updated;
 }

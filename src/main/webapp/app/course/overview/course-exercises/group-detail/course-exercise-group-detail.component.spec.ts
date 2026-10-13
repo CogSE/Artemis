@@ -32,6 +32,7 @@ import { ProgrammingExerciseParticipationService } from 'app/programming/manage/
 import { ProgrammingExerciseStudentParticipation } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
 import { Result } from 'app/exercise/shared/entities/result/result.model';
+import { Feedback, FeedbackType } from 'app/assessment/shared/entities/feedback.model';
 import { Participation } from 'app/exercise/shared/entities/participation/participation.model';
 import { ParticipationWebsocketService } from 'app/course/shared/services/participation-websocket.service';
 import { ProgrammingSubmissionService, ProgrammingSubmissionState, ProgrammingSubmissionStateObj } from 'app/programming/shared/services/programming-submission.service';
@@ -601,6 +602,35 @@ describe('CourseExerciseGroupDetailComponent', () => {
             expect(buildFailed()).toBe(false);
         });
 
+        describe('Definition of Done', () => {
+            function testFeedback(testId: number, positive: boolean): Feedback {
+                return { type: FeedbackType.AUTOMATIC, text: `test${testId}`, positive, testCase: { id: testId } } as Feedback;
+            }
+
+            async function dodFailedFor(definitionOfDoneTestCaseIds: number[], feedbacks: Feedback[]): Promise<boolean> {
+                const result = { id: 888, successful: false, feedbacks, submission: { id: 777, buildFailed: false } } as unknown as Result;
+                await setup([milestoneGroupMember()], {
+                    getMilestoneStatus: () => of({ ...startedStatus(), definitionOfDoneTestCaseIds }),
+                    getStudentParticipationWithLatestResult: () => of(participationWithResult(result)),
+                });
+                fixture.detectChanges();
+                await fixture.whenStable();
+                return (fixture.componentInstance as unknown as { isMilestoneDodFailed: () => boolean }).isMilestoneDodFailed();
+            }
+
+            it('is failed when a Definition of Done test did not pass', async () => {
+                expect(await dodFailedFor([1, 2], [testFeedback(1, true), testFeedback(2, false)])).toBe(true);
+            });
+
+            it('is not failed when every Definition of Done test passed, whatever the other tests did', async () => {
+                expect(await dodFailedFor([1], [testFeedback(1, true), testFeedback(2, false)])).toBe(false);
+            });
+
+            it('is not failed when the milestone has no Definition of Done tests', async () => {
+                expect(await dodFailedFor([], [testFeedback(1, false)])).toBe(false);
+            });
+        });
+
         it('loads the milestone participation with its latest result once the milestone has been started', async () => {
             const result = { id: 888, codeIssueCount: 2 } as Result;
             const participationSpy = vi.fn(() => of(participationWithResult(result)));
@@ -976,6 +1006,33 @@ describe('CourseExerciseGroupDetailComponent', () => {
 
             await switchTo(GROUP_ID);
             expect(state().milestoneResult()?.id).toBe(901);
+        });
+    });
+
+    describe('description callout', () => {
+        function textOf(testId: string): HTMLElement {
+            return fixture.debugElement.query(By.css(`[data-testid="${testId}"]`)).nativeElement as HTMLElement;
+        }
+
+        it('shows the default heading and text when the instructor set none', async () => {
+            await setup(exercisesInGroup(undefined), { renderTemplate: true });
+            fixture.detectChanges();
+
+            expect(textOf('group-description-heading').getAttribute('jhiTranslate')).toBe('artemisApp.exerciseVariantGroup.detail.callout.heading');
+            expect(textOf('group-description-body').querySelector('[jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.body"]')).not.toBeNull();
+        });
+
+        it("shows the instructor's heading and text instead of the defaults", async () => {
+            const exercises = exercisesInGroup(undefined);
+            // Both members share the one reference object, so setting it once covers the group.
+            Object.assign(exercises[0].exerciseVariantGroup!, { descriptionHeading: 'Pick your favourite', descriptionBody: 'Line one\nLine two' });
+            await setup(exercises, { renderTemplate: true });
+            fixture.detectChanges();
+
+            expect(textOf('group-description-heading').textContent?.trim()).toBe('Pick your favourite');
+            expect(textOf('group-description-heading').getAttribute('jhiTranslate')).toBeNull();
+            expect(textOf('group-description-body').textContent).toContain('Line one\nLine two');
+            expect(textOf('group-description-body').querySelector('[jhiTranslate]')).toBeNull();
         });
     });
 

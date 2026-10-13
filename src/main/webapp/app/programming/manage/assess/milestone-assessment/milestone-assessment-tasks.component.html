@@ -1,0 +1,59 @@
+<details class="milestone-tasks" data-testid="milestone-assessment-tasks">
+    <summary class="milestone-tasks__summary">
+        <span class="font-semibold" jhiTranslate="artemisApp.milestoneAssessment.tasks.title" [translateValues]="{ count: tasks().length }"></span>
+        @if (tasks().length) {
+            <span
+                class="milestone-tasks__muted"
+                jhiTranslate="artemisApp.milestoneAssessment.tasks.totals"
+                [translateValues]="{
+                    estimated: formatEffortHours(estimatedEffortHours()),
+                    actual: actualEffortHours() !== undefined ? formatEffortHours(actualEffortHours()!) : '–',
+                }"
+                data-testid="milestone-assessment-tasks-totals"
+            ></span>
+        }
+    </summary>
+    @if (tasks().length) {
+        <div class="milestone-tasks__scroll">
+            <table tumAetUiTable size="small">
+                <thead>
+                    <tr>
+                        <th jhiTranslate="artemisApp.milestoneAssessment.tasks.task"></th>
+                        <th jhiTranslate="artemisApp.milestoneAssessment.tasks.state"></th>
+                        <th jhiTranslate="artemisApp.milestoneAssessment.tasks.priority"></th>
+                        <th jhiTranslate="artemisApp.milestoneAssessment.tasks.points"></th>
+                        <th jhiTranslate="artemisApp.milestoneAssessment.tasks.estimatedEffort"></th>
+                        <th jhiTranslate="artemisApp.milestoneAssessment.tasks.actualEffort"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (task of tasks(); track task.id) {
+                        <tr data-testid="milestone-assessment-task-row">
+                            <td>
+                                <span class="font-semibold">{{ task.title }}</span>
+                                @if (task.description) {
+                                    <div class="milestone-tasks__muted milestone-tasks__description">{{ task.description }}</div>
+                                }
+                            </td>
+                            <td>
+                                <tumaet-ui-tag [severity]="stateSeverity(task.state ?? 'NEW')" [rounded]="true">
+                                    {{ stateLabelKey(task.state ?? 'NEW') | artemisTranslate }}
+                                </tumaet-ui-tag>
+                            </td>
+                            <td>
+                                <tumaet-ui-tag [severity]="prioritySeverity(task.priority)" [rounded]="true">
+                                    {{ priorityLabelKey(task.priority) | artemisTranslate }}
+                                </tumaet-ui-tag>
+                            </td>
+                            <td>{{ task.taskPoints }}</td>
+                            <td class="whitespace-nowrap">{{ formatEffortHours(task.estimatedEffortHours) }}</td>
+                            <td class="whitespace-nowrap">{{ task.actualEffortHours !== undefined ? formatEffortHours(task.actualEffortHours) : '–' }}</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    } @else {
+        <p class="milestone-tasks__muted" jhiTranslate="artemisApp.milestoneAssessment.tasks.empty" data-testid="milestone-assessment-tasks-empty"></p>
+    }
+</details>

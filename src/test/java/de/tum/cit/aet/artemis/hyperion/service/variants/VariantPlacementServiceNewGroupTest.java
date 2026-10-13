@@ -217,7 +217,7 @@ class VariantPlacementServiceNewGroupTest {
     }
 
     private static VariantGenerationRequestDTO newGroupRequest() {
-        CreateExerciseVariantGroupDTO group = new CreateExerciseVariantGroupDTO("Variants of the quiz", null, null, null, null, null, null);
+        CreateExerciseVariantGroupDTO group = new CreateExerciseVariantGroupDTO("Variants of the quiz", null, null, null, null, null, null, null, null);
         return new VariantGenerationRequestDTO(null, null, null, null, new VariantPlacementDTO(VariantPlacementDTO.PlacementType.NEW_GROUP, null, group));
     }
 }

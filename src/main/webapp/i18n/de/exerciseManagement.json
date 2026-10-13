@@ -114,6 +114,10 @@
                 "maxPointsPlaceholder": "Keine Begrenzung",
                 "sumOfPoints": "Summe der Punkte",
                 "sumOfPointsTooltip": "Die Gesamtpunktzahl aller User-Story-Aufgaben in dieser Meilenstein-Gruppe — hier nicht bearbeitbar; füge eine User-Story-Aufgabe hinzu oder bearbeite sie, um den Wert zu ändern.",
+                "description": "Beschreibung",
+                "descriptionHint": "Wird Studierenden über den Varianten angezeigt. Lasse ein Feld leer, um den Standardtext anzuzeigen.",
+                "descriptionHeading": "Überschrift",
+                "descriptionBody": "Text",
                 "dates": "Termine",
                 "datesOverrideWarning": "Gruppentermine überschreiben die Termine einzelner Aufgaben.",
                 "datesInvalidOrder": "Die Termine sind nicht in einer gültigen Reihenfolge."

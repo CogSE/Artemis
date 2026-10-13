@@ -106,20 +106,26 @@
                     </div>
                     <div class="d-flex gap-2">
                         @if ((task.state ?? 'NEW') !== 'DONE') {
-                            <button
-                                type="button"
-                                tumAetUiButton
-                                severity="primary"
-                                size="small"
-                                [disabled]="advanceRequiresEffort(task)"
-                                (click)="advanceState(task)"
+                            <!-- A disabled button receives no pointer events, so the hint has to live on a wrapper that still does. -->
+                            <span
+                                class="inline-flex"
                                 [tumAetUiTooltip]="advanceButtonTooltipKey(task) | artemisTranslate"
                                 tumAetUiTooltipPlacement="top"
-                                [attr.aria-label]="advanceButtonTooltipKey(task) | artemisTranslate"
-                                data-testid="advance-task-btn"
+                                data-testid="advance-task-hint"
                             >
-                                <fa-icon [icon]="faArrowRight" />
-                            </button>
+                                <button
+                                    type="button"
+                                    tumAetUiButton
+                                    severity="primary"
+                                    size="small"
+                                    [disabled]="advanceRequiresEffort(task)"
+                                    (click)="advanceState(task)"
+                                    [attr.aria-label]="advanceButtonTooltipKey(task) | artemisTranslate"
+                                    data-testid="advance-task-btn"
+                                >
+                                    <fa-icon [icon]="faArrowRight" />
+                                </button>
+                            </span>
                         }
                         <button
                             type="button"

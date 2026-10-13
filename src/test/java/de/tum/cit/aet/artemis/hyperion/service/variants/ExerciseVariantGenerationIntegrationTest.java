@@ -614,12 +614,13 @@ class ExerciseVariantGenerationIntegrationTest extends AbstractSpringIntegration
                 domainChangeRequest(new VariantPlacementDTO(VariantPlacementDTO.PlacementType.EXISTING_GROUP, null, null)), VariantJobStartDTO.class, HttpStatus.BAD_REQUEST);
 
         // NEW_GROUP payloads are validated too — @Valid cascades into the nested group DTO.
-        request.postWithResponseBody("/api/hyperion/exercises/" + sourceQuiz.getId() + "/generate-variant", domainChangeRequest(
-                new VariantPlacementDTO(VariantPlacementDTO.PlacementType.NEW_GROUP, null, new CreateExerciseVariantGroupDTO("a".repeat(256), 10.0, null, null, null, null, null))),
+        request.postWithResponseBody(
+                "/api/hyperion/exercises/" + sourceQuiz.getId() + "/generate-variant", domainChangeRequest(new VariantPlacementDTO(VariantPlacementDTO.PlacementType.NEW_GROUP,
+                        null, new CreateExerciseVariantGroupDTO("a".repeat(256), 10.0, null, null, null, null, null, null, null))),
                 VariantJobStartDTO.class, HttpStatus.BAD_REQUEST);
         request.postWithResponseBody("/api/hyperion/exercises/" + sourceQuiz.getId() + "/generate-variant",
                 domainChangeRequest(new VariantPlacementDTO(VariantPlacementDTO.PlacementType.NEW_GROUP, null,
-                        new CreateExerciseVariantGroupDTO("Cargo bay variants", -1.0, null, null, null, null, null))),
+                        new CreateExerciseVariantGroupDTO("Cargo bay variants", -1.0, null, null, null, null, null, null, null))),
                 VariantJobStartDTO.class, HttpStatus.BAD_REQUEST);
 
         // Unsupported exercise type (no text adapters registered).
@@ -667,7 +668,7 @@ class ExerciseVariantGenerationIntegrationTest extends AbstractSpringIntegration
     void shouldPlaceVariantIntoNewVariantGroup() throws Exception {
         scriptChatModel(PLAN_JSON, this::applyRetitleEdit, List.of());
         VariantPlacementDTO placement = new VariantPlacementDTO(VariantPlacementDTO.PlacementType.NEW_GROUP, null,
-                new CreateExerciseVariantGroupDTO("Cargo bay variants", 10.0, null, null, null, null, null));
+                new CreateExerciseVariantGroupDTO("Cargo bay variants", 10.0, null, null, null, null, null, null, null));
 
         String jobId = startJob(sourceQuiz.getId(), domainChangeRequest(placement));
         VariantJob job = awaitTerminal(jobId, EDITOR_LOGIN);
@@ -690,7 +691,7 @@ class ExerciseVariantGenerationIntegrationTest extends AbstractSpringIntegration
         synchronizedQuiz.setMaxPoints(synchronizedQuiz.getOverallQuizPoints());
         synchronizedQuiz = quizExerciseRepository.save(synchronizedQuiz);
         VariantPlacementDTO placement = new VariantPlacementDTO(VariantPlacementDTO.PlacementType.NEW_GROUP, null,
-                new CreateExerciseVariantGroupDTO("Cargo bay variants", 10.0, null, null, null, null, null));
+                new CreateExerciseVariantGroupDTO("Cargo bay variants", 10.0, null, null, null, null, null, null, null));
 
         request.postWithResponseBody("/api/hyperion/exercises/" + synchronizedQuiz.getId() + "/generate-variant", domainChangeRequest(placement), VariantJobStartDTO.class,
                 HttpStatus.BAD_REQUEST);

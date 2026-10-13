@@ -65,4 +65,23 @@ public interface ProgrammingExerciseTaskRepository extends ArtemisJpaRepository<
             WHERE t.exercise.id = :exerciseId
             """)
     Set<ProgrammingExerciseTask> findByExerciseIdWithTestCases(@Param("exerciseId") Long exerciseId);
+
+    /**
+     * The test cases that make up a milestone's Definition of Done: the active tests referenced by a task of the
+     * exercise's problem statement, except those weighted 0, which are only shown to the student.
+     * <p>
+     * An inactive test is no longer executed, so it could never pass and would fail the Definition of Done for good.
+     *
+     * @param exerciseId the id of the milestone exercise whose tasks define the Definition of Done
+     * @return the ids of the test cases that must pass, empty if the tasks reference none
+     */
+    @Query("""
+            SELECT DISTINCT tc.id
+            FROM ProgrammingExerciseTask t
+                JOIN t.testCases tc
+            WHERE t.exercise.id = :exerciseId
+                AND tc.active = TRUE
+                AND (tc.weight IS NULL OR tc.weight > 0)
+            """)
+    Set<Long> findDefinitionOfDoneTestCaseIdsByExerciseId(@Param("exerciseId") long exerciseId);
 }

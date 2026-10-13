@@ -54,6 +54,7 @@
                                     [isQueued]="isMilestoneQueued()"
                                     [allowOpeningDetails]="isMilestoneBuildFailed()"
                                     [buildOutcomeOnly]="true"
+                                    [definitionOfDoneFailed]="isMilestoneDodFailed()"
                                     [showCompletion]="false"
                                 />
                             </span>
@@ -169,9 +170,19 @@
                             </p>
                         }
                     } @else {
-                        <div class="fw-semibold mb-1" jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.heading"></div>
-                        <p class="mb-0 text-body-secondary">
-                            <span jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.body" [translateValues]="{ count: exercises().length }"></span>
+                        <!-- The instructor's own heading and text replace the default ones; either left empty keeps its default. -->
+                        @if (group.descriptionHeading) {
+                            <div class="fw-semibold mb-1" data-testid="group-description-heading">{{ group.descriptionHeading }}</div>
+                        } @else {
+                            <div class="fw-semibold mb-1" data-testid="group-description-heading" jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.heading"></div>
+                        }
+                        <p class="mb-0 text-body-secondary" data-testid="group-description-body">
+                            @if (group.descriptionBody) {
+                                <!-- `whitespace-pre-line`, so the line breaks the instructor typed survive. -->
+                                <span class="whitespace-pre-line">{{ group.descriptionBody }}</span>
+                            } @else {
+                                <span jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.body" [translateValues]="{ count: exercises().length }"></span>
+                            }
                             @if (capReducesMaxPoints()) {
                                 <span jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.cappedScore" [translateValues]="{ maxPoints: group.maxPoints }"></span>
                             }

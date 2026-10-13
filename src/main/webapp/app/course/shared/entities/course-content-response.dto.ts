@@ -57,6 +57,8 @@ interface ExerciseVariantGroupReferenceDTO {
     dueDate?: string;
     assessmentDueDate?: string;
     exampleSolutionPublicationDate?: string;
+    descriptionHeading?: string;
+    descriptionBody?: string;
 }
 
 /** The fields all five course-management exercise payloads share. */
@@ -528,6 +530,8 @@ function variantGroupFromDTO(dto?: ExerciseVariantGroupReferenceDTO): ExerciseVa
         dueDate: convertDateStringFromServer(dto.dueDate),
         assessmentDueDate: convertDateStringFromServer(dto.assessmentDueDate),
         exampleSolutionPublicationDate: convertDateStringFromServer(dto.exampleSolutionPublicationDate),
+        descriptionHeading: dto.descriptionHeading,
+        descriptionBody: dto.descriptionBody,
     };
 }
 

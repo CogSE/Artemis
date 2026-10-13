@@ -44,6 +44,8 @@ export class ExerciseGroupEditModalComponent {
     protected readonly faTriangleExclamation = faTriangleExclamation;
     protected readonly faCircleXmark = faCircleXmark;
     protected readonly MAX_TITLE_LENGTH = MAX_TITLE_LENGTH;
+    protected readonly MAX_DESCRIPTION_HEADING_LENGTH = MAX_DESCRIPTION_HEADING_LENGTH;
+    protected readonly MAX_DESCRIPTION_BODY_LENGTH = MAX_DESCRIPTION_BODY_LENGTH;
 
     /** Two-way visibility, driven by the parent. */
     readonly visible = model<boolean>(false);
@@ -56,6 +58,8 @@ export class ExerciseGroupEditModalComponent {
 
     readonly draftTitle = signal('');
     readonly draftMaxPoints = signal<number | undefined>(undefined);
+    readonly draftDescriptionHeading = signal('');
+    readonly draftDescriptionBody = signal('');
     readonly draftReleaseDate = signal<dayjs.Dayjs | undefined>(undefined);
     readonly draftStartDate = signal<dayjs.Dayjs | undefined>(undefined);
     readonly draftDueDate = signal<dayjs.Dayjs | undefined>(undefined);
@@ -82,6 +86,8 @@ export class ExerciseGroupEditModalComponent {
             const g = this.group();
             this.draftTitle.set(g.title ?? '');
             this.draftMaxPoints.set(g.maxPoints);
+            this.draftDescriptionHeading.set(g.descriptionHeading ?? '');
+            this.draftDescriptionBody.set(g.descriptionBody ?? '');
             // The group's dates are typed as dayjs but arrive as ISO strings: exercise date deserialization does
             // not reach the nested variant-group reference, so coerce them for the timeline.
             this.draftReleaseDate.set(toDayjs(g.releaseDate));
@@ -96,6 +102,9 @@ export class ExerciseGroupEditModalComponent {
         const updated: CourseExerciseGroup = cloneWith(this.group(), {
             title: this.draftTitle().trim(),
             maxPoints: this.draftMaxPoints(),
+            // Blank means "use the default text", which the server stores as unset.
+            descriptionHeading: this.draftDescriptionHeading().trim() || undefined,
+            descriptionBody: this.draftDescriptionBody().trim() || undefined,
             releaseDate: this.draftReleaseDate(),
             startDate: this.draftStartDate(),
             dueDate: this.draftDueDate(),
@@ -119,6 +128,8 @@ export class ExerciseGroupEditModalComponent {
         return (
             (updated.title ?? '') === (g.title ?? '') &&
             updated.maxPoints === g.maxPoints &&
+            updated.descriptionHeading === (g.descriptionHeading || undefined) &&
+            updated.descriptionBody === (g.descriptionBody || undefined) &&
             datesEqual(updated.releaseDate, toDayjs(g.releaseDate)) &&
             datesEqual(updated.startDate, toDayjs(g.startDate)) &&
             datesEqual(updated.dueDate, toDayjs(g.dueDate)) &&
@@ -149,6 +160,9 @@ export class ExerciseGroupEditModalComponent {
 
 /** Maximum group title length, matching the server's @Size(max = 255) constraint and the varchar(255) column. */
 const MAX_TITLE_LENGTH = 255;
+/** Match the server's limits on the description: the varchar(255) heading column and `MAX_DESCRIPTION_BODY_LENGTH`. */
+const MAX_DESCRIPTION_HEADING_LENGTH = 255;
+const MAX_DESCRIPTION_BODY_LENGTH = 5000;
 
 /** Compares two optional dayjs values by instant, treating both-undefined as equal. */
 function datesEqual(a: dayjs.Dayjs | undefined, b: dayjs.Dayjs | undefined): boolean {

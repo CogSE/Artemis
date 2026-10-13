@@ -354,7 +354,9 @@ export const getTextColorClass = (result: Result | undefined, participation: Par
         return 'text-state-danger';
     }
 
-    if (resultIsPreliminary(result, participation, exercise)) {
+    // Test progress is final as a share of passed tests even before the tutor's assessment, so it keeps its colour; the
+    // preliminary tooltip and icon still mark the result as not final.
+    if (resultIsPreliminary(result, participation, exercise) && getTestProgressScore(result, exercise ?? participation?.exercise) === undefined) {
         return 'text-muted-color';
     }
 

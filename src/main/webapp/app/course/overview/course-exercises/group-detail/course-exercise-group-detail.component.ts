@@ -46,6 +46,7 @@ import { ProgrammingSubmissionService, ProgrammingSubmissionState } from 'app/pr
 import { ResultComponent } from 'app/exercise/result/result.component';
 import { MilestoneCodeQualityComponent } from 'app/programming/shared/milestone-code-quality/milestone-code-quality.component';
 import { ProgrammingExerciseInstructionComponent } from 'app/programming/shared/instructions-render/programming-exercise-instruction.component';
+import { ProgrammingExerciseInstructionService, TestCaseState } from 'app/programming/shared/instructions-render/services/programming-exercise-instruction.service';
 
 @Component({
     selector: 'jhi-course-exercise-group-detail',
@@ -93,6 +94,7 @@ export class CourseExerciseGroupDetailComponent {
     private readonly programmingExerciseParticipationService = inject(ProgrammingExerciseParticipationService);
     private readonly participationWebsocketService = inject(ParticipationWebsocketService);
     private readonly programmingSubmissionService = inject(ProgrammingSubmissionService);
+    private readonly instructionService = inject(ProgrammingExerciseInstructionService);
 
     protected readonly faLayerGroup = faLayerGroup;
     protected readonly faCircleInfo = faCircleInfo;
@@ -217,6 +219,17 @@ export class CourseExerciseGroupDetailComponent {
         const submission = this.milestoneResult()?.submission ?? (participation ? getLatestSubmission(participation) : undefined);
         // Read through the shared Submission type, which does not declare the flag a programming submission carries.
         return submission !== undefined && 'buildFailed' in submission && submission.buildFailed === true;
+    });
+
+    /**
+     * Whether any of the milestone's Definition of Done tests did not pass in its latest result, which turns the status
+     * badge's "Build successful" into "Build successful, DoD tests failed". The same judgement the user story page's
+     * {@link MilestoneDodStatusComponent} makes, on the tests the server counts for the milestone's points.
+     */
+    protected readonly isMilestoneDodFailed = computed<boolean>(() => {
+        const testIds = this.milestoneStatus()?.definitionOfDoneTestCaseIds ?? [];
+        const result = this.milestoneResult();
+        return testIds.length > 0 && !!result && this.instructionService.testStatusForTask(testIds, result).testCaseState !== TestCaseState.SUCCESS;
     });
 
     private readonly groupId = signal<number | undefined>(undefined);

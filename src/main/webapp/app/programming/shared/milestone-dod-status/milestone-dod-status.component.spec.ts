@@ -17,7 +17,8 @@ describe('MilestoneDodStatusComponent', () => {
     let liveResults: BehaviorSubject<Result | undefined>;
     let statusSpy: ReturnType<typeof vi.fn>;
 
-    const TASKS = '[task][Sort](<testid>1</testid>,<testid>2</testid>)\n[task][Unresolved](typoTest)';
+    // The Definition of Done tests as the server reports them; test 3 stands for one weighted 0, which the server leaves out.
+    const DOD_TEST_IDS = [1, 2];
 
     const userStory = {
         id: 7,
@@ -26,8 +27,8 @@ describe('MilestoneDodStatusComponent', () => {
         exerciseVariantGroup: { id: 10, type: 'milestone', milestoneExerciseId: 99 },
     } as unknown as Exercise;
 
-    function startedStatus(problemStatement: string | undefined = TASKS): MilestoneStatusDTO {
-        return { participationId: 555, problemStatement } as MilestoneStatusDTO;
+    function startedStatus(definitionOfDoneTestCaseIds: number[] = DOD_TEST_IDS): MilestoneStatusDTO {
+        return { participationId: 555, problemStatement: '[task][Sort](<testid>1</testid>,<testid>2</testid>,<testid>3</testid>)', definitionOfDoneTestCaseIds };
     }
 
     function testFeedback(testId: number, positive: boolean | undefined): Feedback {
@@ -90,13 +91,13 @@ describe('MilestoneDodStatusComponent', () => {
     });
 
     it('is hidden while the milestone has not been started', async () => {
-        await setup(of({ problemStatement: TASKS } as MilestoneStatusDTO));
+        await setup(of({ definitionOfDoneTestCaseIds: DOD_TEST_IDS } as MilestoneStatusDTO));
         expect(status()).toBe('hidden');
         expect(renderedStatus()).toBeUndefined();
     });
 
-    it('is hidden when the milestone problem statement references no tests', async () => {
-        await setup(of(startedStatus('Just prose, [task][Unresolved](typoTest)')), of(participationWith({ id: 1, feedbacks: [] } as Result)));
+    it('is hidden when the milestone has no Definition of Done tests', async () => {
+        await setup(of(startedStatus([])), of(participationWith({ id: 1, feedbacks: [] } as Result)));
         expect(status()).toBe('hidden');
     });
 
@@ -129,7 +130,7 @@ describe('MilestoneDodStatusComponent', () => {
         expect(status()).toBe('failing');
     });
 
-    it('ignores failing tests the milestone tasks do not reference', async () => {
+    it('ignores failing tests outside the Definition of Done, such as those weighted 0', async () => {
         await setup(of(startedStatus()), of(participationWith({ id: 1, feedbacks: [testFeedback(1, true), testFeedback(2, true), testFeedback(3, false)] } as Result)));
         expect(status()).toBe('met');
         expect((fixture.nativeElement as HTMLElement).querySelector('fa-icon.text-state-success')).not.toBeNull();
