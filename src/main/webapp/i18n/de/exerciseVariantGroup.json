@@ -77,6 +77,17 @@
                 "codeQuality": "Codequalität",
                 "codeQualityDisabled": "Die statische Code-Analyse ist für diesen Meilenstein deaktiviert."
             },
+            "tasks": {
+                "title": "Selbst angelegte Tasks: ({{ count }})",
+                "totals": "Geschätzt {{ estimated }} · erfasst {{ actual }}",
+                "empty": "Für diese User Story wurden keine Tasks angelegt.",
+                "task": "Task",
+                "state": "Status",
+                "priority": "Priorität",
+                "points": "Punkte",
+                "estimatedEffort": "Geschätzt",
+                "actualEffort": "Erfasst"
+            },
             "dashboard": {
                 "title": "Meilenstein-Bewertungsdashboard",
                 "student": "Studierende:r",

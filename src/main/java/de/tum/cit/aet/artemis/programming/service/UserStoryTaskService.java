@@ -223,8 +223,8 @@ public class UserStoryTaskService {
     /**
      * Rejects any caller other than the participant (or teammate) the task's participation belongs to. Deliberately
      * stricter than {@link ParticipationAuthorizationCheckService#checkCanAccessParticipationElseThrow}, which also
-     * lets a tutor read the participation: a personal task board is not part of the graded submission a tutor
-     * assesses.
+     * lets a tutor read the participation: a personal task board is the participant's own to change. A tutor only ever
+     * reads it, through the milestone assessment ({@code MilestoneAssessmentService}).
      */
     private void checkOwnTaskElseThrow(UserStoryTask task, User user) {
         StudentParticipation participation = studentParticipationRepository.findByIdElseThrow(task.getParticipation().getId());

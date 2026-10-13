@@ -1,10 +1,13 @@
 package de.tum.cit.aet.artemis.exercise.dto;
 
+import java.util.List;
+
 import org.jspecify.annotations.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import de.tum.cit.aet.artemis.exercise.domain.ExerciseType;
+import de.tum.cit.aet.artemis.programming.dto.UserStoryTaskDTO;
 
 /**
  * One exercise of a milestone group as it stands for a single student, which is both a tab on the milestone assessment
@@ -27,8 +30,11 @@ import de.tum.cit.aet.artemis.exercise.domain.ExerciseType;
  * @param latestScore     the score of the latest result, or {@code null} if the exercise has none yet
  * @param assessorLogin   the login of the tutor who assessed it, or {@code null} if nobody has
  * @param assessed        whether a manual assessment has been submitted for this exercise
+ * @param tasks           the tasks the student (or their team) broke the user story down into, in their own board order,
+ *                            so the tutor can see how the story was planned; empty for any other exercise, for a story
+ *                            without tasks, and on the dashboard, which does not show them
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record MilestoneAssessmentExerciseDTO(long exerciseId, String title, ExerciseType exerciseType, boolean userStory, @Nullable Double maxPoints,
-        @Nullable Long participationId, @Nullable Long submissionId, @Nullable Double latestScore, @Nullable String assessorLogin, boolean assessed) {
+        @Nullable Long participationId, @Nullable Long submissionId, @Nullable Double latestScore, @Nullable String assessorLogin, boolean assessed, List<UserStoryTaskDTO> tasks) {
 }

@@ -58,7 +58,12 @@ import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingSubmission;
 import de.tum.cit.aet.artemis.programming.domain.ProjectType;
 import de.tum.cit.aet.artemis.programming.domain.StaticCodeAnalysisTool;
+import de.tum.cit.aet.artemis.programming.domain.TaskPriority;
+import de.tum.cit.aet.artemis.programming.domain.TaskState;
 import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryTask;
+import de.tum.cit.aet.artemis.programming.dto.UserStoryTaskDTO;
+import de.tum.cit.aet.artemis.programming.repository.UserStoryTaskRepository;
 import de.tum.cit.aet.artemis.programming.util.ProgrammingExerciseFactory;
 import de.tum.cit.aet.artemis.text.domain.TextSubmission;
 import de.tum.cit.aet.artemis.text.util.TextExerciseFactory;
@@ -89,6 +94,9 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
 
     @Autowired
     private ExerciseVariantGroupService exerciseVariantGroupService;
+
+    @Autowired
+    private UserStoryTaskRepository userStoryTaskRepository;
 
     private Course course;
 
@@ -830,6 +838,53 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         List<MilestoneAssessmentStudentDTO> dashboard = request.getList(assessmentUrl(), HttpStatus.OK, MilestoneAssessmentStudentDTO.class);
         assertThat(dashboard).singleElement()
                 .satisfies(row -> assertThat(row.exercises()).extracting(MilestoneAssessmentExerciseDTO::exerciseId).containsExactlyElementsOf(expectedOrder));
+    }
+
+    /**
+     * How a student broke a story down into tasks, and how much effort they logged on it, is part of what a tutor judges,
+     * so the assessment page carries each story's board read-only - and only on the story it belongs to.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "tutor1", roles = "TA")
+    void milestoneAssessmentForOneStudentCarriesTheTasksOfEachUserStory() throws Exception {
+        UserStoryExercise first = addUserStoryMember("first", null, null);
+        UserStoryExercise second = addUserStoryMember("second", null, null);
+        UserStoryExercise untouched = addUserStoryMember("third", null, null);
+        addStartedParticipationWithResult(milestoneExercise, 60.0);
+        Result firstResult = addStartedParticipationWithResult(first, 100.0);
+        Result secondResult = addStartedParticipationWithResult(second, 50.0);
+        addStartedParticipationWithResult(untouched, 0.0);
+        // Saved out of board order, so the response has to follow the board index rather than the insertion order.
+        addTask(firstResult, "Write the tests", 1, TaskState.NEW, null);
+        addTask(firstResult, "Build the login form", 0, TaskState.DONE, 2.5);
+        addTask(secondResult, "Add the logout button", 0, TaskState.IN_PROGRESS, 1.0);
+
+        MilestoneAssessmentDTO assessment = request.get(assessmentUrl() + "/" + TEST_PREFIX + "student1", HttpStatus.OK, MilestoneAssessmentDTO.class);
+
+        assertThat(assessment.exercises()).extracting(MilestoneAssessmentExerciseDTO::exerciseId).containsExactly(first.getId(), second.getId(), untouched.getId());
+        assertThat(assessment.exercises().get(0).tasks()).extracting(UserStoryTaskDTO::title).containsExactly("Build the login form", "Write the tests");
+        assertThat(assessment.exercises().get(0).tasks().getFirst().actualEffortHours()).isEqualTo(2.5);
+        assertThat(assessment.exercises().get(0).tasks().getFirst().state()).isEqualTo(TaskState.DONE);
+        assertThat(assessment.exercises().get(1).tasks()).extracting(UserStoryTaskDTO::title).containsExactly("Add the logout button");
+        assertThat(assessment.exercises().get(2).tasks()).isNullOrEmpty();
+
+        // The dashboard is a table of scores; it never shows the boards, so it does not load them either.
+        List<MilestoneAssessmentStudentDTO> dashboard = request.getList(assessmentUrl(), HttpStatus.OK, MilestoneAssessmentStudentDTO.class);
+        assertThat(dashboard).singleElement().satisfies(row -> assertThat(row.exercises()).allSatisfy(exercise -> assertThat(exercise.tasks()).isNullOrEmpty()));
+    }
+
+    /** Adds a task to the board of the participation the given result belongs to. */
+    private void addTask(Result result, String title, int orderIndex, TaskState state, @Nullable Double actualEffortHours) {
+        UserStoryTask task = new UserStoryTask();
+        task.setParticipation(result.getSubmission().getParticipation());
+        task.setTitle(title);
+        task.setTaskPoints(3);
+        task.setPriority(TaskPriority.MEDIUM);
+        task.setEstimatedEffortHours(2.0);
+        task.setActualEffortHours(actualEffortHours);
+        task.setState(state);
+        task.setOrderIndex(orderIndex);
+        userStoryTaskRepository.save(task);
     }
 
     /** Adds a non-programming exercise to the milestone group under the given title. */
