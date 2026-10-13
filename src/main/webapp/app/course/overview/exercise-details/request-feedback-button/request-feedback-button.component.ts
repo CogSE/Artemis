@@ -5,7 +5,7 @@ import { faPenSquare } from '@fortawesome/free-solid-svg-icons';
 import { ProfileService } from 'app/core/layouts/profiles/shared/profile.service';
 import { MODULE_FEATURE_ATHENA } from 'app/app.constants';
 import { StudentParticipation } from 'app/exercise/shared/entities/participation/student-participation.model';
-import { Exercise, ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, baseExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { AlertService } from 'app/foundation/service/alert.service';
 import { TranslateService } from '@ngx-translate/core';
 
@@ -293,7 +293,7 @@ export class RequestFeedbackButtonComponent implements OnInit, OnDestroy {
         if (!participation?.id) {
             return false;
         }
-        if (this.exercise().type === ExerciseType.PROGRAMMING) {
+        if (baseExerciseType(this.exercise().type) === ExerciseType.PROGRAMMING) {
             // Athena feedback requests for programming exercises require manual assessment to be enabled
             return this.exercise().assessmentType === AssessmentType.SEMI_AUTOMATIC;
         }

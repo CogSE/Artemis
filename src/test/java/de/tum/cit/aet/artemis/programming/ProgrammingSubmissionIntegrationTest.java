@@ -42,20 +42,25 @@ import de.tum.cit.aet.artemis.assessment.test_repository.ResultTestRepository;
 import de.tum.cit.aet.artemis.core.exception.EntityNotFoundException;
 import de.tum.cit.aet.artemis.core.util.TestResourceUtils;
 import de.tum.cit.aet.artemis.course.domain.Course;
+import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.domain.SubmissionType;
 import de.tum.cit.aet.artemis.exercise.domain.participation.Participation;
 import de.tum.cit.aet.artemis.exercise.domain.participation.StudentParticipation;
 import de.tum.cit.aet.artemis.exercise.dto.SubmissionDTO;
 import de.tum.cit.aet.artemis.exercise.participation.util.ParticipationFactory;
+import de.tum.cit.aet.artemis.exercise.repository.ExerciseVariantGroupRepository;
 import de.tum.cit.aet.artemis.exercise.util.ExerciseUtilService;
 import de.tum.cit.aet.artemis.localci.service.LocalVCLocalCITestService;
 import de.tum.cit.aet.artemis.localvc.util.LocalVCTestRepository;
 import de.tum.cit.aet.artemis.modeling.domain.ModelingExercise;
 import de.tum.cit.aet.artemis.modeling.domain.ModelingSubmission;
+import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseParticipation;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
+import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingSubmission;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.dto.ProgrammingSubmissionForAssessmentDTO;
 import de.tum.cit.aet.artemis.programming.util.RepositoryExportTestUtil;
 
@@ -72,6 +77,9 @@ class ProgrammingSubmissionIntegrationTest extends AbstractProgrammingIntegratio
 
     @Autowired
     private LocalVCLocalCITestService localVCLocalCITestService;
+
+    @Autowired
+    private ExerciseVariantGroupRepository exerciseVariantGroupRepository;
 
     private final Map<String, String> participationCommitHashes = new HashMap<>();
 
@@ -133,6 +141,139 @@ class ProgrammingSubmissionIntegrationTest extends AbstractProgrammingIntegratio
         assertThat(optionalSubmission.get().getLatestResult()).isNull();
         assertThat(submission.isSubmitted()).isTrue();
         assertThat(submission.getType()).isEqualTo(SubmissionType.MANUAL);
+    }
+
+    /** A milestone group with one user story, in which the user story's participations share the milestone's repositories. */
+    private record MilestoneWithUserStory(MilestoneExercise milestone, UserStoryExercise userStory) {
+    }
+
+    private MilestoneWithUserStory createMilestoneWithUserStory() {
+        Course course = exercise.getCourseViaExerciseGroupOrCourseMember();
+
+        MilestoneExercise milestone = new MilestoneExercise();
+        milestone.setTitle("Milestone");
+        milestone.setShortName("milestone" + TEST_PREFIX);
+        milestone.setProgrammingLanguage(ProgrammingLanguage.JAVA);
+        milestone.setCourse(course);
+        milestone.setMaxPoints(0.0);
+        milestone.generateAndSetProjectKey();
+        milestone = (MilestoneExercise) programmingExerciseRepository.save(milestone);
+
+        MilestoneExerciseGroup group = new MilestoneExerciseGroup();
+        group.setTitle("Milestone Group " + TEST_PREFIX);
+        group.setMilestoneExercise(milestone);
+        group.setCourse(course);
+        group = (MilestoneExerciseGroup) exerciseVariantGroupRepository.save(group);
+
+        UserStoryExercise userStory = new UserStoryExercise();
+        userStory.setTitle("UserStory");
+        userStory.setShortName("userstory" + TEST_PREFIX);
+        userStory.setProgrammingLanguage(ProgrammingLanguage.JAVA);
+        userStory.setCourse(course);
+        userStory.setMaxPoints(2.0);
+        userStory.setExerciseVariantGroup(group);
+        userStory.generateAndSetProjectKey();
+        userStory = (UserStoryExercise) programmingExerciseRepository.save(userStory);
+        return new MilestoneWithUserStory(milestone, userStory);
+    }
+
+    /**
+     * Gives the student a milestone participation and a user story participation working in its repository. A user story
+     * has no build plan of its own.
+     *
+     * @return the milestone participation and the user story participation, in that order
+     */
+    private List<ProgrammingExerciseStudentParticipation> addSharedParticipations(MilestoneWithUserStory setup, String login) {
+        var milestoneParticipation = participationUtilService.addStudentParticipationForProgrammingExercise(setup.milestone(), login);
+        var userStoryParticipation = participationUtilService.addStudentParticipationForProgrammingExercise(setup.userStory(), login);
+        userStoryParticipation.setRepositoryUri(milestoneParticipation.getRepositoryUri());
+        userStoryParticipation.setBuildPlanId(null);
+        participationRepository.save(userStoryParticipation);
+        return List.of(milestoneParticipation, userStoryParticipation);
+    }
+
+    /** What the milestone's last push left behind, so that a bulk trigger has something to build. */
+    private void addMilestoneSubmission(ProgrammingExerciseStudentParticipation milestoneParticipation, String commitHash) {
+        ProgrammingSubmission submission = new ProgrammingSubmission();
+        submission.setParticipation(milestoneParticipation);
+        submission.setCommitHash(commitHash);
+        submission.setType(SubmissionType.MANUAL);
+        submission.setSubmissionDate(ZonedDateTime.now());
+        submission.setSubmitted(true);
+        submissionRepository.save(submission);
+    }
+
+    /** The story shows the milestone's build as its own, and the fanned-out result will land on this submission. */
+    private void assertPendingUserStorySubmission(ProgrammingExerciseStudentParticipation userStoryParticipation, String commitHash) {
+        assertThat(submissionRepository.findAllByParticipationIdWithResults(userStoryParticipation.getId())).singleElement().satisfies(submission -> {
+            assertThat(submission.getCommitHash()).isEqualTo(commitHash);
+            assertThat(submission.getResults()).isEmpty();
+        });
+        assertThat(participationRepository.findById(userStoryParticipation.getId()).orElseThrow().getBuildPlanId()).isNull();
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student3", roles = "USER")
+    void triggerBuildForUserStoryBuildsTheMilestone() throws Exception {
+        jenkinsRequestMockProvider.enableMockingOfRequests();
+        var setup = createMilestoneWithUserStory();
+        var participations = addSharedParticipations(setup, TEST_PREFIX + "student3");
+        var milestoneParticipation = participations.getFirst();
+        var userStoryParticipation = participations.getLast();
+        seedRepositoryForParticipation(milestoneParticipation, "MilestoneTrigger.java");
+        jenkinsRequestMockProvider.mockTriggerBuild(setup.milestone().getProjectKey(), milestoneParticipation.getBuildPlanId(), false);
+
+        request.postWithoutLocation("/api/programming/participations/" + userStoryParticipation.getId() + "/trigger-build", null, HttpStatus.OK, new HttpHeaders());
+
+        String commitHash = participationCommitHashes.get(milestoneParticipation.getParticipantIdentifier());
+        assertThat(submissionRepository.findAllByParticipationIdWithResults(milestoneParticipation.getId())).singleElement()
+                .satisfies(submission -> assertThat(submission.getCommitHash()).isEqualTo(commitHash));
+        assertPendingUserStorySubmission(userStoryParticipation, commitHash);
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void triggerInstructorBuildAllForUserStoryBuildsTheMilestone() throws Exception {
+        jenkinsRequestMockProvider.enableMockingOfRequests();
+        var setup = createMilestoneWithUserStory();
+        var userStoryParticipations = new ArrayList<ProgrammingExerciseStudentParticipation>();
+        for (String login : List.of(TEST_PREFIX + "student3", TEST_PREFIX + "student4")) {
+            var participations = addSharedParticipations(setup, login);
+            addMilestoneSubmission(participations.getFirst(), "commit-" + login);
+            jenkinsRequestMockProvider.mockTriggerBuild(setup.milestone().getProjectKey(), participations.getFirst().getBuildPlanId(), false);
+            userStoryParticipations.add(participations.getLast());
+        }
+        // A milestone participation without a user story participation behind it is not part of the user story's build.
+        addMilestoneSubmission(participationUtilService.addStudentParticipationForProgrammingExercise(setup.milestone(), TEST_PREFIX + "student5"), "commit-unrelated");
+
+        var userStory = setup.userStory();
+        userStory.setTestCasesChanged(true);
+        programmingExerciseRepository.save(userStory);
+
+        request.postWithoutLocation("/api/programming/programming-exercises/" + userStory.getId() + "/trigger-instructor-build-all", null, HttpStatus.OK, new HttpHeaders());
+
+        // due to the async function call on the server, we need to wait here until the server has saved the changes
+        await().until(() -> !programmingExerciseRepository.findById(userStory.getId()).orElseThrow().getTestCasesChanged());
+        assertPendingUserStorySubmission(userStoryParticipations.getFirst(), "commit-" + TEST_PREFIX + "student3");
+        assertPendingUserStorySubmission(userStoryParticipations.getLast(), "commit-" + TEST_PREFIX + "student4");
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void triggerInstructorBuildForUserStoryParticipationsBuildsTheirMilestoneParticipations() throws Exception {
+        jenkinsRequestMockProvider.enableMockingOfRequests();
+        var setup = createMilestoneWithUserStory();
+        var selected = addSharedParticipations(setup, TEST_PREFIX + "student3");
+        addMilestoneSubmission(selected.getFirst(), "commit-selected");
+        jenkinsRequestMockProvider.mockTriggerBuild(setup.milestone().getProjectKey(), selected.getFirst().getBuildPlanId(), false);
+        var notSelected = addSharedParticipations(setup, TEST_PREFIX + "student4");
+        addMilestoneSubmission(notSelected.getFirst(), "commit-not-selected");
+
+        request.postWithoutLocation("/api/programming/programming-exercises/" + setup.userStory().getId() + "/trigger-instructor-build", List.of(selected.getLast().getId()),
+                HttpStatus.OK, new HttpHeaders());
+
+        assertPendingUserStorySubmission(selected.getLast(), "commit-selected");
+        assertThat(submissionRepository.findAllByParticipationIdWithResults(notSelected.getLast().getId())).isEmpty();
     }
 
     @Test

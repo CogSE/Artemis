@@ -67,7 +67,9 @@
         }
         <!-- QUIZ EXERCISE ACTIONS END -->
         <!-- PROGRAMMING EXERCISE ACTIONS START -->
-        @case (ExerciseType.PROGRAMMING) {
+        @case (ExerciseType.PROGRAMMING)
+        @case (ExerciseType.USER_STORY)
+        @case (ExerciseType.MILESTONE) {
             <div class="d-flex flex-wrap gap-1">
                 @if (isTeamAvailable()) {
                     <button
@@ -136,7 +138,7 @@
                         exercise().course?.athenaFormativeFeedbackEnabled &&
                         athenaEnabled &&
                         gradedParticipation() &&
-                        exercise().type === ExerciseType.PROGRAMMING &&
+                        baseExerciseType(exercise().type) === ExerciseType.PROGRAMMING &&
                         exercise().assessmentType === AssessmentType.SEMI_AUTOMATIC
                     ) {
                         <jhi-request-feedback-button

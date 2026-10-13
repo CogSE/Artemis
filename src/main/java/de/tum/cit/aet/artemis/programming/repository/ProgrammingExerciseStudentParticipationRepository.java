@@ -318,6 +318,70 @@ public interface ProgrammingExerciseStudentParticipationRepository extends Artem
     List<ParticipationBuildTriggerDTO> findBuildTriggerDataByExerciseIdAndParticipationIds(@Param("exerciseId") long exerciseId,
             @Param("participationIds") Collection<Long> participationIds);
 
+    /**
+     * Like {@link #findBuildTriggerDataByExerciseId}, but for a {@code UserStoryExercise}, which has no build of its own:
+     * returns the trigger inputs of the participations of its {@code MilestoneExercise} that share a repository with one
+     * of the user story's participations. Building those is what grades the user story, through the result fan-out.
+     *
+     * @param milestoneExerciseId the milestone exercise of the user story's group
+     * @param userStoryExerciseId the user story exercise whose participations should be built
+     * @return the trigger inputs of the milestone participations behind the user story's participations that have a submission
+     */
+    @Query("""
+            SELECT new de.tum.cit.aet.artemis.programming.dto.ParticipationBuildTriggerDTO(
+                participation.id, participation.repositoryUri, participation.buildPlanId, participation.branch,
+                participation.initializationState, participation.individualDueDate, participation.testRun,
+                student.id, student.login, team.id,
+                submission.id, submission.type, submission.submissionDate, submission.commitHash,
+                submission.submitted, submission.buildFailed, submission.exampleSubmission)
+            FROM ProgrammingExerciseStudentParticipation participation
+                LEFT JOIN participation.student student
+                LEFT JOIN participation.team team
+                JOIN TREAT (participation.submissions AS ProgrammingSubmission) submission
+            WHERE participation.exercise.id = :milestoneExerciseId
+                AND participation.repositoryUri IN (
+                    SELECT userStoryParticipation.repositoryUri
+                    FROM ProgrammingExerciseStudentParticipation userStoryParticipation
+                    WHERE userStoryParticipation.exercise.id = :userStoryExerciseId
+                )
+                AND submission.id = (SELECT MAX(s2.id)
+                                     FROM participation.submissions s2)
+            """)
+    List<ParticipationBuildTriggerDTO> findMilestoneBuildTriggerDataForUserStory(@Param("milestoneExerciseId") long milestoneExerciseId,
+            @Param("userStoryExerciseId") long userStoryExerciseId);
+
+    /**
+     * Like {@link #findMilestoneBuildTriggerDataForUserStory}, but only for the given participations of the user story.
+     *
+     * @param milestoneExerciseId       the milestone exercise of the user story's group
+     * @param userStoryExerciseId       the user story exercise the participations belong to
+     * @param userStoryParticipationIds the user story participations to build; ids of other exercises are ignored
+     * @return the trigger inputs of the milestone participations behind the given user story participations that have a submission
+     */
+    @Query("""
+            SELECT new de.tum.cit.aet.artemis.programming.dto.ParticipationBuildTriggerDTO(
+                participation.id, participation.repositoryUri, participation.buildPlanId, participation.branch,
+                participation.initializationState, participation.individualDueDate, participation.testRun,
+                student.id, student.login, team.id,
+                submission.id, submission.type, submission.submissionDate, submission.commitHash,
+                submission.submitted, submission.buildFailed, submission.exampleSubmission)
+            FROM ProgrammingExerciseStudentParticipation participation
+                LEFT JOIN participation.student student
+                LEFT JOIN participation.team team
+                JOIN TREAT (participation.submissions AS ProgrammingSubmission) submission
+            WHERE participation.exercise.id = :milestoneExerciseId
+                AND participation.repositoryUri IN (
+                    SELECT userStoryParticipation.repositoryUri
+                    FROM ProgrammingExerciseStudentParticipation userStoryParticipation
+                    WHERE userStoryParticipation.exercise.id = :userStoryExerciseId
+                        AND userStoryParticipation.id IN :userStoryParticipationIds
+                )
+                AND submission.id = (SELECT MAX(s2.id)
+                                     FROM participation.submissions s2)
+            """)
+    List<ParticipationBuildTriggerDTO> findMilestoneBuildTriggerDataForUserStoryParticipations(@Param("milestoneExerciseId") long milestoneExerciseId,
+            @Param("userStoryExerciseId") long userStoryExerciseId, @Param("userStoryParticipationIds") Collection<Long> userStoryParticipationIds);
+
     @Query("""
             SELECT pa.repositoryUri
             FROM ProgrammingExercise pe

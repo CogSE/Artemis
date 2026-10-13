@@ -7,7 +7,7 @@
 
     <ng-template titleBarActions>
         <div class="d-flex align-items-center gap-2 border-end pe-2">
-            @if (exercise()!.isAtLeastInstructor && exercise()!.type === ExerciseType.PROGRAMMING) {
+            @if (exercise()!.isAtLeastInstructor && isProgrammingExercise()) {
                 <jhi-programming-exercise-instructor-submission-state [exercise]="exercise()!" [shouldToggle]="true" [toggleBreakpoint]="'md'" />
             }
             @if (exercise()!.isAtLeastTutor) {
@@ -43,7 +43,7 @@
 <!-- Row actions -->
 <ng-template #actionsTemplate let-dto>
     <div class="btn-group gap-1">
-        @if (exercise()!.type === ExerciseType.PROGRAMMING && exercise()!.isAtLeastInstructor) {
+        @if (isProgrammingExercise() && exercise()!.isAtLeastInstructor) {
             @if (hasLoadedPendingSubmissions()) {
                 <jhi-programming-exercise-instructor-trigger-build-button
                     [exercise]="exercise()!"
@@ -54,7 +54,7 @@
                 <fa-icon [icon]="faCircleNotch" animation="spin" class="text-secondary" />
             }
         }
-        @if (exercise()!.type === ExerciseType.PROGRAMMING && !isLocalCIEnabled() && dto.buildPlanId && exercise()!.isAtLeastInstructor) {
+        @if (isProgrammingExercise() && !isLocalCIEnabled() && dto.buildPlanId && exercise()!.isAtLeastInstructor) {
             <button
                 type="button"
                 [jhiFeatureToggle]="FeatureToggle.ProgrammingExercises"
@@ -98,7 +98,7 @@
             <button
                 type="button"
                 [jhiFeatureToggle]="FeatureToggle.ProgrammingExercises"
-                [skipFeatureToggle]="exercise()!.type !== ExerciseType.PROGRAMMING"
+                [skipFeatureToggle]="!isProgrammingExercise()"
                 jhiDeleteButton
                 [entityTitle]="dto.participantName"
                 deleteQuestion="artemisApp.participation.delete.question"

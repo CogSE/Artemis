@@ -11,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 import de.tum.cit.aet.artemis.exercise.domain.IncludedInOverallScore;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
+import de.tum.cit.aet.artemis.plagiarism.dto.PlagiarismDetectionConfigDTO;
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseBuildConfig;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
@@ -31,7 +32,8 @@ public record CreateMilestoneExerciseGroupDTO(@NotBlank @Size(max = 255) String 
         @Nullable String channelName, ProgrammingLanguage programmingLanguage, @Nullable ProjectType projectType, @Nullable String packageName, @Nullable Boolean allowOnlineEditor,
         @Nullable Boolean allowOfflineIde, boolean allowOnlineIde, @Nullable Boolean staticCodeAnalysisEnabled, @Nullable Integer maxStaticCodeAnalysisPenalty,
         @Nullable ZonedDateTime releaseDate, @Nullable ZonedDateTime startDate, @Nullable ZonedDateTime dueDate, @Nullable ZonedDateTime assessmentDueDate,
-        @Nullable ZonedDateTime exampleSolutionPublicationDate, @Nullable UpdateProgrammingExerciseBuildConfigDTO buildConfig) {
+        @Nullable ZonedDateTime exampleSolutionPublicationDate, @Nullable UpdateProgrammingExerciseBuildConfigDTO buildConfig,
+        @Nullable PlagiarismDetectionConfigDTO plagiarismDetectionConfig) {
 
     /**
      * Builds the (still transient) milestone exercise this payload describes. The course, project key and everything the

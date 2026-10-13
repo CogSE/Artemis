@@ -43,6 +43,7 @@ import de.tum.cit.aet.artemis.plagiarism.repository.PlagiarismCaseRepository;
 import de.tum.cit.aet.artemis.plagiarism.repository.PlagiarismComparisonRepository;
 import de.tum.cit.aet.artemis.plagiarism.repository.PlagiarismResultRepository;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.text.domain.TextExercise;
 
 /**
@@ -104,7 +105,8 @@ public class ContinuousPlagiarismControlService {
     public void executeChecks() {
         var exercises = exerciseRepository.findAllExercisesWithDueDateOnOrAfterYesterdayAndContinuousPlagiarismControlEnabledIsTrue();
         log.info("Starting scheduled continuous plagiarism control for {} exercises: {}", exercises.size(), exercises.stream().map(Exercise::getId).toList());
-        exercises.stream().filter(isBeforeDueDateOrAfterWithPostDueDateChecksEnabled).forEach(exercise -> {
+        // A user story works in the repositories of its group's milestone, which the milestone's own check already covers.
+        exercises.stream().filter(exercise -> !(exercise instanceof UserStoryExercise)).filter(isBeforeDueDateOrAfterWithPostDueDateChecksEnabled).forEach(exercise -> {
             // A check whose findings nobody can act on and whose plagiarism case nobody can be named as the sender of
             // is not worth running, so a course without an instructor is skipped before the expensive part starts.
             var author = findPostAuthor(exercise);

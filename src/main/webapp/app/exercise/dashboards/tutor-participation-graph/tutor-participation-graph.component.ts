@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ViewEncapsulation, computed, inject, input } from '@angular/core';
 import { Router } from '@angular/router';
-import { Exercise, ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, baseExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { TutorParticipation, TutorParticipationStatus } from 'app/exercise/shared/entities/participation/tutor-participation.model';
 import { DueDateStat } from 'app/assessment/shared/assessment-dashboard/due-date-stat.model';
 import { faBook, faChalkboardTeacher } from '@fortawesome/free-solid-svg-icons';
@@ -43,7 +43,7 @@ export class TutorParticipationGraphComponent {
 
     readonly shouldShowManualAssessments = computed<boolean>(() => {
         const exercise = this.exercise();
-        if (exercise?.type === ExerciseType.PROGRAMMING) {
+        if (baseExerciseType(exercise?.type) === ExerciseType.PROGRAMMING) {
             return !(exercise as ProgrammingExercise).allowComplaintsForAutomaticAssessments;
         }
         return true;

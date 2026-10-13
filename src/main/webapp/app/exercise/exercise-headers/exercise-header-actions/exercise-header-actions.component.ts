@@ -2,7 +2,7 @@ import { Component, ElementRef, HostListener, computed, effect, inject, input, o
 import { Router, RouterLink } from '@angular/router';
 import { MODULE_FEATURE_ATHENA } from 'app/app.constants';
 import { ProfileService } from 'app/core/layouts/profiles/shared/profile.service';
-import { Exercise, ExerciseType, baseExerciseType, getExerciseUrlSegment } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, baseExerciseType, getExerciseUrlSegment, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import {
     IconDefinition,
@@ -135,6 +135,8 @@ export class ExerciseHeaderActionsComponent {
     private readonly QUIZ_ENDED_STATUS: (QuizStatus | undefined)[] = [QuizStatus.OPEN_FOR_PRACTICE];
     private readonly QUIZ_EDITABLE_STATUS: (QuizStatus | undefined)[] = [QuizStatus.VISIBLE, QuizStatus.INVISIBLE];
 
+    readonly isProgrammingExercise = computed(() => isProgrammingExerciseType(this.exercise()?.type));
+
     private readonly baseResource = computed(() => {
         const exercise = this.exercise();
         return `/course-management/${this.courseId()}/${getExerciseUrlSegment(exercise.type)}/${exercise.id}/`;
@@ -209,7 +211,7 @@ export class ExerciseHeaderActionsComponent {
     });
     readonly showFeedbackPopover = computed(() => {
         const exercise = this.exercise();
-        if (exercise.type === ExerciseType.PROGRAMMING && exercise.assessmentType !== AssessmentType.SEMI_AUTOMATIC) {
+        if (this.isProgrammingExercise() && exercise.assessmentType !== AssessmentType.SEMI_AUTOMATIC) {
             // Athena feedback requests for programming exercises require manual assessment to be enabled
             return false;
         }
@@ -218,7 +220,7 @@ export class ExerciseHeaderActionsComponent {
             this.hasUserAcceptedLLM() &&
             this.athenaEnabled &&
             (exercise.course?.athenaFormativeFeedbackEnabled ?? false) &&
-            (exercise.type === ExerciseType.PROGRAMMING || exercise.type === ExerciseType.TEXT || exercise.type === ExerciseType.MODELING)
+            (this.isProgrammingExercise() || exercise.type === ExerciseType.TEXT || exercise.type === ExerciseType.MODELING)
         );
     });
     readonly hasProgrammingSubmission = computed(() => !!this.activeParticipationForCode()?.submissions?.some((submission) => submission.submitted));

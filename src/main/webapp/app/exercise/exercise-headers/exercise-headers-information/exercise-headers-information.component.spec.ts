@@ -1,3 +1,5 @@
+import { ProfileService } from 'app/core/layouts/profiles/shared/profile.service';
+import { MockProfileService } from 'test/helpers/mocks/service/mock-profile.service';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -54,6 +56,7 @@ describe('ExerciseHeadersInformationComponent', () => {
                 provideHttpClient(),
                 provideHttpClientTesting(),
                 provideTranslateService(),
+                { provide: ProfileService, useClass: MockProfileService },
             ],
         }).compileComponents();
 

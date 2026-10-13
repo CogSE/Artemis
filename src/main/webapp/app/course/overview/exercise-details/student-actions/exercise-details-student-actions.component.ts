@@ -4,7 +4,7 @@ import { AlertService } from 'app/foundation/service/alert.service';
 import { ExternalCloningService } from 'app/programming/shared/services/external-cloning.service';
 import { FeatureToggle } from 'app/foundation/feature-toggle/feature-toggle.service';
 import { InitializationState } from 'app/exercise/shared/entities/participation/participation.model';
-import { Exercise, ExerciseType, getExerciseUrlSegmentOrEmpty } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, baseExerciseType, getExerciseUrlSegmentOrEmpty } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { hasExerciseDueDatePassed, isResumeExerciseAvailable, isStartExerciseAvailable, isStartPracticeAvailable } from 'app/exercise/util/exercise.utils';
 import { ProgrammingExerciseStudentParticipation } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
@@ -141,7 +141,7 @@ export class ExerciseDetailsStudentActionsComponent {
             const quizExercise = exercise as QuizExercise;
             this._uninitializedQuiz.set(ArtemisQuizService.isUninitialized(quizExercise));
             this._quizNotStarted.set(ArtemisQuizService.notStarted(quizExercise));
-        } else if (exercise.type === ExerciseType.PROGRAMMING) {
+        } else if (baseExerciseType(exercise.type) === ExerciseType.PROGRAMMING) {
             this._programmingExercise.set(exercise);
         } else if (exercise.type === ExerciseType.MODELING) {
             this._editorLabel.set('openModelingEditor');
@@ -316,4 +316,6 @@ export class ExerciseDetailsStudentActionsComponent {
             gradedParticipation?.initializationState === InitializationState.FINISHED
         );
     }
+
+    protected readonly baseExerciseType = baseExerciseType;
 }

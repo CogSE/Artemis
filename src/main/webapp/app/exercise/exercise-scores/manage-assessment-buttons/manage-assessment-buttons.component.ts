@@ -3,7 +3,7 @@ import { faBan, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 import { TranslateService } from '@ngx-translate/core';
 import { AssessmentType } from 'app/assessment/shared/entities/assessment-type.model';
 import { Course } from 'app/course/shared/entities/course.model';
-import { Exercise, ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, baseExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { Participation } from 'app/exercise/shared/entities/participation/participation.model';
 import { isPracticeMode } from 'app/exercise/shared/entities/participation/student-participation.model';
 import { Result } from 'app/exercise/shared/entities/result/result.model';
@@ -126,7 +126,7 @@ export class ManageAssessmentButtonsComponent implements OnInit {
 
         if (confirmCancel && submissionId) {
             let cancelSubscription;
-            switch (this.exercise().type) {
+            switch (baseExerciseType(this.exercise().type)) {
                 case ExerciseType.PROGRAMMING:
                     cancelSubscription = this.programmingAssessmentManualResultService.cancelAssessment(submissionId, result?.id);
                     break;

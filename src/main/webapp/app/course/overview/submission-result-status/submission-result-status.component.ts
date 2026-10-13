@@ -1,5 +1,5 @@
 import { Component, computed, input } from '@angular/core';
-import { Exercise, ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, baseExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { StudentParticipation } from 'app/exercise/shared/entities/participation/student-participation.model';
 import { InitializationState } from 'app/exercise/shared/entities/participation/participation.model';
 import { LiveQuizParticipationStatus, QuizExercise } from 'app/quiz/shared/entities/quiz-exercise.model';
@@ -136,4 +136,5 @@ export class SubmissionResultStatusComponent {
             return studentParticipation?.initializationState === InitializationState.FINISHED;
         }
     });
+    protected readonly baseExerciseType = baseExerciseType;
 }

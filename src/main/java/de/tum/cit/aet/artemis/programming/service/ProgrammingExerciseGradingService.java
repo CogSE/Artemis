@@ -458,54 +458,15 @@ public class ProgrammingExerciseGradingService {
         processedResult = resultRepository.save(processedResult);
 
         if (isStudentParticipation && programmingExercise instanceof MilestoneExercise milestoneExercise
-                && participation instanceof ProgrammingExerciseStudentParticipation milestoneParticipation && !milestoneParticipation.isPracticeMode()) {
+                && participation instanceof ProgrammingExerciseStudentParticipation milestoneParticipation) {
             // This push landed on the group's shared repository (see ParticipationService.startUserStoryExercise), so
-            // every UserStoryExercise sibling needs its own graded Result from the very same build - no CI rerun needed,
-            // since the milestone's test suite already covers every sibling's tests.
+            // every UserStoryExercise sibling needs its own Result from the very same build - no CI rerun needed,
+            // since the milestone's test suite already covers every sibling's tests. A practice repository is shared
+            // the same way, by the siblings' practice participations.
             fanOutResultToUserStoryExercises(processedResult, milestoneExercise, milestoneParticipation);
         }
 
         return processedResult;
-    }
-
-    /**
-     * Creates a pending (resultless) {@link ProgrammingSubmission} for every {@code UserStoryExercise} sibling the
-     * student has already started, and notifies each one, at the same moment the milestone's own canonical push is
-     * notified - not later, once the build finishes and {@link #fanOutResultToUserStoryExercise} runs. Without this,
-     * a sibling's "building..." / queued progress indicator (which is driven purely by a submission existing without
-     * a result yet, see {@code ProgrammingSubmissionService}) never appears at all: the result-only fan-out only
-     * lets a sibling jump straight from "-" to the final score once the build is already done, since the client
-     * never learns a build started in the first place.
-     *
-     * @param sourceSubmission       the canonical participation's just-created submission for the real push
-     * @param milestoneExercise      the milestone exercise the push landed on
-     * @param milestoneParticipation the student's milestone participation the push was made to
-     */
-    public void provisionPendingSubmissionsForUserStoryExercises(ProgrammingSubmission sourceSubmission, MilestoneExercise milestoneExercise,
-            ProgrammingExerciseStudentParticipation milestoneParticipation) {
-        Optional<User> student = milestoneParticipation.getStudent();
-        if (student.isEmpty()) {
-            return;
-        }
-        long studentId = student.get().getId();
-
-        milestoneExerciseGroupRepository.findByMilestoneExerciseIdWithExercises(milestoneExercise.getId()).ifPresent(group -> {
-            for (Exercise member : group.getExercises()) {
-                if (!(member instanceof UserStoryExercise userStoryExercise)) {
-                    continue;
-                }
-                programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentId(userStoryExercise.getId(), studentId).ifPresent(targetParticipation -> {
-                    ProgrammingSubmission pendingSubmission = new ProgrammingSubmission();
-                    pendingSubmission.setParticipation(targetParticipation);
-                    pendingSubmission.setSubmitted(true);
-                    pendingSubmission.setType(sourceSubmission.getType());
-                    pendingSubmission.setCommitHash(sourceSubmission.getCommitHash());
-                    pendingSubmission.setSubmissionDate(sourceSubmission.getSubmissionDate());
-                    pendingSubmission = programmingSubmissionRepository.save(pendingSubmission);
-                    programmingSubmissionMessagingService.notifyUserAboutSubmission(pendingSubmission, userStoryExercise.getId());
-                });
-            }
-        });
     }
 
     /**
@@ -515,7 +476,7 @@ public class ProgrammingExerciseGradingService {
      * {@code ParticipationService.startUserStoryExercise}), so this event is only ever raised for it -
      * without fanning it out, a sibling's progress bar has nothing to move it past "queued": it jumps straight from
      * "queued" to the final result once {@link #fanOutResultToUserStoryExercises} runs, skipping the building phase
-     * entirely (unlike {@link #provisionPendingSubmissionsForUserStoryExercises}, which only covers the earlier
+     * entirely (unlike {@link UserStoryExerciseService#provisionPendingSubmissionsForUserStoryExercises}, which only covers the earlier
      * "queued" transition, this covers the next one).
      *
      * @param exerciseId              the id of the milestone exercise the build job belongs to (a no-op if this
@@ -530,48 +491,49 @@ public class ProgrammingExerciseGradingService {
             ZonedDateTime estimatedCompletionDate) {
         programmingExerciseRepository.findById(exerciseId).filter(MilestoneExercise.class::isInstance).map(MilestoneExercise.class::cast)
                 .ifPresent(milestoneExercise -> programmingExerciseStudentParticipationRepository.findById(participationId).ifPresent(milestoneParticipation -> {
-                    Optional<User> student = milestoneParticipation.getStudent();
-                    if (student.isEmpty()) {
+                    String repositoryUri = milestoneParticipation.getRepositoryUri();
+                    if (repositoryUri == null) {
                         return;
                     }
-                    long studentId = student.get().getId();
                     milestoneExerciseGroupRepository.findByMilestoneExerciseIdWithExercises(milestoneExercise.getId()).ifPresent(group -> {
                         for (Exercise member : group.getExercises()) {
                             if (!(member instanceof UserStoryExercise userStoryExercise)) {
                                 continue;
                             }
-                            programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentId(userStoryExercise.getId(), studentId).ifPresent(targetParticipation -> {
-                                var submissionProcessingDTO = new SubmissionProcessingDTO(userStoryExercise.getId(), targetParticipation.getId(), commitHash, submissionDate,
-                                        buildStartDate, estimatedCompletionDate);
-                                programmingMessagingService.notifyUserAboutSubmissionProcessing(submissionProcessingDTO, userStoryExercise.getId(), targetParticipation.getId());
-                            });
+                            programmingExerciseStudentParticipationRepository.findByExerciseIdAndRepositoryUri(userStoryExercise.getId(), repositoryUri)
+                                    .ifPresent(targetParticipation -> {
+                                        var submissionProcessingDTO = new SubmissionProcessingDTO(userStoryExercise.getId(), targetParticipation.getId(), commitHash,
+                                                submissionDate, buildStartDate, estimatedCompletionDate);
+                                        programmingMessagingService.notifyUserAboutSubmissionProcessing(submissionProcessingDTO, userStoryExercise.getId(),
+                                                targetParticipation.getId());
+                                    });
                         }
                     });
                 }));
     }
 
     /**
-     * Fans out a graded {@link Result} from the milestone's own (canonical) student participation to every
-     * {@code UserStoryExercise} sibling in its group that the same student has already started.
+     * Fans out a {@link Result} from the milestone's own (canonical) student participation to every
+     * {@code UserStoryExercise} sibling in its group whose participation shares its repository.
      *
      * @param milestoneResult        the just-processed, already-saved result of the milestone's canonical participation
      * @param milestoneExercise      the milestone exercise the result belongs to
      * @param milestoneParticipation the student's milestone participation the result belongs to
      */
     private void fanOutResultToUserStoryExercises(Result milestoneResult, MilestoneExercise milestoneExercise, ProgrammingExerciseStudentParticipation milestoneParticipation) {
-        Optional<User> student = milestoneParticipation.getStudent();
-        if (student.isEmpty()) {
-            // Team-mode milestones aren't part of the repository-sharing scheme (see ParticipationService) - nothing to fan out to.
+        // The siblings are the participations sharing this repository: graded ones for the graded repository, practice
+        // ones for a practice repository. Team-mode milestones aren't part of the sharing scheme and find nothing.
+        String repositoryUri = milestoneParticipation.getRepositoryUri();
+        if (repositoryUri == null) {
             return;
         }
-        long studentId = student.get().getId();
 
         milestoneExerciseGroupRepository.findByMilestoneExerciseIdWithExercises(milestoneExercise.getId()).ifPresent(group -> {
             for (Exercise member : group.getExercises()) {
                 if (!(member instanceof UserStoryExercise userStoryExercise)) {
                     continue;
                 }
-                programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentId(userStoryExercise.getId(), studentId)
+                programmingExerciseStudentParticipationRepository.findByExerciseIdAndRepositoryUri(userStoryExercise.getId(), repositoryUri)
                         .ifPresent(targetParticipation -> fanOutResultToUserStoryExercise(milestoneResult, userStoryExercise, targetParticipation));
             }
         });
@@ -602,7 +564,7 @@ public class ProgrammingExerciseGradingService {
         hydrateTestCaseFeedbackForCopy(sourceResult);
         ProgrammingSubmission sourceSubmission = (ProgrammingSubmission) sourceResult.getSubmission();
 
-        // provisionPendingSubmissionsForUserStoryExercises already created (and notified) a pending submission for
+        // UserStoryExerciseService.provisionPendingSubmissionsForUserStoryExercises already created (and notified) a pending submission for
         // this exact commit at push time, so the client's "building..." tracking has something to attach the result
         // to - reuse that same row instead of creating a second one the client never learned about (which would
         // leave the original pending submission stuck "building" forever, since it never receives its own result).

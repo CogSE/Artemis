@@ -45,7 +45,7 @@
                     [showTriggerBuildButton]="sidebarType() !== 'exercise'"
                 />
             </a>
-            @if (sidebarType() === 'exercise' && sidebarItem().exercise?.type === ExerciseType.PROGRAMMING && sidebarItem().studentParticipation) {
+            @if (sidebarType() === 'exercise' && baseExerciseType(sidebarItem().exercise?.type) === ExerciseType.PROGRAMMING && sidebarItem().studentParticipation) {
                 <jhi-programming-exercise-student-trigger-build-button
                     class="self-end pb-2 pe-1 empty:hidden"
                     [exercise]="sidebarItem().exercise!"

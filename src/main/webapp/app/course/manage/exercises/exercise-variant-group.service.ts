@@ -5,7 +5,7 @@ import { map } from 'rxjs/operators';
 import dayjs from 'dayjs/esm';
 import { convertDateFromClient, convertDateFromServer } from 'app/foundation/util/date.utils';
 import { CourseExerciseGroup } from 'app/exercise/shared/entities/exercise/course-exercise-group.model';
-import { DifficultyLevel, Exercise, ExerciseMode, ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { DifficultyLevel, Exercise, ExerciseMode, ExerciseType, PlagiarismDetectionConfig } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { AssessmentType } from 'app/assessment/shared/entities/assessment-type.model';
 import { CompetencyLinkDTO, GradingCriterionDTO } from 'app/exercise/shared/exercise-update-shared-dto.model';
 import { ExerciseService } from 'app/exercise/services/exercise.service';
@@ -231,6 +231,7 @@ export interface CreateMilestoneExerciseGroupDTO {
     assessmentDueDate?: dayjs.Dayjs;
     exampleSolutionPublicationDate?: dayjs.Dayjs;
     buildConfig?: ProgrammingExerciseBuildConfig;
+    plagiarismDetectionConfig?: PlagiarismDetectionConfig;
 }
 
 /**
@@ -258,6 +259,7 @@ export function toCreateMilestoneGroupPayload(milestoneExercise: ProgrammingExer
         assessmentDueDate: milestoneExercise.assessmentDueDate,
         exampleSolutionPublicationDate: milestoneExercise.exampleSolutionPublicationDate,
         buildConfig: milestoneExercise.buildConfig,
+        plagiarismDetectionConfig: milestoneExercise.plagiarismDetectionConfig,
     };
 }
 

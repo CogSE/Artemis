@@ -64,6 +64,7 @@ import de.tum.cit.aet.artemis.exam.util.ExamUtilService;
 import de.tum.cit.aet.artemis.exercise.domain.Exercise;
 import de.tum.cit.aet.artemis.exercise.domain.ExerciseMode;
 import de.tum.cit.aet.artemis.exercise.domain.InitializationState;
+import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.domain.Submission;
 import de.tum.cit.aet.artemis.exercise.domain.Team;
 import de.tum.cit.aet.artemis.exercise.domain.participation.Participation;
@@ -79,11 +80,13 @@ import de.tum.cit.aet.artemis.exercise.dto.ParticipationUpdateDTO;
 import de.tum.cit.aet.artemis.exercise.dto.StudentParticipationDTO;
 import de.tum.cit.aet.artemis.exercise.participation.util.ParticipationFactory;
 import de.tum.cit.aet.artemis.exercise.participation.util.ParticipationUtilService;
+import de.tum.cit.aet.artemis.exercise.repository.ExerciseVariantGroupRepository;
 import de.tum.cit.aet.artemis.exercise.repository.TeamRepository;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationDeletionService;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationService;
 import de.tum.cit.aet.artemis.exercise.test_repository.StudentParticipationTestRepository;
 import de.tum.cit.aet.artemis.exercise.test_repository.SubmissionTestRepository;
+import de.tum.cit.aet.artemis.exercise.util.ExerciseFactory;
 import de.tum.cit.aet.artemis.fileupload.domain.FileUploadExercise;
 import de.tum.cit.aet.artemis.fileupload.util.FileUploadExerciseUtilService;
 import de.tum.cit.aet.artemis.localci.service.LocalVCLocalCITestService;
@@ -91,9 +94,12 @@ import de.tum.cit.aet.artemis.modeling.domain.DiagramType;
 import de.tum.cit.aet.artemis.modeling.domain.ModelingExercise;
 import de.tum.cit.aet.artemis.modeling.domain.ModelingSubmission;
 import de.tum.cit.aet.artemis.modeling.util.ModelingExerciseFactory;
+import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
+import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingSubmission;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseBuildConfigRepository;
 import de.tum.cit.aet.artemis.programming.util.ProgrammingExerciseFactory;
 import de.tum.cit.aet.artemis.programming.util.ProgrammingExerciseParticipationUtilService;
@@ -166,6 +172,9 @@ class ParticipationIntegrationTest extends AbstractAthenaTest {
 
     @Autowired
     private LocalVCLocalCITestService localVCLocalCITestService;
+
+    @Autowired
+    private ExerciseVariantGroupRepository exerciseVariantGroupRepository;
 
     @Autowired
     private ProgrammingExerciseParticipationUtilService programmingExerciseParticipationUtilService;
@@ -607,6 +616,89 @@ class ParticipationIntegrationTest extends AbstractAthenaTest {
         assertThat(participation.testRun()).isTrue();
         assertThat(participation.student().getId()).isEqualTo(user.getId());
         assertThat(participation.repositoryUri()).isNotBlank();
+    }
+
+    /** A milestone group with two user stories, all past their due date. */
+    private record MilestoneGroup(MilestoneExercise milestone, UserStoryExercise firstUserStory, UserStoryExercise secondUserStory) {
+    }
+
+    private MilestoneGroup createMilestoneGroupAfterDueDate() throws Exception {
+        var milestone = (MilestoneExercise) ExerciseFactory.populateExercise(new MilestoneExercise(), ZonedDateTime.now().minusDays(2), ZonedDateTime.now().minusHours(1), null,
+                course);
+        milestone.setProgrammingLanguage(ProgrammingLanguage.JAVA);
+        milestone.setShortName("practicemilestone");
+        milestone.generateAndSetProjectKey();
+        milestone = exerciseRepository.save(milestone);
+        programmingExerciseBuildConfigRepository.saveForExercise(ProgrammingExerciseFactory.generateGradleBuildConfig(), milestone);
+        programmingExerciseParticipationUtilService.addTemplateParticipationForProgrammingExercise(milestone);
+        RepositoryExportTestUtil.createAndWireBaseRepositories(localVCLocalCITestService, milestone);
+        milestone = exerciseRepository.save(milestone);
+
+        var group = new MilestoneExerciseGroup();
+        group.setTitle("Practice Milestone Group");
+        group.setMilestoneExercise(milestone);
+        group.setCourse(course);
+        group = (MilestoneExerciseGroup) exerciseVariantGroupRepository.save(group);
+        return new MilestoneGroup(milestone, createUserStoryAfterDueDate(group, "practicestoryone"), createUserStoryAfterDueDate(group, "practicestorytwo"));
+    }
+
+    private UserStoryExercise createUserStoryAfterDueDate(MilestoneExerciseGroup group, String shortName) {
+        var userStory = (UserStoryExercise) ExerciseFactory.populateExercise(new UserStoryExercise(), ZonedDateTime.now().minusDays(2), ZonedDateTime.now().minusHours(1), null,
+                course);
+        userStory.setProgrammingLanguage(ProgrammingLanguage.JAVA);
+        userStory.setShortName(shortName);
+        userStory.setExerciseVariantGroup(group);
+        userStory.generateAndSetProjectKey();
+        return exerciseRepository.save(userStory);
+    }
+
+    private ProgrammingExerciseStudentParticipation practiceParticipation(Exercise exercise, User user) {
+        return (ProgrammingExerciseStudentParticipation) participationRepo.findWithEagerSubmissionsByExerciseIdAndStudentIdAndTestRun(exercise.getId(), user.getId(), true)
+                .orElseThrow();
+    }
+
+    /** Every user story practices in the milestone's practice repository and, like in the graded mode, has no build plan of its own. */
+    private void assertUserStoriesSharePracticeRepository(MilestoneGroup group, User user) {
+        var milestonePractice = practiceParticipation(group.milestone(), user);
+        assertThat(milestonePractice.getRepositoryUri()).isNotBlank();
+        for (var userStory : List.of(group.firstUserStory(), group.secondUserStory())) {
+            assertThat(practiceParticipation(userStory, user)).satisfies(userStoryPractice -> {
+                assertThat(userStoryPractice.getRepositoryUri()).isEqualTo(milestonePractice.getRepositoryUri());
+                assertThat(userStoryPractice.getBuildPlanId()).isNull();
+                assertThat(userStoryPractice.getInitializationState()).isEqualTo(InitializationState.INITIALIZED);
+            });
+        }
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1")
+    void practiceUserStoryExercise_startsTheMilestonesPracticeRepositoryForTheWholeGroup() throws Exception {
+        var group = createMilestoneGroupAfterDueDate();
+        User user = userUtilService.getUserByLogin(TEST_PREFIX + "student1");
+        jenkinsRequestMockProvider.enableMockingOfRequests();
+        mockConnectorRequestsForStartPractice(group.milestone(), TEST_PREFIX + "student1");
+
+        StudentParticipationDTO participation = request.postWithResponseBody("/api/exercise/exercises/" + group.firstUserStory().getId() + "/participations/practice", null,
+                StudentParticipationDTO.class, HttpStatus.CREATED);
+
+        assertThat(participation.testRun()).isTrue();
+        assertThat(participation.repositoryUri()).isEqualTo(practiceParticipation(group.milestone(), user).getRepositoryUri());
+        assertUserStoriesSharePracticeRepository(group, user);
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1")
+    void practiceMilestoneExercise_sharesItsPracticeRepositoryWithTheUserStoriesAndFinishesTheirGradedParticipations() throws Exception {
+        var group = createMilestoneGroupAfterDueDate();
+        User user = userUtilService.getUserByLogin(TEST_PREFIX + "student1");
+        var gradedUserStoryParticipation = participationUtilService.addStudentParticipationForProgrammingExercise(group.secondUserStory(), TEST_PREFIX + "student1");
+        jenkinsRequestMockProvider.enableMockingOfRequests();
+        mockConnectorRequestsForStartPractice(group.milestone(), TEST_PREFIX + "student1");
+
+        request.postWithResponseBody("/api/exercise/exercises/" + group.milestone().getId() + "/participations/practice", null, StudentParticipationDTO.class, HttpStatus.CREATED);
+
+        assertUserStoriesSharePracticeRepository(group, user);
+        assertThat(participationRepo.findByIdElseThrow(gradedUserStoryParticipation.getId()).getInitializationState()).isEqualTo(InitializationState.FINISHED);
     }
 
     @Test

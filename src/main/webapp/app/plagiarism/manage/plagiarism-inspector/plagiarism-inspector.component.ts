@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse, HttpResponse } from '@angular/common/http';
-import { Exercise, ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { TextExerciseService } from 'app/text/manage/text-exercise/service/text-exercise.service';
 import { downloadFile, downloadZipFileFromResponse } from 'app/foundation/util/download.util';
 import { PlagiarismResult } from 'app/plagiarism/shared/entities/PlagiarismResult';
@@ -293,7 +293,7 @@ export class PlagiarismInspectorComponent implements OnInit, OnDestroy {
     }
 
     isProgrammingExercise() {
-        return this.exercise()?.type === ExerciseType.PROGRAMMING;
+        return isProgrammingExerciseType(this.exercise()?.type);
     }
 
     /**

@@ -53,14 +53,15 @@ import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseParticipatio
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingSubmission;
 import de.tum.cit.aet.artemis.programming.domain.SolutionProgrammingExerciseParticipation;
 import de.tum.cit.aet.artemis.programming.domain.TemplateProgrammingExerciseParticipation;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.dto.ProgrammingExerciseResponseDTO;
 import de.tum.cit.aet.artemis.programming.dto.ProgrammingSubmissionForAssessmentDTO;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
-import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseStudentParticipationRepository;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingFeedbackSynthesizerService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingSubmissionMessagingService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingSubmissionService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingTriggerService;
+import de.tum.cit.aet.artemis.programming.service.UserStoryExerciseService;
 
 /**
  * REST controller for managing ProgrammingSubmission.
@@ -90,8 +91,6 @@ public class ProgrammingSubmissionResource {
 
     private final ParticipationAuthorizationCheckService participationAuthCheckService;
 
-    private final ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository;
-
     private final GradingCriterionRepository gradingCriterionRepository;
 
     private final SubmissionRepository submissionRepository;
@@ -106,14 +105,15 @@ public class ProgrammingSubmissionResource {
 
     private final CourseAthenaConfigRepository courseAthenaConfigRepository;
 
+    private final UserStoryExerciseService userStoryExerciseService;
+
     public ProgrammingSubmissionResource(ProgrammingSubmissionService programmingSubmissionService, ProgrammingTriggerService programmingTriggerService,
             ProgrammingSubmissionMessagingService programmingSubmissionMessagingService, ExerciseRepository exerciseRepository, ParticipationRepository participationRepository,
             ProgrammingExerciseRepository programmingExerciseRepository, AuthorizationCheckService authCheckService,
-            ParticipationAuthorizationCheckService participationAuthCheckService,
-            ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository, GradingCriterionRepository gradingCriterionRepository,
-            SubmissionRepository submissionRepository, Optional<ContinuousIntegrationService> continuousIntegrationService, UserRepository userRepository,
-            ExerciseDateService exerciseDateService, ProgrammingFeedbackSynthesizerService programmingFeedbackSynthesizerService,
-            CourseAthenaConfigRepository courseAthenaConfigRepository) {
+            ParticipationAuthorizationCheckService participationAuthCheckService, GradingCriterionRepository gradingCriterionRepository, SubmissionRepository submissionRepository,
+            Optional<ContinuousIntegrationService> continuousIntegrationService, UserRepository userRepository, ExerciseDateService exerciseDateService,
+            ProgrammingFeedbackSynthesizerService programmingFeedbackSynthesizerService, CourseAthenaConfigRepository courseAthenaConfigRepository,
+            UserStoryExerciseService userStoryExerciseService) {
         this.courseAthenaConfigRepository = courseAthenaConfigRepository;
         this.programmingSubmissionService = programmingSubmissionService;
         this.programmingTriggerService = programmingTriggerService;
@@ -123,13 +123,13 @@ public class ProgrammingSubmissionResource {
         this.programmingExerciseRepository = programmingExerciseRepository;
         this.authCheckService = authCheckService;
         this.participationAuthCheckService = participationAuthCheckService;
-        this.programmingExerciseStudentParticipationRepository = programmingExerciseStudentParticipationRepository;
         this.gradingCriterionRepository = gradingCriterionRepository;
         this.submissionRepository = submissionRepository;
         this.continuousIntegrationService = continuousIntegrationService;
         this.userRepository = userRepository;
         this.exerciseDateService = exerciseDateService;
         this.programmingFeedbackSynthesizerService = programmingFeedbackSynthesizerService;
+        this.userStoryExerciseService = userStoryExerciseService;
     }
 
     /**
@@ -153,17 +153,19 @@ public class ProgrammingSubmissionResource {
         }
 
         participationAuthCheckService.checkCanAccessParticipationElseThrow(participation);
+        ProgrammingExerciseParticipation buildParticipation = resolveBuildParticipation(programmingExerciseParticipation);
+        Exercise buildExercise = ((Participation) buildParticipation).getExercise();
 
         // The editor is allowed to trigger an instructor build for template and solution participations,
         // but not for student participations. The instructor however, might trigger student participations.
-        if (submissionType == SubmissionType.INSTRUCTOR && !authCheckService.isAtLeastInstructorForExercise(participation.getExercise())
-                && !(authCheckService.isAtLeastEditorForExercise(participation.getExercise())
-                        && (participation instanceof TemplateProgrammingExerciseParticipation || participation instanceof SolutionProgrammingExerciseParticipation))) {
+        if (submissionType == SubmissionType.INSTRUCTOR && !authCheckService.isAtLeastInstructorForExercise(buildExercise)
+                && !(authCheckService.isAtLeastEditorForExercise(buildExercise)
+                        && (buildParticipation instanceof TemplateProgrammingExerciseParticipation || buildParticipation instanceof SolutionProgrammingExerciseParticipation))) {
             throw new AccessForbiddenException();
         }
 
         try {
-            var submission = programmingSubmissionService.getOrCreateSubmissionWithLastCommitHashForParticipation(programmingExerciseParticipation, submissionType);
+            var submission = programmingSubmissionService.getOrCreateSubmissionWithLastCommitHashForParticipation(buildParticipation, submissionType);
             programmingTriggerService.triggerBuildAndNotifyUser(submission);
         }
         catch (IllegalStateException ex) {
@@ -191,22 +193,25 @@ public class ProgrammingSubmissionResource {
             throw new EntityNotFoundException("Participation is not a ProgrammingExerciseParticipation");
         }
         participationAuthCheckService.checkCanAccessParticipationElseThrow(programmingExerciseParticipation);
+        ProgrammingExerciseParticipation buildParticipation = resolveBuildParticipation(programmingExerciseParticipation);
+        Participation buildParticipationEntity = (Participation) buildParticipation;
 
-        ProgrammingSubmission submission = programmingSubmissionService.getLatestPendingSubmission(participationId, lastGraded)
-                .orElseThrow(() -> new EntityNotFoundException("No latest pending programming submission found for participationId " + participationId));
+        ProgrammingSubmission submission = programmingSubmissionService.getLatestPendingSubmission(buildParticipation.getId(), lastGraded)
+                .orElseThrow(() -> new EntityNotFoundException("No latest pending programming submission found for participationId " + buildParticipation.getId()));
 
         // if the build plan was not cleaned yet, we can try to access the current build state, as the build might still be running (because it was slow or queued)
-        if (programmingExerciseParticipation.getBuildPlanId() != null) {
+        if (buildParticipation.getBuildPlanId() != null) {
             // If a build is already queued/running for the given participation, we just return. Note: We don't check that the running build belongs to the failed submission.
-            ContinuousIntegrationService.BuildStatus buildStatus = continuousIntegrationService.orElseThrow().getBuildStatus(programmingExerciseParticipation);
+            ContinuousIntegrationService.BuildStatus buildStatus = continuousIntegrationService.orElseThrow().getBuildStatus(buildParticipation);
             if (buildStatus == ContinuousIntegrationService.BuildStatus.BUILDING || buildStatus == ContinuousIntegrationService.BuildStatus.QUEUED) {
                 // We inform the user through the websocket that the submission is still in progress (build is running/queued, result should arrive soon).
                 // This resets the pending submission timer in the client.
-                programmingSubmissionMessagingService.notifyUserAboutSubmission(submission, participation.getExercise().getId());
+                programmingSubmissionMessagingService.notifyUserAboutSubmission(submission, buildParticipationEntity.getExercise().getId());
                 return ResponseEntity.ok().build();
             }
         }
-        if (lastGraded && submission.getType() != SubmissionType.INSTRUCTOR && submission.getType() != SubmissionType.TEST && exerciseDateService.isAfterDueDate(participation)) {
+        if (lastGraded && submission.getType() != SubmissionType.INSTRUCTOR && submission.getType() != SubmissionType.TEST
+                && exerciseDateService.isAfterDueDate(buildParticipationEntity)) {
             // If the submission is not the latest but the last graded, there is no point in triggering the build again as this would build the most recent VCS commit.
             // This applies only to students submissions after the exercise due date.
             throw new EntityNotFoundException("Cannot trigger failed build. There is a submission after the exercise due date");
@@ -214,6 +219,26 @@ public class ProgrammingSubmissionResource {
         // If there is no result on the CIS, we trigger a new build and hope it will arrive in Artemis this time.
         programmingTriggerService.triggerBuildAndNotifyUser(submission);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * The participation whose build a trigger for {@code participation} has to start. A user story has no build of its
+     * own: its participation shares the milestone's repository, and the build - whose result is then fanned out to every
+     * user story of the group - runs on the milestone's participation. Triggering the user story participation itself
+     * would instead set up a build plan of its own and grade it past the fan-out.
+     *
+     * @param participation the participation the trigger was requested for, whose access has already been checked
+     * @return the milestone participation for a user story participation, {@code participation} itself otherwise
+     */
+    private ProgrammingExerciseParticipation resolveBuildParticipation(ProgrammingExerciseParticipation participation) {
+        if (!(((Participation) participation).getExercise() instanceof UserStoryExercise)) {
+            return participation;
+        }
+        var milestoneParticipation = userStoryExerciseService.findMilestoneParticipationForUserStory(participation)
+                .orElseThrow(() -> new EntityNotFoundException("No milestone participation for user story participation " + participation.getId()));
+        // The student owns both, but the milestone's own access is checked rather than inferred.
+        participationAuthCheckService.checkCanAccessParticipationElseThrow(milestoneParticipation);
+        return milestoneParticipation;
     }
 
     /**
@@ -266,8 +291,7 @@ public class ProgrammingSubmissionResource {
 
         log.info("Trigger (failed) instructor build for participations {} in exercise {} with id {}", participationIds, programmingExercise.getTitle(),
                 programmingExercise.getId());
-        var triggerData = programmingExerciseStudentParticipationRepository.findBuildTriggerDataByExerciseIdAndParticipationIds(exerciseId, participationIds);
-        programmingTriggerService.triggerBuildForParticipationData(triggerData, programmingExercise);
+        programmingTriggerService.triggerInstructorBuildForParticipations(programmingExercise, participationIds);
 
         return ResponseEntity.ok().build();
     }

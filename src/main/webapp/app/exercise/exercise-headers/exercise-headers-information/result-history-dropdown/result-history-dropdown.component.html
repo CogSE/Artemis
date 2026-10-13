@@ -60,7 +60,7 @@
                         </div>
                     }
                 </div>
-                @if (exercise().type === ExerciseType.PROGRAMMING && shouldShowResultMetadata(result)) {
+                @if (isProgrammingExercise() && shouldShowResultMetadata(result)) {
                     <p-button
                         [label]="'artemisApp.result.progressString.feedbackButton' | artemisTranslate"
                         [outlined]="true"

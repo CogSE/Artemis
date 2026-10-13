@@ -1,7 +1,7 @@
 import { Component, OnInit, ViewEncapsulation, computed, inject, input, signal, viewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Team } from 'app/exercise/shared/entities/team/team.model';
-import { Exercise, ExerciseType, getExerciseUrlSegmentOrEmpty } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, getExerciseUrlSegmentOrEmpty, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import dayjs from 'dayjs/esm';
 import { Course } from 'app/course/shared/entities/course.model';
 import { AlertService } from 'app/foundation/service/alert.service';
@@ -267,7 +267,7 @@ export class TeamParticipationTableComponent implements OnInit {
         }
         // Programming exercises can only be assessed by anyone / all other exercises can be assessed by tutors
         // if the exercise due date has passed
-        if (exercise.type === ExerciseType.PROGRAMMING || !exercise.isAtLeastInstructor) {
+        if (isProgrammingExerciseType(exercise.type) || !exercise.isAtLeastInstructor) {
             return !hasExerciseDueDatePassed(exercise, submission.participation);
         } else if (exercise.isAtLeastInstructor) {
             return false;

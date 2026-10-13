@@ -189,6 +189,8 @@ export const isStartPracticeAvailable = (exercise: Exercise, participation?: Stu
         case ExerciseType.QUIZ:
             return hasDueDatePassed(exercise);
         case ExerciseType.PROGRAMMING:
+        case ExerciseType.USER_STORY:
+        case ExerciseType.MILESTONE:
             return exercise.dueDate != undefined && dayjs().isAfter(exercise.dueDate) && !exercise.teamMode && (!participation || programmingSetupNotFinished(participation));
         case ExerciseType.TEXT:
         case ExerciseType.MODELING:

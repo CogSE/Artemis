@@ -2,7 +2,7 @@ import { StudentParticipation } from 'app/exercise/shared/entities/participation
 import { roundValueSpecifiedByCourseSettings, scrollToTopOfPage } from 'app/foundation/util/utils';
 import { AlertService } from 'app/foundation/service/alert.service';
 import { ProgrammingExerciseStudentParticipation } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
-import { Exercise, ExerciseType, getCourseFromExercise } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, getCourseFromExercise, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { Component, inject, input } from '@angular/core';
 import { ResultService } from 'app/exercise/result/result.service';
 import { getTestCaseNamesFromResults, getTestCaseResults } from 'app/exercise/result/result.utils';
@@ -30,7 +30,7 @@ export class ExerciseScoresExportButtonComponent {
     readonly exercise = input<Exercise | ProgrammingExercise>();
 
     get isProgrammingExerciseResults(): boolean {
-        return [...this.exercises(), this.exercise()].every((exercise) => exercise?.type === ExerciseType.PROGRAMMING);
+        return [...this.exercises(), this.exercise()].every((exercise) => isProgrammingExerciseType(exercise?.type));
     }
 
     // Icons
@@ -223,7 +223,7 @@ class ExerciseScoresRowBuilder {
      * Adds information specific to programming exercises to the row.
      */
     private setProgrammingExerciseInformation() {
-        if (this.exercise.type === ExerciseType.PROGRAMMING) {
+        if (isProgrammingExerciseType(this.exercise.type)) {
             const repoLink = (this.participation as ProgrammingExerciseStudentParticipation).repositoryUri;
             this.set('Repo Link', repoLink);
         }
@@ -285,7 +285,7 @@ class ExerciseScoresRowBuilder {
             }
         });
 
-        if (exercise.type === ExerciseType.PROGRAMMING) {
+        if (isProgrammingExerciseType(exercise.type)) {
             columns.push('Repo Link');
         }
 

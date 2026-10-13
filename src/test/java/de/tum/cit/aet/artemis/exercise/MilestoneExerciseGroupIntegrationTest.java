@@ -13,6 +13,8 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -50,6 +52,7 @@ import de.tum.cit.aet.artemis.exercise.repository.ExerciseVariantGroupRepository
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseVariantGroupService;
 import de.tum.cit.aet.artemis.fileupload.util.FileUploadExerciseFactory;
+import de.tum.cit.aet.artemis.plagiarism.PlagiarismUtilService;
 import de.tum.cit.aet.artemis.programming.AbstractProgrammingIntegrationIndependentTest;
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
@@ -82,6 +85,9 @@ import de.tum.cit.aet.artemis.text.util.TextExerciseFactory;
  * real {@link MilestoneExercise} would drag in the VCS/CI test infrastructure, and nothing here depends on it.
  */
 class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrationIndependentTest {
+
+    @Autowired
+    private PlagiarismUtilService plagiarismUtilService;
 
     private static final String TEST_PREFIX = "milestonegrpinteg";
 
@@ -499,6 +505,17 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         exerciseVariantGroupService.applyOwningGroupTimeline(member);
 
         assertThat(member.getDueDate()).isEqualTo(groupDueDate);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "check-plagiarism", "check-plagiarism-jplag-report" })
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void aUserStoryCannotBeCheckedForPlagiarism(String endpoint) throws Exception {
+        // Its participations work in the milestone's repositories, which the milestone's own check already compares.
+        UserStoryExercise userStory = userStoryMember("plagiarism", false);
+
+        request.get("/api/programming/programming-exercises/" + userStory.getId() + "/" + endpoint, HttpStatus.BAD_REQUEST, Object.class,
+                plagiarismUtilService.getDefaultPlagiarismOptions());
     }
 
     private UserStoryExercise userStoryMember(String shortNameSuffix, boolean showTestProgressAsScore) {

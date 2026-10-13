@@ -62,7 +62,7 @@
                 @if (exercise()!.isAtLeastInstructor) {
                     <jhi-exercise-scores-export-button [exercise]="exercise()!" />
                 }
-                @if (exercise()!.isAtLeastInstructor && exercise()!.type === ExerciseType.PROGRAMMING) {
+                @if (exercise()!.isAtLeastInstructor && isProgrammingExercise()) {
                     <jhi-programming-assessment-repo-export [programmingExercises]="[exercise()!]" class="me-1" (buttonPressed)="closeExportPopover()" />
                 }
                 @if (
@@ -165,7 +165,7 @@
 
 <ng-template #actionsTemplate let-dto>
     <div class="btn-group gap-1">
-        @if (exercise()!.type === ExerciseType.PROGRAMMING) {
+        @if (isProgrammingExercise()) {
             @if (dto.repositoryUri) {
                 <jhi-code-button
                     [smallButtons]="true"

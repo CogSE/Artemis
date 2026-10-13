@@ -54,6 +54,7 @@ import de.tum.cit.aet.artemis.programming.service.MilestoneExercisePointsService
 import de.tum.cit.aet.artemis.programming.service.MilestoneScoreScheduleService;
 import de.tum.cit.aet.artemis.programming.service.MilestoneScoreService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseTaskService;
+import de.tum.cit.aet.artemis.programming.service.UserStoryExerciseService;
 import de.tum.cit.aet.artemis.programming.util.ProgrammingExerciseFactory;
 
 /**
@@ -89,6 +90,9 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
 
     @Autowired
     private ProgrammingExerciseTaskService programmingExerciseTaskService;
+
+    @Autowired
+    private UserStoryExerciseService userStoryExerciseService;
 
     private Course course;
 
@@ -151,8 +155,21 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
         return testCaseRepository.save(testCase);
     }
 
+    /**
+     * The student's participation in the exercise. A user story participation works in the student's milestone repository
+     * once there is one, as {@code ParticipationService.startUserStoryExercise} sets it up.
+     */
     private ProgrammingExerciseStudentParticipation participationFor(ProgrammingExercise exercise) {
-        return participationUtilService.addStudentParticipationForProgrammingExercise(exercise, studentLogin);
+        var participation = participationUtilService.addStudentParticipationForProgrammingExercise(exercise, studentLogin);
+        if (!(exercise instanceof UserStoryExercise)) {
+            return participation;
+        }
+        var milestoneParticipation = programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentLogin(milestoneExercise.getId(), studentLogin);
+        if (milestoneParticipation.isEmpty()) {
+            return participation;
+        }
+        participation.setRepositoryUri(milestoneParticipation.get().getRepositoryUri());
+        return programmingExerciseStudentParticipationRepository.save(participation);
     }
 
     /** Builds an unsaved automatic test-case feedback row, as the build-result processing would. */
@@ -630,7 +647,7 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
 
         // Called at push time, before any build has run - the point is that the sibling's "building..." indicator
         // must exist immediately, not only once fanOutResultToUserStoryExercise runs after the build completes.
-        gradingService.provisionPendingSubmissionsForUserStoryExercises(milestoneSubmission, milestoneExercise, milestoneParticipation);
+        userStoryExerciseService.provisionPendingSubmissionsForUserStoryExercises(milestoneSubmission, milestoneExercise, milestoneParticipation);
 
         List<ProgrammingSubmission> siblingSubmissions = programmingSubmissionRepository
                 .findByParticipationIdAndCommitHashOrderByIdDescWithFeedbacksAndTeamStudents(participation.getId(), "commit-1");
@@ -650,7 +667,7 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
         Result sourceResult = buildSourceResult(milestoneParticipation, "commit-1", List.of(testCaseFeedback(milestoneTestA, true)));
         // Simulates the real push-time flow: a pending submission is created for the sibling first, before the
         // build (and therefore the result) exists.
-        gradingService.provisionPendingSubmissionsForUserStoryExercises((ProgrammingSubmission) sourceResult.getSubmission(), milestoneExercise, milestoneParticipation);
+        userStoryExerciseService.provisionPendingSubmissionsForUserStoryExercises((ProgrammingSubmission) sourceResult.getSubmission(), milestoneExercise, milestoneParticipation);
 
         Result fannedOutResult = gradingService.fanOutResultToUserStoryExercise(sourceResult, userStory, participation);
 
@@ -702,6 +719,99 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
         // The refreshed automatic feedback is the rebuild's, not the original failing run's.
         assertThat(testCaseFeedbackRepository.findWithTestCaseByResultIds(List.of(rebuiltResult.getId()))).singleElement()
                 .satisfies(feedback -> assertThat(feedback.isPositive()).isTrue());
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void provisioningTheSameCommitAgainReusesTheStorysSubmission() {
+        UserStoryExercise userStory = createUserStoryExercise("us1");
+        ProgrammingExerciseTestCase milestoneTestA = createTestCase(milestoneExercise, "testA");
+        createTestCase(userStory, "testA");
+
+        ProgrammingExerciseStudentParticipation milestoneParticipation = participationFor(milestoneExercise);
+        ProgrammingExerciseStudentParticipation participation = participationFor(userStory);
+
+        // The push, then a build trigger for the very same commit.
+        ProgrammingSubmission milestoneSubmission = (ProgrammingSubmission) buildSourceResult(milestoneParticipation, "commit-1", List.of(testCaseFeedback(milestoneTestA, true)))
+                .getSubmission();
+        userStoryExerciseService.provisionPendingSubmissionsForUserStoryExercises(milestoneSubmission, milestoneExercise, milestoneParticipation);
+        userStoryExerciseService.provisionPendingSubmissionsForUserStoryExercises(milestoneSubmission, milestoneExercise, milestoneParticipation);
+
+        assertThat(programmingSubmissionRepository.findByParticipationIdAndCommitHashOrderByIdDescWithFeedbacksAndTeamStudents(participation.getId(), "commit-1")).hasSize(1);
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void aPracticeBuildReachesOnlyTheUserStorysPracticeParticipation() {
+        UserStoryExercise userStory = createUserStoryExercise("us1");
+        ProgrammingExerciseStudentParticipation milestoneParticipation = participationFor(milestoneExercise);
+        ProgrammingExerciseStudentParticipation gradedParticipation = participationFor(userStory);
+
+        // The practice repository is shared by the practice participations, exactly like the graded one.
+        String practiceRepositoryUri = milestoneParticipation.getRepositoryUri().replace(".git", "-practice.git");
+        ProgrammingExerciseStudentParticipation milestonePractice = practiceParticipationFor(milestoneExercise, practiceRepositoryUri);
+        ProgrammingExerciseStudentParticipation userStoryPractice = practiceParticipationFor(userStory, practiceRepositoryUri);
+
+        ProgrammingSubmission practiceSubmission = new ProgrammingSubmission();
+        practiceSubmission.setParticipation(milestonePractice);
+        practiceSubmission.setCommitHash("practice-commit");
+        practiceSubmission.setType(SubmissionType.MANUAL);
+        practiceSubmission.setSubmissionDate(ZonedDateTime.now());
+        practiceSubmission.setSubmitted(true);
+        practiceSubmission = programmingSubmissionRepository.save(practiceSubmission);
+
+        userStoryExerciseService.provisionPendingSubmissionsForUserStoryExercises(practiceSubmission, milestoneExercise, milestonePractice);
+
+        assertThat(programmingSubmissionRepository.findByParticipationIdAndCommitHashOrderByIdDescWithFeedbacksAndTeamStudents(userStoryPractice.getId(), "practice-commit"))
+                .hasSize(1);
+        assertThat(programmingSubmissionRepository.findByParticipationIdAndCommitHashOrderByIdDescWithFeedbacksAndTeamStudents(gradedParticipation.getId(), "practice-commit"))
+                .isEmpty();
+    }
+
+    private ProgrammingExerciseStudentParticipation practiceParticipationFor(ProgrammingExercise exercise, String repositoryUri) {
+        var participation = new ProgrammingExerciseStudentParticipation();
+        participation.setExercise(exercise);
+        participation.setParticipant(userUtilService.getUserByLogin(studentLogin));
+        participation.setPracticeMode(true);
+        participation.setAttempt(1);
+        participation.setRepositoryUri(repositoryUri);
+        participation.setInitializationState(InitializationState.INITIALIZED);
+        return programmingExerciseStudentParticipationRepository.save(participation);
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void aTriggeredRebuildOfAnAssessedCommitStillRefreshesTheTutorsResult() {
+        // Like aRebuildOfAnAssessedCommitRefreshesTheTutorsResultInsteadOfSupersedingIt, but through a build trigger,
+        // which provisions the story's pending submission before the result arrives. A fresh, resultless submission
+        // there would take the rebuild's result next to the tutor's instead of refreshing it.
+        UserStoryExercise userStory = createUserStoryExercise("us1");
+        ProgrammingExerciseTestCase milestoneTestA = createTestCase(milestoneExercise, "testA");
+        createTestCase(userStory, "testA");
+
+        ProgrammingExerciseStudentParticipation milestoneParticipation = participationFor(milestoneExercise);
+        ProgrammingExerciseStudentParticipation participation = participationFor(userStory);
+
+        Result failingBuild = buildSourceResult(milestoneParticipation, "commit-1", List.of(testCaseFeedback(milestoneTestA, false)));
+        ProgrammingSubmission assessedSubmission = (ProgrammingSubmission) gradingService.fanOutResultToUserStoryExercise(failingBuild, userStory, participation).getSubmission();
+
+        Result manualResult = new Result();
+        manualResult.setAssessmentType(AssessmentType.SEMI_AUTOMATIC);
+        manualResult.setRated(true);
+        manualResult.setScore(50.0);
+        manualResult.setCompletionDate(ZonedDateTime.now());
+        manualResult.setExerciseId(userStory.getId());
+        manualResult.setSubmission(assessedSubmission);
+        manualResult = resultRepository.save(manualResult);
+
+        Result passingRebuild = buildSourceResult(milestoneParticipation, "commit-1", List.of(testCaseFeedback(milestoneTestA, true)));
+        userStoryExerciseService.provisionPendingSubmissionsForUserStoryExercises((ProgrammingSubmission) passingRebuild.getSubmission(), milestoneExercise,
+                milestoneParticipation);
+        Result rebuiltResult = gradingService.fanOutResultToUserStoryExercise(passingRebuild, userStory, participation);
+
+        assertThat(rebuiltResult.getId()).isEqualTo(manualResult.getId());
+        assertThat(programmingSubmissionRepository.findByParticipationIdAndCommitHashOrderByIdDescWithFeedbacksAndTeamStudents(participation.getId(), "commit-1")).singleElement()
+                .satisfies(submission -> assertThat(submission.getResults()).hasSize(2));
     }
 
     @Test

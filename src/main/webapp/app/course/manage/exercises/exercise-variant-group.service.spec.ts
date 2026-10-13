@@ -12,6 +12,7 @@ import {
     isPersistableGroup,
     toCourseExerciseGroup,
     toCreateGroupPayload,
+    toCreateMilestoneGroupPayload,
     toCreateUserStoryExercisePayload,
     toUpdateGroupPayload,
 } from 'app/course/manage/exercises/exercise-variant-group.service';
@@ -196,6 +197,14 @@ describe('ExerciseVariantGroupService', () => {
             expect(mapped.projectType).toBe(ProjectType.PLAIN_MAVEN);
         });
     });
+    it('should carry the plagiarism detection config in the milestone group create payload', () => {
+        // The group's plagiarism checks run on the milestone, whose repositories its user stories share.
+        const milestone = new ProgrammingExercise(undefined, undefined);
+        milestone.plagiarismDetectionConfig = { continuousPlagiarismControlEnabled: true, similarityThreshold: 70 };
+
+        expect(toCreateMilestoneGroupPayload(milestone).plagiarismDetectionConfig).toEqual({ continuousPlagiarismControlEnabled: true, similarityThreshold: 70 });
+    });
+
     describe('createUserStoryExercise', () => {
         const userStoryFormModel = (): ProgrammingExercise => {
             const exercise = new ProgrammingExercise(undefined, undefined);

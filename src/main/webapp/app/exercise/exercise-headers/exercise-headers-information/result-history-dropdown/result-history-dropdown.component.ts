@@ -1,5 +1,5 @@
 import { Component, ElementRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
-import { Exercise, ExerciseType, getCourseFromExercise } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, getCourseFromExercise, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { Result } from 'app/exercise/shared/entities/result/result.model';
 import { StudentParticipation } from 'app/exercise/shared/entities/participation/student-participation.model';
 import { Popover } from 'primeng/popover';
@@ -74,8 +74,8 @@ export class ResultHistoryDropdownComponent {
     readonly faAngleDown = faAngleDown;
     readonly faClock = faClock;
     readonly faRobot = faRobot;
-    readonly ExerciseType = ExerciseType;
     readonly isAthenaAIResult = isAthenaAIResult;
+    readonly isProgrammingExercise = computed(() => isProgrammingExerciseType(this.exercise().type));
 
     exercise = input.required<Exercise>();
     sortedHistoryResults = input.required<Result[]>();
