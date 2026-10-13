@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+    The student view of a variant group opens with a fixed "Choose a variant to work on" callout. These columns let the
+    instructor replace its heading and text; either one left NULL keeps the default for that part. A milestone group
+    describes itself through its milestone's problem statement instead, but the group hierarchy is a single table, so
+    its rows get the columns too.
+
+    Both nullable, so the previous version, which does not know them, can still insert groups after a rollback.
+    -->
+    <changeSet id="20261013085124-01-exercise-variant-group-description" author="nschmitz">
+        <comment>Add an optional customisable description heading and body to exercise variant groups.</comment>
+        <addColumn tableName="exercise_variant_group">
+            <column name="description_heading" type="varchar(255)"/>
+            <column name="description_body" type="longtext"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

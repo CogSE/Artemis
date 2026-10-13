@@ -45,7 +45,8 @@ import de.tum.cit.aet.artemis.course.domain.Course;
  * The group holds the settings that are shared across all of its variants:
  * <ul>
  * <li>{@link #maxPoints} – the cap on the points the group's variants contribute to the course score,</li>
- * <li>the date fields – a common timeline applied to every variant in the group.</li>
+ * <li>the date fields – a common timeline applied to every variant in the group,</li>
+ * <li>{@link #descriptionHeading} and {@link #descriptionBody} – the text students see above the variants.</li>
  * </ul>
  * Owned directly by a {@code Course} (unidirectional, {@code course_id} FK on this table); the aggregated {@link Exercise}s
  * are non-owning and outlive the group's removal.
@@ -72,6 +73,19 @@ public class ExerciseVariantGroup extends DomainObject {
     @Nullable
     @Column(name = "max_points")
     private Double maxPoints;
+
+    /**
+     * Heading of the callout students see above the variants; {@code null} shows the default "Choose a variant" heading.
+     * A milestone group never sets it: its milestone's problem statement takes the callout's place.
+     */
+    @Nullable
+    @Column(name = "description_heading")
+    private String descriptionHeading;
+
+    /** Text under {@link #descriptionHeading}; {@code null} shows the default text naming the number of variants. */
+    @Nullable
+    @Column(name = "description_body")
+    private String descriptionBody;
 
     @Nullable
     @Column(name = "release_date")
@@ -132,6 +146,30 @@ public class ExerciseVariantGroup extends DomainObject {
 
     public void setMaxPoints(@Nullable Double maxPoints) {
         this.maxPoints = maxPoints;
+    }
+
+    @Nullable
+    public String getDescriptionHeading() {
+        return descriptionHeading;
+    }
+
+    /** Stores the stripped heading, or {@code null} for a blank one so the client falls back to its default. */
+    public void setDescriptionHeading(@Nullable String descriptionHeading) {
+        this.descriptionHeading = blankToNull(descriptionHeading);
+    }
+
+    @Nullable
+    public String getDescriptionBody() {
+        return descriptionBody;
+    }
+
+    /** Stores the stripped body, or {@code null} for a blank one so the client falls back to its default. */
+    public void setDescriptionBody(@Nullable String descriptionBody) {
+        this.descriptionBody = blankToNull(descriptionBody);
+    }
+
+    private static @Nullable String blankToNull(@Nullable String value) {
+        return value == null || value.isBlank() ? null : value.strip();
     }
 
     @Nullable

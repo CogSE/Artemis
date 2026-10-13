@@ -34,6 +34,9 @@
                          between two exercises of the same type: only one editor may be mounted at a time, because the
                          code editor's domain service is a single global, and no editor has to reset itself. -->
                     @for (exercise of [active]; track exercise.exerciseId) {
+                        @if (exercise.userStory) {
+                            <jhi-milestone-assessment-tasks [tasks]="exercise.tasks ?? []" />
+                        }
                         @switch (exercise.exerciseType) {
                             @case (ExerciseType.PROGRAMMING) {
                                 <jhi-code-editor-tutor-assessment

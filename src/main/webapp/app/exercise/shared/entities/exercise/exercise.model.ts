@@ -124,6 +124,10 @@ export interface ExerciseVariantGroupReference {
     dueDate?: dayjs.Dayjs;
     assessmentDueDate?: dayjs.Dayjs;
     exampleSolutionPublicationDate?: dayjs.Dayjs;
+    /** Custom heading of the callout students see above the variants; unset shows the default heading. */
+    descriptionHeading?: string;
+    /** Custom text under {@link descriptionHeading}; unset shows the default text. */
+    descriptionBody?: string;
 }
 
 export abstract class Exercise implements BaseEntity {

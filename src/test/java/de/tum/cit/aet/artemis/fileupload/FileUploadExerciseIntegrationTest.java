@@ -827,7 +827,7 @@ class FileUploadExerciseIntegrationTest extends AbstractFileUploadIntegrationTes
         competencyExerciseLinkRepository.save(new CompetencyExerciseLink(linkedCompetency, exercise, 1));
 
         ExerciseVariantGroupDTO variantGroup = request.postWithResponseBody("/api/exercise/courses/" + testCourse.getId() + "/exercise-variant-groups",
-                new CreateExerciseVariantGroupDTO("File upload variants", exercise.getMaxPoints(), null, null, null, null, null), ExerciseVariantGroupDTO.class,
+                new CreateExerciseVariantGroupDTO("File upload variants", exercise.getMaxPoints(), null, null, null, null, null, null, null), ExerciseVariantGroupDTO.class,
                 HttpStatus.CREATED);
         request.put("/api/exercise/courses/" + testCourse.getId() + "/exercises/" + exercise.getId() + "/variant-group", new ExerciseVariantGroupAssignmentDTO(variantGroup.id()),
                 HttpStatus.OK);

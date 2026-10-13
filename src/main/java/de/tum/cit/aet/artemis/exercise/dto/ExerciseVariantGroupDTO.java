@@ -27,13 +27,14 @@ import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record ExerciseVariantGroupDTO(Long id, String title, String type, @Nullable Double maxPoints, @Nullable ZonedDateTime releaseDate, @Nullable ZonedDateTime startDate,
         @Nullable ZonedDateTime dueDate, @Nullable ZonedDateTime assessmentDueDate, @Nullable ZonedDateTime exampleSolutionPublicationDate, Set<Long> exerciseIds,
-        @Nullable Long milestoneExerciseId) {
+        @Nullable Long milestoneExerciseId, @Nullable String descriptionHeading, @Nullable String descriptionBody) {
 
     public ExerciseVariantGroupDTO(ExerciseVariantGroup group) {
         this(group.getId(), group.getTitle(), group instanceof MilestoneExerciseGroup ? "milestone" : "variant",
                 group instanceof MilestoneExerciseGroup ? sumOfMemberPoints(group) : group.getMaxPoints(), group.getReleaseDate(), group.getStartDate(), group.getDueDate(),
                 group.getAssessmentDueDate(), group.getExampleSolutionPublicationDate(), group.getExercises().stream().map(DomainObject::getId).collect(Collectors.toSet()),
-                group instanceof MilestoneExerciseGroup milestoneGroup && milestoneGroup.getMilestoneExercise() != null ? milestoneGroup.getMilestoneExercise().getId() : null);
+                group instanceof MilestoneExerciseGroup milestoneGroup && milestoneGroup.getMilestoneExercise() != null ? milestoneGroup.getMilestoneExercise().getId() : null,
+                group.getDescriptionHeading(), group.getDescriptionBody());
     }
 
     // Boxed, not a primitive double: the ternary that calls this also has a group.getMaxPoints() (Double) branch, and a

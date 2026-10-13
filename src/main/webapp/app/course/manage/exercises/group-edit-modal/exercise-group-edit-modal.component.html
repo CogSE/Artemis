@@ -52,6 +52,43 @@
             }
         </div>
 
+        <!-- Description: a milestone group is described by its milestone's problem statement instead. -->
+        @if (group().type !== 'milestone') {
+            <div class="d-flex flex-column gap-2">
+                <div>
+                    <div class="fw-semibold" jhiTranslate="artemisApp.exerciseManagement.groupEdit.description"></div>
+                    <div class="text-body-secondary small" jhiTranslate="artemisApp.exerciseManagement.groupEdit.descriptionHint"></div>
+                </div>
+                <div>
+                    <label class="d-block mb-1" for="group-edit-description-heading" jhiTranslate="artemisApp.exerciseManagement.groupEdit.descriptionHeading"></label>
+                    <input
+                        id="group-edit-description-heading"
+                        data-testid="group-edit-description-heading"
+                        tumAetUiInput
+                        class="w-100"
+                        [attr.maxlength]="MAX_DESCRIPTION_HEADING_LENGTH"
+                        [ngModel]="draftDescriptionHeading()"
+                        (ngModelChange)="draftDescriptionHeading.set($event)"
+                        [placeholder]="'artemisApp.exerciseVariantGroup.detail.callout.heading' | artemisTranslate"
+                    />
+                </div>
+                <div>
+                    <label class="d-block mb-1" for="group-edit-description-body" jhiTranslate="artemisApp.exerciseManagement.groupEdit.descriptionBody"></label>
+                    <textarea
+                        id="group-edit-description-body"
+                        data-testid="group-edit-description-body"
+                        tumAetUiTextarea
+                        class="w-100"
+                        rows="3"
+                        [attr.maxlength]="MAX_DESCRIPTION_BODY_LENGTH"
+                        [ngModel]="draftDescriptionBody()"
+                        (ngModelChange)="draftDescriptionBody.set($event)"
+                        [placeholder]="'artemisApp.exerciseVariantGroup.detail.callout.body' | artemisTranslate: { count: group().exercises?.length ?? 0 }"
+                    ></textarea>
+                </div>
+            </div>
+        }
+
         <!-- Dates -->
         <div>
             <div class="fw-semibold mb-2" jhiTranslate="artemisApp.exerciseManagement.groupEdit.dates"></div>

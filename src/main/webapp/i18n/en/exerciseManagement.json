@@ -114,6 +114,10 @@
                 "maxPointsPlaceholder": "No cap",
                 "sumOfPoints": "Sum of points",
                 "sumOfPointsTooltip": "The total points of all user story exercises in this milestone group — not editable here; add or edit a user story exercise to change it.",
+                "description": "Description",
+                "descriptionHint": "Shown to students above the variants. Leave a field empty to show the default text.",
+                "descriptionHeading": "Heading",
+                "descriptionBody": "Text",
                 "dates": "Dates",
                 "datesOverrideWarning": "Group dates override individual exercise dates.",
                 "datesInvalidOrder": "The dates are not in a valid order."

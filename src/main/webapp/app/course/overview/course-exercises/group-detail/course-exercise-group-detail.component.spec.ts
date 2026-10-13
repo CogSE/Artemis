@@ -1009,6 +1009,33 @@ describe('CourseExerciseGroupDetailComponent', () => {
         });
     });
 
+    describe('description callout', () => {
+        function textOf(testId: string): HTMLElement {
+            return fixture.debugElement.query(By.css(`[data-testid="${testId}"]`)).nativeElement as HTMLElement;
+        }
+
+        it('shows the default heading and text when the instructor set none', async () => {
+            await setup(exercisesInGroup(undefined), { renderTemplate: true });
+            fixture.detectChanges();
+
+            expect(textOf('group-description-heading').getAttribute('jhiTranslate')).toBe('artemisApp.exerciseVariantGroup.detail.callout.heading');
+            expect(textOf('group-description-body').querySelector('[jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.body"]')).not.toBeNull();
+        });
+
+        it("shows the instructor's heading and text instead of the defaults", async () => {
+            const exercises = exercisesInGroup(undefined);
+            // Both members share the one reference object, so setting it once covers the group.
+            Object.assign(exercises[0].exerciseVariantGroup!, { descriptionHeading: 'Pick your favourite', descriptionBody: 'Line one\nLine two' });
+            await setup(exercises, { renderTemplate: true });
+            fixture.detectChanges();
+
+            expect(textOf('group-description-heading').textContent?.trim()).toBe('Pick your favourite');
+            expect(textOf('group-description-heading').getAttribute('jhiTranslate')).toBeNull();
+            expect(textOf('group-description-body').textContent).toContain('Line one\nLine two');
+            expect(textOf('group-description-body').querySelector('[jhiTranslate]')).toBeNull();
+        });
+    });
+
     describe('title bar', () => {
         /** Access to the protected sidebar state the header renders from. */
         function sidebar(): { isSidebarCollapsed: WritableSignal<boolean>; showSidebarToggle: () => boolean } {

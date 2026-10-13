@@ -33,7 +33,8 @@ public record ExerciseForCourseOverviewDTO(ExerciseType type, String typeDiscrim
         @Nullable Boolean staticCodeAnalysisEnabled, @Nullable ZonedDateTime buildAndTestStudentSubmissionsAfterDueDate, @Nullable Boolean showTestProgressAsScore,
         @Nullable Long variantGroupId, @Nullable String variantGroupTitle, @Nullable String variantGroupType, @Nullable Long variantGroupMilestoneExerciseId,
         @Nullable Double variantGroupMaxPoints, @Nullable ZonedDateTime variantGroupReleaseDate, @Nullable ZonedDateTime variantGroupStartDate,
-        @Nullable ZonedDateTime variantGroupDueDate, @Nullable ZonedDateTime variantGroupAssessmentDueDate, @Nullable ZonedDateTime variantGroupExampleSolutionPublicationDate) {
+        @Nullable ZonedDateTime variantGroupDueDate, @Nullable ZonedDateTime variantGroupAssessmentDueDate, @Nullable ZonedDateTime variantGroupExampleSolutionPublicationDate,
+        @Nullable String variantGroupDescriptionHeading, @Nullable String variantGroupDescriptionBody) {
 
     /**
      * JPQL constructor accepting the entity class produced by Hibernate's {@code TYPE(...)} function for the exercise
@@ -50,12 +51,13 @@ public record ExerciseForCourseOverviewDTO(ExerciseType type, String typeDiscrim
             @Nullable ZonedDateTime buildAndTestStudentSubmissionsAfterDueDate, @Nullable Boolean showTestProgressAsScore, @Nullable Long variantGroupId,
             @Nullable String variantGroupTitle, @Nullable String variantGroupType, @Nullable Long variantGroupMilestoneExerciseId, @Nullable Double variantGroupMaxPoints,
             @Nullable ZonedDateTime variantGroupReleaseDate, @Nullable ZonedDateTime variantGroupStartDate, @Nullable ZonedDateTime variantGroupDueDate,
-            @Nullable ZonedDateTime variantGroupAssessmentDueDate, @Nullable ZonedDateTime variantGroupExampleSolutionPublicationDate) {
+            @Nullable ZonedDateTime variantGroupAssessmentDueDate, @Nullable ZonedDateTime variantGroupExampleSolutionPublicationDate,
+            @Nullable String variantGroupDescriptionHeading, @Nullable String variantGroupDescriptionBody) {
         this(ExerciseType.getExerciseTypeFromClass(type), ExerciseType.getDiscriminatorFromClass(type), id, title, maxPoints, bonusPoints, releaseDate, startDate, dueDate,
                 assessmentDueDate, assessmentType, difficulty, mode, includedInOverallScore, presentationScoreEnabled, allowFeedbackRequests, allowOnlineEditor, allowOfflineIde,
                 staticCodeAnalysisEnabled, buildAndTestStudentSubmissionsAfterDueDate, showTestProgressAsScore, variantGroupId, variantGroupTitle, variantGroupType,
                 variantGroupMilestoneExerciseId, variantGroupMaxPoints, variantGroupReleaseDate, variantGroupStartDate, variantGroupDueDate, variantGroupAssessmentDueDate,
-                variantGroupExampleSolutionPublicationDate);
+                variantGroupExampleSolutionPublicationDate, variantGroupDescriptionHeading, variantGroupDescriptionBody);
     }
 
     /**
@@ -76,7 +78,8 @@ public record ExerciseForCourseOverviewDTO(ExerciseType type, String typeDiscrim
             ZonedDateTime calculationTime, boolean quizBatchStarted) {
         ExerciseVariantGroupReferenceDTO variantGroup = variantGroupId == null ? null
                 : new ExerciseVariantGroupReferenceDTO(variantGroupId, variantGroupTitle, variantGroupType, variantGroupMilestoneExerciseId, variantGroupMaxPoints,
-                        variantGroupReleaseDate, variantGroupStartDate, variantGroupDueDate, variantGroupAssessmentDueDate, variantGroupExampleSolutionPublicationDate);
+                        variantGroupReleaseDate, variantGroupStartDate, variantGroupDueDate, variantGroupAssessmentDueDate, variantGroupExampleSolutionPublicationDate,
+                        variantGroupDescriptionHeading, variantGroupDescriptionBody);
         boolean teamMode = mode == ExerciseMode.TEAM;
         Boolean quizEnded = type == ExerciseType.QUIZ ? dueDate != null && calculationTime.isAfter(dueDate) : null;
         Set<QuizBatchOverviewDTO> quizBatches = quizBatchStarted ? Set.of(QuizBatchOverviewDTO.STARTED) : Set.of();

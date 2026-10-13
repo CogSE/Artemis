@@ -23,12 +23,18 @@ import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
  * place a client learns its id.
  *
  * @param type                {@code "variant"} or {@code "milestone"}
+ *                                <p>
+ *                                The description carries the student-facing callout, and also has to travel here: the group-timeline edit dialog saves
+ *                                the whole group from this reference, so leaving it out would clear the description on every timeline edit.
+ *
  * @param milestoneExerciseId the id of the group's anchor {@code MilestoneExercise}; {@code null} for a variant group
+ * @param descriptionHeading  the custom callout heading; {@code null} for the default
+ * @param descriptionBody     the custom callout text; {@code null} for the default
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record ExerciseVariantGroupReferenceDTO(Long id, String title, String type, @Nullable Long milestoneExerciseId, @Nullable Double maxPoints,
         @Nullable ZonedDateTime releaseDate, @Nullable ZonedDateTime startDate, @Nullable ZonedDateTime dueDate, @Nullable ZonedDateTime assessmentDueDate,
-        @Nullable ZonedDateTime exampleSolutionPublicationDate) {
+        @Nullable ZonedDateTime exampleSolutionPublicationDate, @Nullable String descriptionHeading, @Nullable String descriptionBody) {
 
     /**
      * Maps an exercise's variant group for an exercise DTO, or {@code null} when the exercise has no group.
@@ -57,6 +63,7 @@ public record ExerciseVariantGroupReferenceDTO(Long id, String title, String typ
                 ? milestoneGroup.getMilestoneExercise().getId()
                 : null;
         return new ExerciseVariantGroupReferenceDTO(group.getId(), group.getTitle(), group instanceof MilestoneExerciseGroup ? "milestone" : "variant", milestoneExerciseId,
-                group.getMaxPoints(), group.getReleaseDate(), group.getStartDate(), group.getDueDate(), group.getAssessmentDueDate(), group.getExampleSolutionPublicationDate());
+                group.getMaxPoints(), group.getReleaseDate(), group.getStartDate(), group.getDueDate(), group.getAssessmentDueDate(), group.getExampleSolutionPublicationDate(),
+                group.getDescriptionHeading(), group.getDescriptionBody());
     }
 }

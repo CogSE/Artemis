@@ -285,7 +285,7 @@ class ProgrammingExerciseLocalVCLocalCIIntegrationTest extends AbstractProgrammi
         programmingExerciseRepository.save(programmingExercise);
 
         String groupsUrl = "/api/exercise/courses/" + course.getId() + "/exercise-variant-groups";
-        var createDTO = new CreateExerciseVariantGroupDTO("Programming variants", null, release, null, due, assessmentDue, null);
+        var createDTO = new CreateExerciseVariantGroupDTO("Programming variants", null, release, null, due, assessmentDue, null, null, null);
         ExerciseVariantGroupDTO group = request.postWithResponseBody(groupsUrl, createDTO, ExerciseVariantGroupDTO.class, HttpStatus.CREATED);
         String assignUrl = "/api/exercise/courses/" + course.getId() + "/exercises/" + programmingExercise.getId() + "/variant-group";
 

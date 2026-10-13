@@ -16,6 +16,7 @@ import { TextSubmissionAssessmentComponent } from 'app/text/manage/assess/submis
 import { getMilestoneAssessmentDashboardLink } from 'app/foundation/util/navigation.utils';
 import { MilestoneAssessment, MilestoneAssessmentExercise, MilestoneAssessmentService } from './milestone-assessment.service';
 import { MilestoneAssessmentOverviewComponent } from './milestone-assessment-overview.component';
+import { MilestoneAssessmentTasksComponent } from './milestone-assessment-tasks.component';
 import { Title } from '@angular/platform-browser';
 
 /** The tab value of the group-level first tab; every other tab is keyed by its exercise id. */
@@ -24,7 +25,8 @@ const OVERVIEW_TAB = 'milestone';
 /**
  * Grades one student's whole milestone: a group-level first tab, then one tab per exercise of the group - the user
  * stories first, then any text, modeling, file upload or quiz exercise, in the order the server sends them. Each tab
- * mounts the assessment editor of its exercise type; a quiz is graded automatically and only shows its score.
+ * mounts the assessment editor of its exercise type; a quiz is graded automatically and only shows its score. A user
+ * story's tab also shows, read-only above its editor, the tasks the student broke the story down into.
  * <p>
  * Only the active exercise's assessment editor is mounted at a time, and that is a hard constraint rather than a
  * preference: `DomainService` is `providedIn: 'root'` and holds a single global domain, so two live editors would
@@ -47,6 +49,7 @@ const OVERVIEW_TAB = 'milestone';
         TumAetUiTabComponent,
         CourseTitleBarTitleDirective,
         MilestoneAssessmentOverviewComponent,
+        MilestoneAssessmentTasksComponent,
         CodeEditorTutorAssessmentContainerComponent,
         TextSubmissionAssessmentComponent,
         ModelingAssessmentEditorComponent,
