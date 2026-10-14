@@ -3,7 +3,7 @@ import { BehaviorSubject, Observable, Subscription, of, pipe } from 'rxjs';
 import { switchMap, tap } from 'rxjs/operators';
 import { Participation } from 'app/exercise/shared/entities/participation/participation.model';
 import { Result } from 'app/exercise/shared/entities/result/result.model';
-import { Exercise, ExerciseType, baseExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { StudentParticipation } from 'app/exercise/shared/entities/participation/student-participation.model';
 import { ParticipationService } from 'app/exercise/participation/participation.service';
 import { WebsocketService } from 'app/foundation/service/websocket.service';
@@ -576,7 +576,7 @@ export class ParticipationWebsocketService implements IParticipationWebsocketSer
     public unsubscribeForLatestResultOfParticipation(participationId: number, exercise: Exercise): void {
         // Only unsubscribe from websocket, if the exercise is not active any more
         let isInactiveProgrammingExercise = false;
-        if (baseExerciseType(exercise.type) === ExerciseType.PROGRAMMING) {
+        if (isProgrammingExerciseType(exercise.type)) {
             const programmingExercise = exercise as ProgrammingExercise;
             isInactiveProgrammingExercise =
                 !!programmingExercise.buildAndTestStudentSubmissionsAfterDueDate && dayjs(programmingExercise.buildAndTestStudentSubmissionsAfterDueDate).isBefore(dayjs());
