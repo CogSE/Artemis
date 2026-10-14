@@ -156,6 +156,29 @@ describe('UserStoryTasksComponent', () => {
         expect(component['stateLabelKey']('DONE')).toBe('artemisApp.courseOverview.exerciseDetails.tasks.stateDone');
     });
 
+    it('should offer every change to the board before the due date', () => {
+        fixture.detectChanges();
+
+        const element: HTMLElement = fixture.nativeElement;
+        expect(element.querySelector('[data-testid="create-task-btn"]')).not.toBeNull();
+        expect(element.querySelector('[data-testid="edit-task-btn"]')).not.toBeNull();
+        expect(element.querySelector('[data-testid="task-drag-handle"]')).not.toBeNull();
+        expect(element.querySelector('[data-testid="user-story-tasks-read-only"]')).toBeNull();
+    });
+
+    it('should show the board without any way to change it after the due date', () => {
+        fixture.componentRef.setInput('readOnly', true);
+        fixture.detectChanges();
+
+        const element: HTMLElement = fixture.nativeElement;
+        expect(element.querySelectorAll('[data-testid="user-story-task-card"]')).toHaveLength(2);
+        for (const testId of ['create-task-btn', 'edit-task-btn', 'delete-task-btn', 'advance-task-btn', 'task-drag-handle']) {
+            expect(element.querySelector(`[data-testid="${testId}"]`)).toBeNull();
+        }
+        expect(element.querySelector('[data-testid="user-story-tasks-read-only"]')).not.toBeNull();
+        expect(component['canEditActualEffort']({ ...tasks[0], state: 'IN_PROGRESS' })).toBe(false);
+    });
+
     it('should hide time logging while the task is NEW', () => {
         const newTask: UserStoryTask = { ...tasks[0], state: 'NEW' };
         expect(component['showActualEffort'](newTask)).toBe(false);

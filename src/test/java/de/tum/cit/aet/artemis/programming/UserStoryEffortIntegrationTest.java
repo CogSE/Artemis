@@ -161,25 +161,4 @@ class UserStoryEffortIntegrationTest extends AbstractProgrammingIntegrationIndep
         assertThat(statuses).filteredOn(status -> status.exerciseId().equals(otherStory.getId())).singleElement().extracting(UserStoryEffortStatusDTO::estimatedEffort)
                 .isEqualTo(0.0);
     }
-
-    @Test
-    @WithMockUser(username = TEST_PREFIX + "tutor1", roles = "TA")
-    void aTutorCanReadTheEffortOnAParticipationTheyAssess() throws Exception {
-        var participation = participationUtilService.addStudentParticipationForProgrammingExercise(userStory, studentLogin);
-        taskFor(participation, 4.0, 6.0);
-
-        UserStoryEffortDTO effort = request.get("/api/programming/participations/" + participation.getId() + "/user-story-effort", HttpStatus.OK, UserStoryEffortDTO.class);
-
-        assertThat(effort.estimatedEffort()).isEqualTo(4.0);
-        assertThat(effort.actualEffort()).isEqualTo(6.0);
-    }
-
-    @Test
-    @WithMockUser(username = TEST_PREFIX + "student2", roles = "USER")
-    void anotherStudentCannotReadTheEffortOnAParticipation() throws Exception {
-        var participation = participationUtilService.addStudentParticipationForProgrammingExercise(userStory, studentLogin);
-        taskFor(participation, 4.0, null);
-
-        request.get("/api/programming/participations/" + participation.getId() + "/user-story-effort", HttpStatus.FORBIDDEN, UserStoryEffortDTO.class);
-    }
 }

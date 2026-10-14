@@ -4,6 +4,7 @@ import { Exercise, ExerciseType, getIcon } from 'app/exercise/shared/entities/ex
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
 import { participationChildRouteSegments } from 'app/course/overview/exercise-details/participation-child-route';
 import { StudentParticipation } from 'app/exercise/shared/entities/participation/student-participation.model';
+import { hasExerciseDueDatePassed } from 'app/exercise/util/exercise.utils';
 import { faCircleInfo, faComment, faGear, faGraduationCap, faListCheck } from '@fortawesome/free-solid-svg-icons';
 import { ProblemStatementComponent } from 'app/course/overview/exercise-details/problem-statement/problem-statement.component';
 import { ExerciseSubmission, isExerciseSubmission } from 'app/exercise/shared/exercise-submission.interface';
@@ -152,6 +153,9 @@ export class ExerciseSplitPanelComponent {
     });
 
     readonly showTasks = computed(() => this.exercise().type === ExerciseType.USER_STORY && this.studentParticipation()?.id !== undefined);
+
+    /** The task board is frozen once the story is due; the server rejects any change from then on. */
+    readonly tasksReadOnly = computed(() => hasExerciseDueDatePassed(this.exercise(), this.studentParticipation()));
 
     /** A UserStoryExercise is a ProgrammingExercise (shares its group's repositories/code editor), so it follows the same student-facing behavior wherever this file branches on ExerciseType.PROGRAMMING. */
     private static isProgrammingLike(type: ExerciseType | undefined): boolean {

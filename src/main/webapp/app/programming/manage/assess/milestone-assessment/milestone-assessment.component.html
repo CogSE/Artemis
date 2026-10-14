@@ -19,7 +19,12 @@
                     <!-- An exercise the student never started has nothing to assess, so its tab is disabled rather than
                          hidden: the group's shape should read the same for every student. -->
                     <tumaet-ui-tab [value]="exercise.exerciseId" [disabled]="!exercise.submissionId">
-                        <span>{{ exercise.title }}</span>
+                        <!-- A disabled tab takes no pointer events, so the label turns them back on to show why it is disabled. -->
+                        <span
+                            [class.pointer-events-auto]="!exercise.submissionId"
+                            [tumAetUiTooltip]="exercise.submissionId ? '' : ('artemisApp.milestoneAssessment.nothingSubmittedTooltip' | artemisTranslate)"
+                            >{{ exercise.title }}</span
+                        >
                     </tumaet-ui-tab>
                 }
             </tumaet-ui-tab-list>

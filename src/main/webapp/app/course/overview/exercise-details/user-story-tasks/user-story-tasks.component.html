@@ -1,17 +1,26 @@
 @if (tasks().length) {
-    <div class="grid grid-cols-1 gap-3" cdkDropList [cdkDropListData]="tasks()" (cdkDropListDropped)="drop($event)" data-testid="user-story-tasks-grid">
+    <div
+        class="grid grid-cols-1 gap-3"
+        cdkDropList
+        [cdkDropListData]="tasks()"
+        [cdkDropListDisabled]="readOnly()"
+        (cdkDropListDropped)="drop($event)"
+        data-testid="user-story-tasks-grid"
+    >
         @for (task of tasks(); track task.id) {
             <tumaet-ui-card class="border" cdkDrag data-testid="user-story-task-card">
                 <div tumAetUiCardHeader class="task-tile-header d-flex align-items-center gap-2">
-                    <fa-icon
-                        [icon]="faBars"
-                        cdkDragHandle
-                        class="text-muted"
-                        style="cursor: grab"
-                        [tumAetUiTooltip]="'artemisApp.courseOverview.exerciseDetails.tasks.dragHandle' | artemisTranslate"
-                        tumAetUiTooltipPlacement="top"
-                        data-testid="task-drag-handle"
-                    />
+                    @if (!readOnly()) {
+                        <fa-icon
+                            [icon]="faBars"
+                            cdkDragHandle
+                            class="text-muted"
+                            style="cursor: grab"
+                            [tumAetUiTooltip]="'artemisApp.courseOverview.exerciseDetails.tasks.dragHandle' | artemisTranslate"
+                            tumAetUiTooltipPlacement="top"
+                            data-testid="task-drag-handle"
+                        />
+                    }
                     <span class="fs-5 fw-semibold">{{ task.title }}</span>
                 </div>
                 <div class="d-flex flex-column gap-2">
@@ -104,60 +113,62 @@
                             }
                         }
                     </div>
-                    <div class="d-flex gap-2">
-                        @if ((task.state ?? 'NEW') !== 'DONE') {
-                            <!-- A disabled button receives no pointer events, so the hint has to live on a wrapper that still does. -->
-                            <span
-                                class="inline-flex"
-                                [tumAetUiTooltip]="advanceButtonTooltipKey(task) | artemisTranslate"
-                                tumAetUiTooltipPlacement="top"
-                                data-testid="advance-task-hint"
-                            >
-                                <button
-                                    type="button"
-                                    tumAetUiButton
-                                    severity="primary"
-                                    size="small"
-                                    [disabled]="advanceRequiresEffort(task)"
-                                    (click)="advanceState(task)"
-                                    [attr.aria-label]="advanceButtonTooltipKey(task) | artemisTranslate"
-                                    data-testid="advance-task-btn"
+                    @if (!readOnly()) {
+                        <div class="d-flex gap-2">
+                            @if ((task.state ?? 'NEW') !== 'DONE') {
+                                <!-- A disabled button receives no pointer events, so the hint has to live on a wrapper that still does. -->
+                                <span
+                                    class="inline-flex"
+                                    [tumAetUiTooltip]="advanceButtonTooltipKey(task) | artemisTranslate"
+                                    tumAetUiTooltipPlacement="top"
+                                    data-testid="advance-task-hint"
                                 >
-                                    <fa-icon [icon]="faArrowRight" />
-                                </button>
-                            </span>
-                        }
-                        <button
-                            type="button"
-                            tumAetUiButton
-                            severity="warn"
-                            size="small"
-                            (click)="openEditModal(task)"
-                            [tumAetUiTooltip]="'entity.action.edit' | artemisTranslate"
-                            tumAetUiTooltipPlacement="top"
-                            [attr.aria-label]="'entity.action.edit' | artemisTranslate"
-                            data-testid="edit-task-btn"
-                        >
-                            <fa-icon [icon]="faPen" />
-                        </button>
-                        <button
-                            type="button"
-                            tumAetUiButton
-                            severity="danger"
-                            size="small"
-                            [renderButtonStyle]="false"
-                            jhiDeleteButton
-                            [entityTitle]="task.title"
-                            [deleteQuestion]="'artemisApp.courseOverview.exerciseDetails.tasks.deleteQuestion'"
-                            (delete)="deleteTask(task)"
-                            [tumAetUiTooltip]="'entity.action.delete' | artemisTranslate"
-                            tumAetUiTooltipPlacement="top"
-                            [attr.aria-label]="'entity.action.delete' | artemisTranslate"
-                            data-testid="delete-task-btn"
-                        >
-                            <fa-icon [icon]="faTrash" />
-                        </button>
-                    </div>
+                                    <button
+                                        type="button"
+                                        tumAetUiButton
+                                        severity="primary"
+                                        size="small"
+                                        [disabled]="advanceRequiresEffort(task)"
+                                        (click)="advanceState(task)"
+                                        [attr.aria-label]="advanceButtonTooltipKey(task) | artemisTranslate"
+                                        data-testid="advance-task-btn"
+                                    >
+                                        <fa-icon [icon]="faArrowRight" />
+                                    </button>
+                                </span>
+                            }
+                            <button
+                                type="button"
+                                tumAetUiButton
+                                severity="warn"
+                                size="small"
+                                (click)="openEditModal(task)"
+                                [tumAetUiTooltip]="'entity.action.edit' | artemisTranslate"
+                                tumAetUiTooltipPlacement="top"
+                                [attr.aria-label]="'entity.action.edit' | artemisTranslate"
+                                data-testid="edit-task-btn"
+                            >
+                                <fa-icon [icon]="faPen" />
+                            </button>
+                            <button
+                                type="button"
+                                tumAetUiButton
+                                severity="danger"
+                                size="small"
+                                [renderButtonStyle]="false"
+                                jhiDeleteButton
+                                [entityTitle]="task.title"
+                                [deleteQuestion]="'artemisApp.courseOverview.exerciseDetails.tasks.deleteQuestion'"
+                                (delete)="deleteTask(task)"
+                                [tumAetUiTooltip]="'entity.action.delete' | artemisTranslate"
+                                tumAetUiTooltipPlacement="top"
+                                [attr.aria-label]="'entity.action.delete' | artemisTranslate"
+                                data-testid="delete-task-btn"
+                            >
+                                <fa-icon [icon]="faTrash" />
+                            </button>
+                        </div>
+                    }
                 </div>
             </tumaet-ui-card>
         }
@@ -169,10 +180,14 @@
 }
 
 <div class="module-bg sticky-bottom d-flex justify-content-end pb-2 pt-3">
-    <tumaet-ui-button size="small" (clicked)="openCreateModal()" data-testid="create-task-btn">
-        <fa-icon [icon]="faPlus" class="me-1" />
-        <span jhiTranslate="artemisApp.courseOverview.exerciseDetails.tasks.createButton"></span>
-    </tumaet-ui-button>
+    @if (readOnly()) {
+        <span class="text-muted small" jhiTranslate="artemisApp.courseOverview.exerciseDetails.tasks.readOnlyAfterDueDate" data-testid="user-story-tasks-read-only"></span>
+    } @else {
+        <tumaet-ui-button size="small" (clicked)="openCreateModal()" data-testid="create-task-btn">
+            <fa-icon [icon]="faPlus" class="me-1" />
+            <span jhiTranslate="artemisApp.courseOverview.exerciseDetails.tasks.createButton"></span>
+        </tumaet-ui-button>
+    }
 </div>
 
 <jhi-user-story-task-edit-modal [(visible)]="modalVisible" [task]="selectedTask()" (saved)="onSaved($event)" />

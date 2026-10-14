@@ -369,6 +369,44 @@ class UserStoryTaskIntegrationTest extends AbstractProgrammingIntegrationIndepen
         assertThat(userStoryTaskRepository.findById(task.getId())).isPresent();
     }
 
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void theBoardIsReadOnlyAfterTheDueDate() throws Exception {
+        var task = createTaskDirectlyFor(studentLogin);
+        passTheDueDate();
+        UserStoryTaskDTO changed = new UserStoryTaskDTO(task.getId(), "Changed", null, 3, TaskPriority.HIGH, 2.0, null, TaskState.NEW);
+
+        request.postWithResponseBody(tasksUrl(userStory.getId()), aTask(), UserStoryTaskDTO.class, HttpStatus.BAD_REQUEST);
+        request.putWithResponseBody(taskUrl(task.getId()), changed, UserStoryTaskDTO.class, HttpStatus.BAD_REQUEST);
+        request.putWithResponseBody(advanceUrl(task.getId()), null, UserStoryTaskDTO.class, HttpStatus.BAD_REQUEST);
+        request.put(reorderUrl(userStory.getId()), List.of(task.getId()), HttpStatus.BAD_REQUEST);
+        request.delete(taskUrl(task.getId()), HttpStatus.BAD_REQUEST);
+
+        // Still readable, and nothing above got through.
+        assertThat(request.getList(tasksUrl(userStory.getId()), HttpStatus.OK, UserStoryTaskDTO.class)).singleElement().satisfies(unchanged -> {
+            assertThat(unchanged.title()).isEqualTo("Existing task");
+            assertThat(unchanged.state()).isEqualTo(TaskState.NEW);
+        });
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void anIndividualExtensionKeepsTheBoardOpenAfterTheDueDate() throws Exception {
+        var task = createTaskDirectlyFor(studentLogin);
+        passTheDueDate();
+        var participation = studentParticipationRepository.findByIdElseThrow(task.getParticipation().getId());
+        participation.setIndividualDueDate(ZonedDateTime.now().plusDays(1));
+        studentParticipationRepository.save(participation);
+
+        request.postWithResponseBody(tasksUrl(userStory.getId()), aTask(), UserStoryTaskDTO.class, HttpStatus.OK);
+        request.putWithResponseBody(advanceUrl(task.getId()), null, UserStoryTaskDTO.class, HttpStatus.OK);
+    }
+
+    private void passTheDueDate() {
+        userStory.setDueDate(ZonedDateTime.now().minusHours(1));
+        userStory = (UserStoryExercise) programmingExerciseRepository.save(userStory);
+    }
+
     private UserStoryTask createTaskDirectlyFor(String login) {
         var participation = participationUtilService.addStudentParticipationForProgrammingExercise(userStory, login);
         var task = new UserStoryTask();

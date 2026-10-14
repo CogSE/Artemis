@@ -69,6 +69,7 @@
             "nextExercise": "Nächste Aufgabe bewerten",
             "overviewTab": "Meilenstein",
             "exerciseNotStarted": "Diese:r Studierende hat diese Aufgabe nicht begonnen, es gibt also nichts zu bewerten.",
+            "nothingSubmittedTooltip": "Diese:r Studierende hat für diese Aufgabe nichts abgegeben, es gibt also nichts zu bewerten.",
             "quizAutomatic": "Quizze werden automatisch bewertet, es gibt also nichts manuell zu bewerten.",
             "loadFailed": "Die Meilenstein-Bewertung konnte nicht geladen werden.",
             "overview": {

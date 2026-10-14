@@ -13,7 +13,6 @@ import de.tum.cit.aet.artemis.core.exception.BadRequestAlertException;
 import de.tum.cit.aet.artemis.exercise.domain.Exercise;
 import de.tum.cit.aet.artemis.exercise.domain.participation.StudentParticipation;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseRepository;
-import de.tum.cit.aet.artemis.exercise.repository.StudentParticipationRepository;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationAuthorizationCheckService;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationService;
 import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
@@ -42,15 +41,12 @@ public class UserStoryEffortService {
 
     private final ParticipationAuthorizationCheckService participationAuthorizationCheckService;
 
-    private final StudentParticipationRepository studentParticipationRepository;
-
     public UserStoryEffortService(UserStoryTaskRepository userStoryTaskRepository, ExerciseRepository exerciseRepository, ParticipationService participationService,
-            ParticipationAuthorizationCheckService participationAuthorizationCheckService, StudentParticipationRepository studentParticipationRepository) {
+            ParticipationAuthorizationCheckService participationAuthorizationCheckService) {
         this.userStoryTaskRepository = userStoryTaskRepository;
         this.exerciseRepository = exerciseRepository;
         this.participationService = participationService;
         this.participationAuthorizationCheckService = participationAuthorizationCheckService;
-        this.studentParticipationRepository = studentParticipationRepository;
     }
 
     /**
@@ -75,19 +71,6 @@ public class UserStoryEffortService {
      */
     public List<UserStoryEffortStatusDTO> findAllForCourse(long courseId, User user) {
         return userStoryTaskRepository.findAllStartedStoriesByCourseIdAndStudentLogin(courseId, user.getLogin());
-    }
-
-    /**
-     * The effort summed from one participation's board, for a caller allowed to see it - the participant themself, or
-     * a tutor assessing their work.
-     *
-     * @param participationId the participation to read
-     * @return the summed pair
-     */
-    public UserStoryEffortDTO findForParticipation(long participationId) {
-        StudentParticipation participation = studentParticipationRepository.findByIdElseThrow(participationId);
-        participationAuthorizationCheckService.checkCanAccessParticipationElseThrow(participation);
-        return userStoryTaskRepository.sumEffortByParticipationId(participation.getId());
     }
 
     /**

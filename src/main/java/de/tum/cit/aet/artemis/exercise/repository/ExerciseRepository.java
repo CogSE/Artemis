@@ -67,6 +67,8 @@ public interface ExerciseRepository extends ArtemisJpaRepository<Exercise, Long>
     // MilestoneExercise rows are deliberately included, even though a milestone is never rendered to anyone (see
     // MilestoneExercise.isVisibleToStudents(), the corresponding gate for direct per-exercise access): it is the only
     // exercise of its group that carries the group's points.
+    // A milestone group keeps no dates of its own - they are its anchor's (see MilestoneExerciseGroup) - so the group
+    // dates fall back to the anchor's, or the group page would show no deadline at all.
     @Query("""
             SELECT NEW de.tum.cit.aet.artemis.exercise.dto.ExerciseForCourseOverviewDTO(
                 TYPE(exercise),
@@ -94,19 +96,21 @@ public interface ExerciseRepository extends ArtemisJpaRepository<Exercise, Long>
                 CASE WHEN variantGroup.id IS NULL THEN NULL
                      WHEN EXISTS (SELECT 1 FROM MilestoneExerciseGroup mg WHERE mg.id = variantGroup.id) THEN 'milestone'
                      ELSE 'variant' END,
-                (SELECT anchorGroup.milestoneExercise.id FROM MilestoneExerciseGroup anchorGroup WHERE anchorGroup.id = variantGroup.id),
+                milestoneAnchor.id,
                 variantGroup.maxPoints,
-                variantGroup.releaseDate,
-                variantGroup.startDate,
-                variantGroup.dueDate,
-                variantGroup.assessmentDueDate,
-                variantGroup.exampleSolutionPublicationDate,
+                COALESCE(variantGroup.releaseDate, milestoneAnchor.releaseDate),
+                COALESCE(variantGroup.startDate, milestoneAnchor.startDate),
+                COALESCE(variantGroup.dueDate, milestoneAnchor.dueDate),
+                COALESCE(variantGroup.assessmentDueDate, milestoneAnchor.assessmentDueDate),
+                COALESCE(variantGroup.exampleSolutionPublicationDate, milestoneAnchor.exampleSolutionPublicationDate),
                 variantGroup.descriptionHeading,
                 variantGroup.descriptionBody)
             FROM Exercise exercise
                 LEFT JOIN ProgrammingExercise programmingExercise ON exercise.id = programmingExercise.id
                 LEFT JOIN UserStoryExercise userStory ON exercise.id = userStory.id
                 LEFT JOIN exercise.exerciseVariantGroup variantGroup
+                LEFT JOIN MilestoneExerciseGroup milestoneGroup ON milestoneGroup.id = variantGroup.id
+                LEFT JOIN milestoneGroup.milestoneExercise milestoneAnchor
                 LEFT JOIN exercise.course course
                 LEFT JOIN course.athenaConfig athenaConfig
             WHERE exercise.course.id = :courseId
