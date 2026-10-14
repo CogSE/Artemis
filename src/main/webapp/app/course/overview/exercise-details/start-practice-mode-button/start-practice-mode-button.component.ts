@@ -3,7 +3,7 @@ import { FeatureToggle } from 'app/foundation/feature-toggle/feature-toggle.serv
 import { finalize } from 'rxjs/operators';
 import { faPlayCircle } from '@fortawesome/free-solid-svg-icons';
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
-import { Exercise, ExerciseType, baseExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { AlertService } from 'app/foundation/service/alert.service';
 import { StudentParticipation } from 'app/exercise/shared/entities/participation/student-participation.model';
 import { ParticipationService } from 'app/exercise/participation/participation.service';
@@ -37,7 +37,7 @@ export class StartPracticeModeButtonComponent {
 
     readonly startingPracticeMode = computed(() => this._startingPracticeMode());
     readonly gradedStudentParticipation = computed(() => this._gradedStudentParticipation());
-    readonly isProgrammingExercise = computed(() => baseExerciseType(this.exercise().type) === ExerciseType.PROGRAMMING);
+    readonly isProgrammingExercise = computed(() => isProgrammingExerciseType(this.exercise().type));
 
     // Icons
     faPlayCircle = faPlayCircle;
@@ -66,7 +66,7 @@ export class StartPracticeModeButtonComponent {
             .subscribe({
                 next: (participation) => {
                     const exercise = this.exercise();
-                    if (baseExerciseType(exercise.type) === ExerciseType.PROGRAMMING) {
+                    if (isProgrammingExerciseType(exercise.type)) {
                         if (participation?.initializationState === InitializationState.INITIALIZED) {
                             if ((exercise as ProgrammingExercise).allowOfflineIde) {
                                 this.alertService.success('artemisApp.exercise.personalRepositoryClone');
