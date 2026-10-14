@@ -138,7 +138,7 @@
                         exercise().course?.athenaFormativeFeedbackEnabled &&
                         athenaEnabled &&
                         gradedParticipation() &&
-                        baseExerciseType(exercise().type) === ExerciseType.PROGRAMMING &&
+                        isProgrammingExercise() &&
                         exercise().assessmentType === AssessmentType.SEMI_AUTOMATIC
                     ) {
                         <jhi-request-feedback-button
