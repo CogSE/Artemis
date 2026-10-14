@@ -77,20 +77,4 @@ public class UserStoryEffortResource {
         User user = userRepository.getUser();
         return ResponseEntity.ok(userStoryEffortService.findAllForCourse(courseId, user));
     }
-
-    /**
-     * GET /participations/:participationId/user-story-effort : The effort summed from one participation's board.
-     * <p>
-     * For the tutor assessing that participation; the participant themself may read it too. Access is checked
-     * against the participation itself, so this grants nothing the assessment view does not already have.
-     *
-     * @param participationId the id of the participation
-     * @return the ResponseEntity with status 200 (OK) and the summed pair in the body
-     */
-    @GetMapping("participations/{participationId}/user-story-effort")
-    @EnforceAtLeastStudent
-    public ResponseEntity<UserStoryEffortDTO> getUserStoryEffortForParticipation(@PathVariable long participationId) {
-        log.debug("REST request to get the reported effort on participation {}", participationId);
-        return ResponseEntity.ok(userStoryEffortService.findForParticipation(participationId));
-    }
 }

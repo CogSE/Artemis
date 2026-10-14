@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { UserStoryEffort } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
 
@@ -15,7 +15,7 @@ export interface UserStoryEffortStatus extends UserStoryEffort {
  * Every endpoint acts on the caller's own participation only, except reading one specific participation for the
  * tutor assessing it.
  */
-@Injectable({ providedIn: 'root' })
+@Service()
 export class UserStoryEffortService {
     private readonly http = inject(HttpClient);
 
@@ -35,10 +35,5 @@ export class UserStoryEffortService {
      */
     getEffortsForCourse(courseId: number): Observable<UserStoryEffortStatus[]> {
         return this.http.get<UserStoryEffortStatus[]>(`api/programming/courses/${courseId}/user-story-efforts`);
-    }
-
-    /** The pair reported on one participation, for the tutor assessing it. */
-    getEffortForParticipation(participationId: number): Observable<UserStoryEffort> {
-        return this.http.get<UserStoryEffort>(`api/programming/participations/${participationId}/user-story-effort`);
     }
 }
