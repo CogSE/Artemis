@@ -50,7 +50,6 @@
     <rule ref="category/java/errorprone.xml/AvoidMultipleUnaryOperators"/>
     <rule ref="category/java/errorprone.xml/AvoidUsingOctalValues"/>
     <rule ref="category/java/errorprone.xml/BrokenNullCheck"/>
-    <rule ref="category/java/errorprone.xml/CheckSkipResult"/>
     <rule ref="category/java/errorprone.xml/ClassCastExceptionWithToArray"/>
     <rule ref="category/java/errorprone.xml/DontUseFloatTypeForLoopIndices"/>
     <rule ref="category/java/errorprone.xml/JumbledIncrementer"/>
@@ -60,7 +59,8 @@
     <rule ref="category/java/errorprone.xml/UnconditionalIfStatement"/>
     <rule ref="category/java/errorprone.xml/UnnecessaryConversionTemporary"/>
     <rule ref="category/java/errorprone.xml/UnusedNullCheckInEquals"/>
-    <rule ref="category/java/errorprone.xml/UselessOperationOnImmutable"/>
+    <!-- Replaces CheckSkipResult and UselessOperationOnImmutable, both deprecated in PMD 7 and removed in PMD 8 -->
+    <rule ref="category/java/errorprone.xml/UnusedReturnValue"/>
 
     <!-- Multi Threading -->
     <rule ref="category/java/multithreading.xml/AvoidThreadGroup"/>

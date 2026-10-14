@@ -2,7 +2,7 @@ plugins {
     // %static-code-analysis-start%
     id 'checkstyle'
     id 'pmd'
-    id 'com.github.spotbugs' version '6.1.0'
+    id 'com.github.spotbugs' version '6.5.13'
     // %static-code-analysis-stop%
     id 'com.teamscale' version '34.2.1'
     id 'java'
@@ -20,8 +20,8 @@ compileTestJava.options.encoding = 'UTF-8'
 repositories {
     // %maven-central-mirror-start%
     maven {
-        name 'artemisMavenCentralMirror'
-        url '${mavenCentralMirrorUrl}'
+        name = 'artemisMavenCentralMirror'
+        url = '${mavenCentralMirrorUrl}'
     }
     // %maven-central-mirror-stop%
     mavenCentral()
@@ -212,7 +212,7 @@ checkstyle {
 }
 
 spotbugs {
-    toolVersion = '4.10.4'
+    toolVersion = '4.10.5'
     excludeFilter = file("$scaConfigDirectory/spotbugs-exclusions.xml")
     ignoreFailures = true
     // exclude the test files
