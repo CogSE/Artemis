@@ -25,7 +25,7 @@ import dayjs from 'dayjs/esm';
 import { FeedbackItemService, FeedbackItemServiceImpl } from 'app/exercise/feedback/item/feedback-item-service';
 import { ProgrammingFeedbackItemService } from 'app/exercise/feedback/item/programming-feedback-item.service';
 import { FeedbackService } from 'app/exercise/feedback/services/feedback.service';
-import { evaluateTemplateStatus, isOnlyCompilationTested, isStudentParticipation, resultIsPreliminary } from '../result/result.utils';
+import { evaluateTemplateStatus, getTestProgressScore, isOnlyCompilationTested, isStudentParticipation, resultIsPreliminary } from '../result/result.utils';
 import { FeedbackNode } from 'app/exercise/feedback/node/feedback-node';
 import { FeedbackChartData } from 'app/exercise/feedback/chart/feedback-chart-data';
 import { stackedBarChart } from 'app/shared-ui/chart/tum-aet-ui-chart-adapters';
@@ -121,6 +121,8 @@ export class FeedbackComponent implements OnInit {
     );
     /** Whether the score chart is currently shown; seeded from the input, hidden at runtime once we know there is no chart data (see updateChart). */
     readonly scoreChartVisible = linkedSignal(() => this.showScoreChart());
+    /** The share of passed tests that replaces the score of a user story result (see {@link getTestProgressScore}), or undefined. */
+    readonly testProgressScore = computed(() => getTestProgressScore(this.result(), this.resolvedExercise()));
 
     readonly isExamReviewPage = input(false);
     readonly isPrinting = input(false);

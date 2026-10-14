@@ -34,7 +34,17 @@
                                 @if (result().assessmentType === AssessmentType.AUTOMATIC_ATHENA) {
                                     <span jhiTranslate="artemisApp.result.resultString.automaticAIFeedbackSuccessfulTooltip"></span>
                                 } @else {
-                                    @if (!resolvedExercise()?.maxPoints) {
+                                    @if (testProgressScore() !== undefined) {
+                                        <!-- Test progress has no points of its own, so none are shown next to it. -->
+                                        <span
+                                            jhiTranslate="artemisApp.result.testProgress"
+                                            [translateValues]="{
+                                                score: roundValueSpecifiedByCourseSettings(testProgressScore(), course()),
+                                                passed: result().passedTestCaseCount ?? 0,
+                                                total: result().testCaseCount,
+                                            }"
+                                        ></span>
+                                    } @else if (!resolvedExercise()?.maxPoints) {
                                         <span
                                             jhiTranslate="artemisApp.result.score"
                                             [translateValues]="{ score: roundValueSpecifiedByCourseSettings(result().score, course()) }"

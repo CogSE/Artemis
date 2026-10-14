@@ -347,6 +347,28 @@ describe('FeedbackComponent', () => {
         expect(tagTexts).toContain('ARTEMISAPP.RESULT.PRELIMINARY');
     });
 
+    it.each([
+        { showTestProgressAsScore: true, expectedKey: 'artemisApp.result.testProgress' },
+        { showTestProgressAsScore: false, expectedKey: 'artemisApp.result.scoreWithPoints' },
+    ])('headlines a user story result by its test progress only when opted in ($showTestProgressAsScore)', ({ showTestProgressAsScore, expectedKey }) => {
+        fixture.componentRef.setInput('exercise', { ...exercise, type: ExerciseType.USER_STORY, showTestProgressAsScore });
+        fixture.componentRef.setInput('result', {
+            id: 89,
+            score: 0,
+            assessmentType: AssessmentType.AUTOMATIC,
+            passedTestCaseCount: 2,
+            testCaseCount: 3,
+            submission: { id: 90, participation: { id: 55, type: ParticipationType.PROGRAMMING } },
+        } as Result);
+        comp.result().feedbacks = generateFeedbacksAndExpectedItems().feedbacks;
+
+        comp.ngOnInit();
+        fixture.detectChanges();
+
+        expect(comp.testProgressScore()).toBe(showTestProgressAsScore ? 200 / 3 : undefined);
+        expect(fixture.nativeElement.querySelector('h4').textContent).toContain(expectedKey);
+    });
+
     it('should load historical source code from the assessed commit without blocking feedback', () => {
         const repositoryFiles = new Subject<Map<string, string>>();
         const getFilesSpy = vi.spyOn(programmingExerciseParticipationService, 'getSelectedParticipationRepositoryFilesAtCommit').mockReturnValue(repositoryFiles);

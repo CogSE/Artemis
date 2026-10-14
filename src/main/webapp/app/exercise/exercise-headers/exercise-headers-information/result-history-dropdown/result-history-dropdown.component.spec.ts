@@ -267,6 +267,38 @@ describe('ResultHistoryDropdownComponent', () => {
         });
     });
 
+    describe('user story test progress', () => {
+        const userStory = (showTestProgressAsScore: boolean) => ({ id: 1, type: ExerciseType.USER_STORY, course: { id: 1 }, showTestProgressAsScore }) as unknown as Exercise;
+        const testResult = (id: number, passedTestCaseCount: number, assessmentType = AssessmentType.AUTOMATIC): Result =>
+            ({ id, score: 0, assessmentType, passedTestCaseCount, testCaseCount: 3, submission: { id } }) as unknown as Result;
+
+        it('shows the share of passed tests instead of the score when the user story opted in', () => {
+            fixture.componentRef.setInput('exercise', userStory(true));
+
+            expect(component.getDisplayedResultScore(testResult(1, 2))).toBe(66.7);
+        });
+
+        it('shows the score when the user story did not opt in or the result is manual', () => {
+            fixture.componentRef.setInput('exercise', userStory(false));
+            expect(component.getDisplayedResultScore(testResult(1, 2))).toBe(0);
+
+            fixture.componentRef.setInput('exercise', userStory(true));
+            expect(component.getDisplayedResultScore(testResult(1, 2, AssessmentType.SEMI_AUTOMATIC))).toBe(0);
+        });
+
+        it('judges progress by the share of passed tests', () => {
+            fixture.componentRef.setInput('exercise', userStory(true));
+            const first = testResult(1, 1);
+            const second = testResult(2, 2);
+            const third = testResult(3, 3);
+            fixture.componentRef.setInput('sortedHistoryResults', [third, second, first]);
+
+            expect(component.getResultFeedbackMessage(first)).toBe('artemisApp.result.progressString.niceProgress');
+            expect(component.getResultFeedbackMessage(second)).toBe('artemisApp.result.progressString.niceProgress');
+            expect(component.getResultFeedbackMessage(third)).toBe('artemisApp.result.progressString.goalReached');
+        });
+    });
+
     describe('AI feedback indicator', () => {
         it('should render an accessible indicator for Athena results', () => {
             const result = createResult(1, 50);

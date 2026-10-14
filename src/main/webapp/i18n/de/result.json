@@ -63,6 +63,7 @@
             "score": "Deine Bewertung ist {{score}}%",
             "scorePercentage": "Bewertung (in %)",
             "scoreWithPoints": "Deine Bewertung ist {{score}}%, {{points}} Punkte",
+            "testProgress": "{{score}}% der Tests bestanden ({{passed}} von {{total}})",
             "currentScore": "Aktuelle Bewertung",
             "rated": "Bewertet",
             "assessmentType": "Bewertungstyp",

@@ -303,7 +303,7 @@ export const getTestProgressScore = (result: Result, exercise: Exercise | undefi
  * The percentage a result is displayed and coloured by: its score, or its test progress where that replaces it (see
  * {@link getTestProgressScore}).
  */
-const getDisplayedScore = (result: Result, exercise: Exercise | undefined): number | undefined => getTestProgressScore(result, exercise) ?? result.score;
+export const getDisplayedScore = (result: Result, exercise: Exercise | undefined): number | undefined => getTestProgressScore(result, exercise) ?? result.score;
 
 /**
  * Checks if only compilation was tested. This is the case, when a successful result is present with 0 of 0 passed tests

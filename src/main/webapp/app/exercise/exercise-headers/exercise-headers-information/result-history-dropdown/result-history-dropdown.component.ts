@@ -18,6 +18,7 @@ import {
     MissingResultInformation,
     ResultTemplateStatus,
     evaluateTemplateStatus,
+    getDisplayedScore,
     getResultIconClass,
     getTextColorClass,
     isAIResultAndFailed,
@@ -36,6 +37,7 @@ import { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { isPracticeMode } from 'app/exercise/shared/entities/participation/student-participation.model';
 import { ProgrammingSubmission } from 'app/programming/shared/entities/programming-submission.model';
 import { participationChildRouteSegments } from 'app/course/overview/exercise-details/participation-child-route';
+import { roundValueSpecifiedByCourseSettings } from 'app/foundation/util/utils';
 
 /**
  * Where "continue to latest" goes for an exercise, or undefined for one with no participation route to return to.
@@ -201,6 +203,11 @@ export class ResultHistoryDropdownComponent {
         return result.score !== undefined && !this.isUnfinishedAthenaFeedback(result);
     }
 
+    /** The percentage shown for a result: its score, or the share of passed tests for a user story that shows test progress. */
+    getDisplayedResultScore(result: Result): number {
+        return roundValueSpecifiedByCourseSettings(getDisplayedScore(result, this.exercise()), getCourseFromExercise(this.exercise()));
+    }
+
     shouldShowResultMetadata(result: Result): boolean {
         return !this.isUnfinishedAthenaFeedback(result);
     }
@@ -244,7 +251,7 @@ export class ResultHistoryDropdownComponent {
             return this.translateService.instant('artemisApp.result.progressString.buildFailed');
         }
 
-        const currentScore = result.score ?? 0;
+        const currentScore = getDisplayedScore(result, this.exercise()) ?? 0;
         if (currentScore === 100) {
             return this.translateService.instant('artemisApp.result.progressString.goalReached');
         }
@@ -255,7 +262,7 @@ export class ResultHistoryDropdownComponent {
         if (currentResultIndex === sortedResults.length - 1) {
             return this.translateService.instant(currentScore > 0 ? 'artemisApp.result.progressString.niceProgress' : 'artemisApp.result.progressString.stuck');
         }
-        const previousScore = sortedResults[currentResultIndex + 1].score ?? 0;
+        const previousScore = getDisplayedScore(sortedResults[currentResultIndex + 1], this.exercise()) ?? 0;
         if (currentScore > previousScore) {
             return this.translateService.instant('artemisApp.result.progressString.niceProgress');
         } else if (currentScore < previousScore) {

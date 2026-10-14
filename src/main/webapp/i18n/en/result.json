@@ -63,6 +63,7 @@
             "score": "Your overall score is {{score}}%",
             "scorePercentage": "Score (in %)",
             "scoreWithPoints": "Your score is {{score}}%, {{points}} points",
+            "testProgress": "{{score}}% of the tests passed ({{passed}} of {{total}})",
             "currentScore": "Current Score",
             "rated": "Graded",
             "assessmentType": "Assessment Type",
