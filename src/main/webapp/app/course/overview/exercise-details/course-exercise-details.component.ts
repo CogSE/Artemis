@@ -10,7 +10,7 @@ import { ParticipationService } from 'app/exercise/participation/participation.s
 import { CourseStorageService } from 'app/course/manage/services/course-storage.service';
 import { ParticipationWebsocketService } from 'app/course/shared/services/participation-websocket.service';
 import { ProfileService } from 'app/core/layouts/profiles/shared/profile.service';
-import { Exercise, ExerciseType, baseExerciseType, getExerciseUrlSegmentOrEmpty, getIcon } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, getExerciseUrlSegmentOrEmpty, getIcon, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { StudentParticipation } from 'app/exercise/shared/entities/participation/student-participation.model';
 import { latestSubmissionRoute } from 'app/exercise/exercise-headers/exercise-headers-information/result-history-dropdown/result-history-dropdown.component';
 import { InitializationState, Participation, ParticipationType } from 'app/exercise/shared/entities/participation/participation.model';
@@ -883,7 +883,7 @@ export class CourseExerciseDetailsComponent implements OnInit, OnDestroy {
             }
         } else if (this.exercise?.type === ExerciseType.MODELING) {
             editorItems.push(this.getStatisticItem('exercise-statistics'));
-        } else if (baseExerciseType(this.exercise?.type) === ExerciseType.PROGRAMMING) {
+        } else if (isProgrammingExerciseType(this.exercise?.type)) {
             editorItems.push(this.getGradingItem());
         }
         return editorItems;
