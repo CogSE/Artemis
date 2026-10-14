@@ -4,7 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
 import { faChartBar, faClipboardList, faEye, faLightbulb, faListAlt, faPencilAlt, faRedo, faRobot, faTable, faTrash, faUsers, faWrench } from '@fortawesome/free-solid-svg-icons';
 import { TranslateService } from '@ngx-translate/core';
-import { Exercise, ExerciseMode, ExerciseType, getExerciseUrlSegment } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseMode, ExerciseType, getExerciseUrlSegment, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { QuizExercise, QuizMode, QuizStatus } from 'app/quiz/shared/entities/quiz-exercise.model';
 import { QuizExerciseLifecycleButtonsComponent } from 'app/quiz/manage/lifecyle-buttons/quiz-exercise-lifecycle-buttons.component';
 import { isQuizEditable } from 'app/quiz/shared/service/quiz-manage-util.service';
@@ -221,10 +221,9 @@ export class ExerciseActionsComponent {
         }
         // Programming-only actions stay visible but go inert while the feature toggle is off. UserStoryExercise/MilestoneExercise
         // are ProgrammingExercise variants under the hood (see getExerciseUrlSegment) and are gated by the same toggle server-side.
-        const programmingDisabled =
-            (ex.type === ExerciseType.PROGRAMMING || ex.type === ExerciseType.USER_STORY || ex.type === ExerciseType.MILESTONE) && !this.programmingEnabled();
+        const programmingDisabled = isProgrammingExerciseType(ex.type) && !this.programmingEnabled();
         // Editing requires editor rights, so tutors must not see the edit controls.
-        if (ex.type === ExerciseType.PROGRAMMING && ex.isAtLeastEditor) {
+        if (isProgrammingExerciseType(ex.type) && ex.isAtLeastEditor) {
             items.push({
                 id: 'edit-in-editor',
                 labelKey: 'entity.action.editInEditor',

@@ -1,6 +1,6 @@
 import { Component, computed, inject, input, output } from '@angular/core';
 import { ProgrammingExerciseStudentTriggerBuildButtonComponent } from 'app/programming/shared/actions/trigger-build-button/student/programming-exercise-student-trigger-build-button.component';
-import { DifficultyLevel, ExerciseType, getExerciseUrlSegmentOrEmpty } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { DifficultyLevel, ExerciseType, getExerciseUrlSegmentOrEmpty, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { SidebarEventService } from '../service/sidebar-event.service';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, isActive } from '@angular/router';
 import { NgClass } from '@angular/common';
@@ -122,4 +122,6 @@ export class SidebarCardMediumComponent {
     onExamCardClicked() {
         this.pageChange.emit(this.sidebarItem().id);
     }
+
+    protected readonly isProgrammingExerciseType = isProgrammingExerciseType;
 }

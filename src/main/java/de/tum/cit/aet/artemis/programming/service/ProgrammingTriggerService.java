@@ -34,12 +34,14 @@ import de.tum.cit.aet.artemis.exercise.domain.participation.Participation;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationService;
 import de.tum.cit.aet.artemis.localci.service.ci.ContinuousIntegrationTriggerService;
 import de.tum.cit.aet.artemis.localci.service.ci.SharedBuildTriggerData;
+import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseParticipation;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingSubmission;
 import de.tum.cit.aet.artemis.programming.domain.RepositoryType;
 import de.tum.cit.aet.artemis.programming.domain.TemplateProgrammingExerciseParticipation;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.dto.ParticipationBuildTriggerDTO;
 import de.tum.cit.aet.artemis.programming.exception.BuildTriggerWebsocketError;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
@@ -85,13 +87,16 @@ public class ProgrammingTriggerService {
 
     private final ProgrammingSubmissionMessagingService programmingSubmissionMessagingService;
 
+    private final UserStoryExerciseService userStoryExerciseService;
+
     public ProgrammingTriggerService(ProgrammingSubmissionRepository programmingSubmissionRepository, ProgrammingExerciseRepository programmingExerciseRepository,
             Optional<ContinuousIntegrationTriggerService> continuousIntegrationTriggerService, ParticipationService participationService,
             ProgrammingExerciseParticipationService programmingExerciseParticipationService, AuditEventRepository auditEventRepository,
             ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository, ProgrammingMessagingService programmingMessagingService,
             TemplateProgrammingExerciseParticipationRepository templateProgrammingExerciseParticipationRepository,
             SolutionProgrammingExerciseParticipationRepository solutionProgrammingExerciseParticipationRepository,
-            ProgrammingExerciseTestCaseChangedService programmingExerciseTestCaseChangedService, ProgrammingSubmissionMessagingService programmingSubmissionMessagingService) {
+            ProgrammingExerciseTestCaseChangedService programmingExerciseTestCaseChangedService, ProgrammingSubmissionMessagingService programmingSubmissionMessagingService,
+            UserStoryExerciseService userStoryExerciseService) {
         this.participationService = participationService;
         this.programmingSubmissionRepository = programmingSubmissionRepository;
         this.templateProgrammingExerciseParticipationRepository = templateProgrammingExerciseParticipationRepository;
@@ -104,6 +109,7 @@ public class ProgrammingTriggerService {
         this.programmingMessagingService = programmingMessagingService;
         this.programmingExerciseTestCaseChangedService = programmingExerciseTestCaseChangedService;
         this.programmingSubmissionMessagingService = programmingSubmissionMessagingService;
+        this.userStoryExerciseService = userStoryExerciseService;
     }
 
     /**
@@ -127,8 +133,7 @@ public class ProgrammingTriggerService {
 
         // Let the instructor know that a build run was triggered.
         programmingMessagingService.notifyInstructorAboutStartedExerciseBuildRun(programmingExercise);
-        var triggerData = programmingExerciseStudentParticipationRepository.findBuildTriggerDataByExerciseId(exerciseId);
-        triggerBuildForParticipationData(triggerData, programmingExercise);
+        triggerBuildForExerciseOrItsMilestone(programmingExercise, null);
 
         // When the instructor build was triggered for the programming exercise, it is not considered 'dirty' anymore.
         // Deliberately by id: that call saves the exercise, and the exercise loaded above carries its auxiliary
@@ -137,6 +142,45 @@ public class ProgrammingTriggerService {
         programmingExerciseTestCaseChangedService.setTestCasesChanged(exerciseId, false);
         // Let the instructor know that the build run is finished.
         programmingMessagingService.notifyInstructorAboutCompletedExerciseBuildRun(programmingExercise);
+    }
+
+    /**
+     * Triggers a build for the given participations of an exercise, as an instructor's "build selected" does.
+     *
+     * @param exercise         the exercise, loaded with its build config and auxiliary repositories
+     * @param participationIds the participations to build; ids that do not belong to the exercise are ignored
+     */
+    public void triggerInstructorBuildForParticipations(ProgrammingExercise exercise, Collection<Long> participationIds) {
+        triggerBuildForExerciseOrItsMilestone(exercise, participationIds);
+    }
+
+    /**
+     * Triggers the builds of an exercise's participations, all of them or only the given ones.
+     * <p>
+     * A user story has no build of its own: its participations share the milestone's repositories, and the builds run
+     * on the milestone's participations, whose results are fanned out to every user story of the group. Building the
+     * user story participations themselves would set up build plans of their own and grade them past the fan-out, so
+     * the milestone participations behind them are built instead.
+     *
+     * @param exercise         the exercise, loaded with its build config and auxiliary repositories
+     * @param participationIds the participations to build, or null for all of them
+     */
+    private void triggerBuildForExerciseOrItsMilestone(ProgrammingExercise exercise, @Nullable Collection<Long> participationIds) {
+        if (!(exercise instanceof UserStoryExercise)) {
+            var triggerData = participationIds == null ? programmingExerciseStudentParticipationRepository.findBuildTriggerDataByExerciseId(exercise.getId())
+                    : programmingExerciseStudentParticipationRepository.findBuildTriggerDataByExerciseIdAndParticipationIds(exercise.getId(), participationIds);
+            triggerBuildForParticipationData(triggerData, exercise);
+            return;
+        }
+        long milestoneExerciseId = userStoryExerciseService.findMilestoneExerciseId(exercise.getId())
+                .orElseThrow(() -> new EntityNotFoundException("No milestone exercise for user story exercise " + exercise.getId()));
+        var milestoneExercise = programmingExerciseRepository.findWithAuxiliaryRepositoriesById(milestoneExerciseId)
+                .orElseThrow(() -> new EntityNotFoundException("ProgrammingExercise", milestoneExerciseId));
+        var triggerData = participationIds == null
+                ? programmingExerciseStudentParticipationRepository.findMilestoneBuildTriggerDataForUserStory(milestoneExerciseId, exercise.getId())
+                : programmingExerciseStudentParticipationRepository.findMilestoneBuildTriggerDataForUserStoryParticipations(milestoneExerciseId, exercise.getId(),
+                        participationIds);
+        triggerBuildForParticipationData(triggerData, milestoneExercise);
     }
 
     /**
@@ -398,12 +442,26 @@ public class ProgrammingTriggerService {
                 continuousIntegrationTriggerService.orElseThrow().triggerBuild(participation, true, sharedData);
                 // TODO: this is a workaround, in the future we should use the participation to notify the client and avoid using the submission
                 programmingSubmissionMessagingService.notifyUserAboutSubmission(submission, participation.getProgrammingExercise().getId());
+                provisionPendingUserStorySubmissions(submission, participation);
             }
             catch (Exception e) {
                 log.error("Trigger build failed for {} with the exception {}", participation.getBuildPlanId(), e.getMessage());
                 BuildTriggerWebsocketError error = new BuildTriggerWebsocketError(e.getMessage(), participation.getId());
                 programmingSubmissionMessagingService.notifyUserAboutSubmissionError(participation, error);
             }
+        }
+    }
+
+    /**
+     * A milestone build's result is fanned out to every user story of the group, so they show it as building as soon as
+     * it is triggered - exactly as for a push to the milestone repository (see {@code LocalVCServletService}).
+     *
+     * @param submission    the submission whose build was just triggered
+     * @param participation the participation the submission belongs to
+     */
+    private void provisionPendingUserStorySubmissions(ProgrammingSubmission submission, ProgrammingExerciseStudentParticipation participation) {
+        if (participation.getExercise() instanceof MilestoneExercise milestoneExercise) {
+            userStoryExerciseService.provisionPendingSubmissionsForUserStoryExercises(submission, milestoneExercise, participation);
         }
     }
 
@@ -427,6 +485,9 @@ public class ProgrammingTriggerService {
             }
             continuousIntegrationTriggerService.orElseThrow().triggerBuild(programmingExerciseParticipation);
             programmingSubmissionMessagingService.notifyUserAboutSubmission(submission, programmingExerciseParticipation.getExercise().getId());
+            if (programmingExerciseParticipation instanceof ProgrammingExerciseStudentParticipation studentParticipation) {
+                provisionPendingUserStorySubmissions(submission, studentParticipation);
+            }
         }
         catch (Exception e) {
             log.error("Trigger build failed for {} with the exception {}", programmingExerciseParticipation.getBuildPlanId(), e.getMessage());

@@ -487,7 +487,7 @@ public class ParticipationService {
             if (programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentId(userStoryExercise.getId(), user.getId()).isPresent()) {
                 continue;
             }
-            createSharedParticipation(userStoryExercise, user, repositoryUri, milestoneTokenValue);
+            createSharedParticipation(userStoryExercise, user, repositoryUri, milestoneTokenValue, false);
         }
     }
 
@@ -495,28 +495,52 @@ public class ParticipationService {
      * Creates an already-{@link InitializationState#INITIALIZED} participation for {@code user} in
      * {@code userStoryExercise}, pointing at the given (already-shared) repository, without provisioning a new
      * physical repository or build plan - the shared building block behind
-     * {@link #provisionUserStoryParticipationsForGroup} and {@link #provisionParticipationsForNewUserStoryExercise}.
+     * {@link #provisionUserStoryParticipationsForGroup}, {@link #provisionUserStoryPracticeParticipationsForGroup} and
+     * {@link #provisionParticipationsForNewUserStoryExercise}.
      *
      * @param userStoryExercise the exercise to create the participation for
      * @param user              the student to create the participation for
      * @param repositoryUri     the shared repository URI to point the new participation at
      * @param tokenValue        the shared VCS access token value to copy onto the new participation
+     * @param practiceMode      whether the participation is a practice participation, sharing the milestone's practice repository
      * @return the newly created, already-shared participation
      */
-    private ProgrammingExerciseStudentParticipation createSharedParticipation(UserStoryExercise userStoryExercise, User user, String repositoryUri, String tokenValue) {
+    private ProgrammingExerciseStudentParticipation createSharedParticipation(UserStoryExercise userStoryExercise, User user, String repositoryUri, String tokenValue,
+            boolean practiceMode) {
         ProgrammingExerciseStudentParticipation siblingParticipation = new ProgrammingExerciseStudentParticipation(defaultBranch);
         siblingParticipation.setInitializationState(InitializationState.UNINITIALIZED);
         siblingParticipation.setExercise(userStoryExercise);
         siblingParticipation.setParticipant(user);
+        siblingParticipation.setPracticeMode(practiceMode);
+        if (practiceMode) {
+            // For practice mode 1 is always set, already on the first insert: it is part of the participation's unique key.
+            siblingParticipation.setAttempt(1);
+        }
         siblingParticipation = programmingExerciseStudentParticipationRepository.saveAndFlush(siblingParticipation);
+        return shareRepository(siblingParticipation, user, repositoryUri, tokenValue);
+    }
 
-        participationVCSAccessTokenService.setParticipationVCSAccessTokenValue(user, siblingParticipation, tokenValue);
+    /**
+     * Points a user story participation at the given (already-shared) repository and marks it as started.
+     *
+     * @param participation the user story participation, already saved
+     * @param user          the student the participation belongs to
+     * @param repositoryUri the shared repository URI to point the participation at
+     * @param tokenValue    the shared VCS access token value to copy onto the participation
+     * @return the saved, already-shared participation
+     */
+    private ProgrammingExerciseStudentParticipation shareRepository(ProgrammingExerciseStudentParticipation participation, User user, String repositoryUri, String tokenValue) {
+        participationVCSAccessTokenService.setParticipationVCSAccessTokenValue(user, participation, tokenValue);
 
         // No buildPlanId is set: only the milestone's own build plan is ever triggered for this repository (see
         // the grading fan-out in ProgrammingExerciseGradingService that reevaluates every sibling's grade after that build).
-        siblingParticipation.setRepositoryUri(repositoryUri);
-        siblingParticipation.setInitializationState(InitializationState.INITIALIZED);
-        return programmingExerciseStudentParticipationRepository.saveAndFlush(siblingParticipation);
+        participation.setRepositoryUri(repositoryUri);
+        participation.setInitializationState(InitializationState.INITIALIZED);
+        if (participation.isPracticeMode()) {
+            // For practice mode 1 is always set. For more information see Participation.class
+            participation.setAttempt(1);
+        }
+        return programmingExerciseStudentParticipationRepository.saveAndFlush(participation);
     }
 
     /**
@@ -553,7 +577,7 @@ public class ParticipationService {
             if (tokenValue == null) {
                 continue;
             }
-            created.add(createSharedParticipation(userStoryExercise, user, milestoneParticipation.getRepositoryUri(), tokenValue));
+            created.add(createSharedParticipation(userStoryExercise, user, milestoneParticipation.getRepositoryUri(), tokenValue, false));
         }
         return created;
     }
@@ -735,6 +759,12 @@ public class ParticipationService {
 
         if (exercise instanceof ProgrammingExercise) {
             ProgrammingExercise programmingExercise = programmingExerciseRepository.findByIdWithTemplateAndSolutionParticipationElseThrow(exercise.getId());
+            if (programmingExercise instanceof UserStoryExercise && participant instanceof User user) {
+                Optional<Long> milestoneExerciseId = milestoneExerciseGroupRepository.findMilestoneExerciseIdByUserStoryExerciseId(exercise.getId());
+                if (milestoneExerciseId.isPresent()) {
+                    return startUserStoryPracticeMode(milestoneExerciseId.get(), (ProgrammingExerciseStudentParticipation) participation, user, useGradedParticipation);
+                }
+            }
             participation = startPracticeMode(programmingExercise, (ProgrammingExerciseStudentParticipation) participation, optionalGradedStudentParticipation,
                     useGradedParticipation);
         }
@@ -753,7 +783,92 @@ public class ParticipationService {
             }
         }
 
-        return studentParticipationRepository.saveAndFlush(participation);
+        participation = studentParticipationRepository.saveAndFlush(participation);
+        if (exercise instanceof MilestoneExercise && participation instanceof ProgrammingExerciseStudentParticipation milestonePracticeParticipation
+                && participant instanceof User user) {
+            // As for the graded repository: every user story of the group practices in the milestone's practice repository.
+            provisionUserStoryPracticeParticipationsForGroup(milestonePracticeParticipation, user);
+        }
+        return participation;
+    }
+
+    /**
+     * Starts the practice mode of a {@code UserStoryExercise}. As in the graded mode (see {@link #startUserStoryExercise}),
+     * every member of a {@code MilestoneExerciseGroup} shares one repository per student, which lives under the
+     * {@code MilestoneExercise} and is built by its build plan: the student practices in the milestone's practice
+     * repository, and the result of each of its builds is fanned out to the practice participations of the user stories.
+     * If the student has no milestone practice participation yet, it is started here exactly as if they had started the
+     * milestone's practice mode directly, which also provisions every user story of the group, this one included.
+     *
+     * @param milestoneExerciseId    the id of the milestone exercise of the user story's group
+     * @param participation          the user story's practice participation, already saved but without a repository yet
+     *                                   unless it was started before
+     * @param user                   the student starting the practice mode
+     * @param useGradedParticipation whether the practice repository should start from the graded repository rather than
+     *                                   the template; the graded user story repository is the graded milestone repository
+     * @return the user story's practice participation, sharing the milestone's practice repository
+     */
+    private StudentParticipation startUserStoryPracticeMode(long milestoneExerciseId, ProgrammingExerciseStudentParticipation participation, User user,
+            boolean useGradedParticipation) {
+        Optional<ProgrammingExerciseStudentParticipation> milestonePracticeParticipation = studentParticipationRepository
+                .findWithEagerSubmissionsByExerciseIdAndStudentIdAndTestRun(milestoneExerciseId, user.getId(), true).map(ProgrammingExerciseStudentParticipation.class::cast)
+                .filter(milestonePractice -> milestonePractice.getRepositoryUri() != null);
+        if (milestonePracticeParticipation.isPresent()) {
+            provisionUserStoryPracticeParticipationsForGroup(milestonePracticeParticipation.get(), user);
+        }
+        else {
+            ProgrammingExercise milestoneExercise = programmingExerciseRepository.findByIdElseThrow(milestoneExerciseId);
+            Optional<StudentParticipation> gradedMilestoneParticipation = findOneGradedByExerciseAndParticipant(milestoneExercise, user);
+            startPracticeMode(milestoneExercise, user, gradedMilestoneParticipation, useGradedParticipation && gradedMilestoneParticipation.isPresent());
+        }
+        return studentParticipationRepository.findByIdElseThrow(participation.getId());
+    }
+
+    /**
+     * The practice counterpart of {@link #provisionUserStoryParticipationsForGroup}: points every {@code UserStoryExercise}
+     * of the milestone's group at the student's milestone practice repository, creating the user story's practice
+     * participation if it does not exist yet. The student's graded participations in those user stories are finished,
+     * as starting the practice mode does for the exercise it was started on, so that every member of the group shows the
+     * practice participation.
+     *
+     * @param milestonePracticeParticipation the student's milestone practice participation, already pointing at a repository
+     * @param user                           the student
+     */
+    private void provisionUserStoryPracticeParticipationsForGroup(ProgrammingExerciseStudentParticipation milestonePracticeParticipation, User user) {
+        String repositoryUri = milestonePracticeParticipation.getRepositoryUri();
+        if (repositoryUri == null) {
+            return;
+        }
+        ExerciseVariantGroup group = milestoneExerciseGroupRepository.findByMilestoneExerciseIdWithExercises(milestonePracticeParticipation.getExercise().getId()).orElse(null);
+        if (group == null) {
+            return;
+        }
+        // Git authentication against the shared repository is only ever checked against the milestone's own token.
+        String milestoneTokenValue = participationVCSAccessTokenService.findTokenValue(user.getId(), milestonePracticeParticipation.getId()).orElse(null);
+        if (milestoneTokenValue == null) {
+            return;
+        }
+        for (Exercise member : group.getExercises()) {
+            if (!(member instanceof UserStoryExercise userStoryExercise)) {
+                continue;
+            }
+            programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentId(userStoryExercise.getId(), user.getId())
+                    .filter(gradedParticipation -> gradedParticipation.getInitializationState() != InitializationState.FINISHED).ifPresent(gradedParticipation -> {
+                        gradedParticipation.setInitializationState(InitializationState.FINISHED);
+                        programmingExerciseStudentParticipationRepository.save(gradedParticipation);
+                    });
+            Optional<StudentParticipation> practiceParticipation = studentParticipationRepository
+                    .findWithEagerSubmissionsByExerciseIdAndStudentIdAndTestRun(userStoryExercise.getId(), user.getId(), true);
+            if (practiceParticipation.isEmpty()) {
+                createSharedParticipation(userStoryExercise, user, repositoryUri, milestoneTokenValue, true);
+            }
+            else if (practiceParticipation.get() instanceof ProgrammingExerciseStudentParticipation userStoryPracticeParticipation
+                    && userStoryPracticeParticipation.getRepositoryUri() == null) {
+                // Created by startPracticeMode for the user story the student started the practice mode on, but not yet
+                // pointed at a repository.
+                shareRepository(userStoryPracticeParticipation, user, repositoryUri, milestoneTokenValue);
+            }
+        }
     }
 
     /**

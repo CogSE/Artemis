@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+import de.tum.cit.aet.artemis.exercise.domain.Exercise;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
@@ -22,6 +23,7 @@ import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseParticipatio
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseTask;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseTestCase;
+import de.tum.cit.aet.artemis.programming.domain.ProgrammingSubmission;
 import de.tum.cit.aet.artemis.programming.domain.SolutionProgrammingExerciseParticipation;
 import de.tum.cit.aet.artemis.programming.domain.TemplateProgrammingExerciseParticipation;
 import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
@@ -30,6 +32,7 @@ import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseReposito
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseStudentParticipationRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseTaskRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseTestCaseRepository;
+import de.tum.cit.aet.artemis.programming.repository.ProgrammingSubmissionRepository;
 
 /**
  * Keeps a {@link UserStoryExercise}'s Language/Version-Control settings, repositories and test cases in sync with its
@@ -78,11 +81,15 @@ public class UserStoryExerciseService {
 
     private final ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository;
 
+    private final ProgrammingSubmissionRepository programmingSubmissionRepository;
+
+    private final ProgrammingSubmissionMessagingService programmingSubmissionMessagingService;
+
     public UserStoryExerciseService(ProgrammingExerciseTestCaseRepository programmingExerciseTestCaseRepository,
             ProgrammingExerciseTaskRepository programmingExerciseTaskRepository, ProgrammingExerciseTaskService programmingExerciseTaskService,
             ProgrammingExerciseRepository programmingExerciseRepository, ProgrammingExerciseBuildConfigRepository programmingExerciseBuildConfigRepository,
-            MilestoneExerciseGroupRepository milestoneExerciseGroupRepository,
-            ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository) {
+            MilestoneExerciseGroupRepository milestoneExerciseGroupRepository, ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository,
+            ProgrammingSubmissionRepository programmingSubmissionRepository, ProgrammingSubmissionMessagingService programmingSubmissionMessagingService) {
         this.programmingExerciseTestCaseRepository = programmingExerciseTestCaseRepository;
         this.programmingExerciseTaskRepository = programmingExerciseTaskRepository;
         this.programmingExerciseTaskService = programmingExerciseTaskService;
@@ -90,6 +97,18 @@ public class UserStoryExerciseService {
         this.programmingExerciseBuildConfigRepository = programmingExerciseBuildConfigRepository;
         this.milestoneExerciseGroupRepository = milestoneExerciseGroupRepository;
         this.programmingExerciseStudentParticipationRepository = programmingExerciseStudentParticipationRepository;
+        this.programmingSubmissionRepository = programmingSubmissionRepository;
+        this.programmingSubmissionMessagingService = programmingSubmissionMessagingService;
+    }
+
+    /**
+     * The milestone exercise of the group a user story belongs to.
+     *
+     * @param userStoryExerciseId the user story exercise
+     * @return the id of its group's milestone exercise, or empty if it is not part of a milestone group
+     */
+    public Optional<Long> findMilestoneExerciseId(long userStoryExerciseId) {
+        return milestoneExerciseGroupRepository.findMilestoneExerciseIdByUserStoryExerciseId(userStoryExerciseId);
     }
 
     /**
@@ -114,6 +133,54 @@ public class UserStoryExerciseService {
         }
         return milestoneExerciseGroupRepository.findMilestoneExerciseIdByUserStoryExerciseId(userStoryParticipation.getProgrammingExercise().getId())
                 .flatMap(milestoneExerciseId -> programmingExerciseStudentParticipationRepository.findByExerciseIdAndRepositoryUri(milestoneExerciseId, repositoryUri));
+    }
+
+    /**
+     * Creates a pending (resultless) {@link ProgrammingSubmission} for every {@code UserStoryExercise} sibling the
+     * student has already started, and notifies each one, at the same moment the milestone's own canonical push is
+     * notified (or its build triggered) - not later, once the build finishes and {@link ProgrammingExerciseGradingService#fanOutResultToUserStoryExercise} runs. Without this,
+     * a sibling's "building..." / queued progress indicator (which is driven purely by a submission existing without
+     * a result yet, see {@code ProgrammingSubmissionService}) never appears at all: the result-only fan-out only
+     * lets a sibling jump straight from "-" to the final score once the build is already done, since the client
+     * never learns a build started in the first place.
+     *
+     * @param sourceSubmission       the canonical participation's submission for the push or build trigger
+     * @param milestoneExercise      the milestone exercise the push landed on
+     * @param milestoneParticipation the student's milestone participation the push was made to
+     */
+    public void provisionPendingSubmissionsForUserStoryExercises(ProgrammingSubmission sourceSubmission, MilestoneExercise milestoneExercise,
+            ProgrammingExerciseStudentParticipation milestoneParticipation) {
+        // The siblings are the participations sharing this repository: graded ones for the graded repository, practice
+        // ones for a practice repository.
+        String repositoryUri = milestoneParticipation.getRepositoryUri();
+        if (repositoryUri == null) {
+            return;
+        }
+
+        milestoneExerciseGroupRepository.findByMilestoneExerciseIdWithExercises(milestoneExercise.getId()).ifPresent(group -> {
+            for (Exercise member : group.getExercises()) {
+                if (!(member instanceof UserStoryExercise userStoryExercise)) {
+                    continue;
+                }
+                programmingExerciseStudentParticipationRepository.findByExerciseIdAndRepositoryUri(userStoryExercise.getId(), repositoryUri).ifPresent(targetParticipation -> {
+                    // A rebuild of a commit the story already has a submission for (a trigger rather than a push) reuses
+                    // it, just as the milestone side reuses its own. A second, resultless submission next to an assessed
+                    // one would make the fan-out insert an automatic result beside the tutor's instead of updating it.
+                    ProgrammingSubmission pendingSubmission = programmingSubmissionRepository
+                            .findFirstByParticipationIdAndCommitHashOrderByIdDescWithFeedbacksAndTeamStudents(targetParticipation.getId(), sourceSubmission.getCommitHash());
+                    if (pendingSubmission == null) {
+                        pendingSubmission = new ProgrammingSubmission();
+                        pendingSubmission.setParticipation(targetParticipation);
+                        pendingSubmission.setSubmitted(true);
+                        pendingSubmission.setType(sourceSubmission.getType());
+                        pendingSubmission.setCommitHash(sourceSubmission.getCommitHash());
+                        pendingSubmission.setSubmissionDate(sourceSubmission.getSubmissionDate());
+                        pendingSubmission = programmingSubmissionRepository.save(pendingSubmission);
+                    }
+                    programmingSubmissionMessagingService.notifyUserAboutSubmission(pendingSubmission, userStoryExercise.getId());
+                });
+            }
+        });
     }
 
     /**

@@ -12,7 +12,7 @@ import { FeatureToggle } from 'app/foundation/feature-toggle/feature-toggle.serv
 import { ProgrammingSubmissionService } from 'app/programming/shared/services/programming-submission.service';
 import { areManualResultsAllowed } from 'app/exercise/util/exercise.utils';
 import { ResultService } from 'app/exercise/result/result.service';
-import { Exercise, ExerciseType, getExerciseUrlSegment, getExerciseUrlSegmentOrEmpty } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, getExerciseUrlSegment, getExerciseUrlSegmentOrEmpty, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { AssessmentType } from 'app/assessment/shared/entities/assessment-type.model';
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
 import { createBuildPlanUrl } from 'app/programming/shared/utils/programming-exercise.utils';
@@ -112,6 +112,7 @@ export class ExerciseScoresComponent implements OnInit, OnDestroy {
     private readonly breakpointObserver = inject(BreakpointObserver);
 
     protected readonly exerciseUrlSegment = computed(() => getExerciseUrlSegmentOrEmpty(this.exercise()?.type));
+    protected readonly isProgrammingExercise = computed(() => isProgrammingExerciseType(this.exercise()?.type));
 
     protected readonly faDownload = faDownload;
     protected readonly faSync = faSync;
@@ -161,7 +162,7 @@ export class ExerciseScoresComponent implements OnInit, OnDestroy {
         return Object.values(FilterProp).filter((f) => {
             switch (f) {
                 case FilterProp.BUILD_FAILED:
-                    return ex.type === ExerciseType.PROGRAMMING;
+                    return isProgrammingExerciseType(ex.type);
                 case FilterProp.MANUAL:
                 case FilterProp.AUTOMATIC:
                     return this.newManualResultAllowed() || !!ex.allowComplaintsForAutomaticAssessments;
@@ -250,7 +251,7 @@ export class ExerciseScoresComponent implements OnInit, OnDestroy {
             });
         }
 
-        if (!compact && ex.type === ExerciseType.PROGRAMMING && this.afterDueDate()) {
+        if (!compact && isProgrammingExerciseType(ex.type) && this.afterDueDate()) {
             cols.push({
                 headerKey: 'artemisApp.participation.practice',
                 field: 'testRun',
@@ -479,7 +480,7 @@ export class ExerciseScoresComponent implements OnInit, OnDestroy {
         const ex = this.exercise();
         return {
             id: dto.participationId,
-            type: ex?.type === ExerciseType.PROGRAMMING ? ParticipationType.PROGRAMMING : ParticipationType.STUDENT,
+            type: isProgrammingExerciseType(ex?.type) ? ParticipationType.PROGRAMMING : ParticipationType.STUDENT,
             exercise: ex,
             submissionCount: dto.submissionCount,
             submissions: dto.submissionId ? [this.toSubmission(dto)] : [],
@@ -495,7 +496,7 @@ export class ExerciseScoresComponent implements OnInit, OnDestroy {
      */
     private toSubmission(dto: ParticipationScoreDTO): Submission {
         const results = this.toResults(dto);
-        if (this.exercise()?.type === ExerciseType.PROGRAMMING) {
+        if (isProgrammingExerciseType(this.exercise()?.type)) {
             const submission = new ProgrammingSubmission();
             submission.id = dto.submissionId;
             submission.results = results;

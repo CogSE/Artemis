@@ -93,12 +93,12 @@ import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseBuildCon
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.repository.RepositoryVCSAccessTokenRepository;
 import de.tum.cit.aet.artemis.programming.service.AuxiliaryRepositoryService;
-import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseGradingService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseParticipationService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseTestCaseChangedService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingSubmissionMessagingService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingSubmissionService;
 import de.tum.cit.aet.artemis.programming.service.RepositoryAccessService;
+import de.tum.cit.aet.artemis.programming.service.UserStoryExerciseService;
 import de.tum.cit.aet.artemis.programming.web.repository.RepositoryActionType;
 import inet.ipaddr.IPAddress;
 import inet.ipaddr.IPAddressString;
@@ -141,7 +141,7 @@ public class LocalVCServletService {
 
     private final ProgrammingSubmissionMessagingService programmingSubmissionMessagingService;
 
-    private final ProgrammingExerciseGradingService programmingExerciseGradingService;
+    private final UserStoryExerciseService userStoryExerciseService;
 
     private final ProgrammingExerciseTestCaseChangedService programmingExerciseTestCaseChangedService;
 
@@ -221,7 +221,7 @@ public class LocalVCServletService {
     public LocalVCServletService(AuthenticationManager authenticationManager, UserRepository userRepository, ProgrammingExerciseRepository programmingExerciseRepository,
             RepositoryAccessService repositoryAccessService, ProgrammingExerciseParticipationService programmingExerciseParticipationService,
             AuxiliaryRepositoryService auxiliaryRepositoryService, ContinuousIntegrationTriggerService ciTriggerService, ProgrammingSubmissionService programmingSubmissionService,
-            ProgrammingSubmissionMessagingService programmingSubmissionMessagingService, ProgrammingExerciseGradingService programmingExerciseGradingService,
+            ProgrammingSubmissionMessagingService programmingSubmissionMessagingService, UserStoryExerciseService userStoryExerciseService,
             ProgrammingExerciseTestCaseChangedService programmingExerciseTestCaseChangedService, ParticipationVCSAccessTokenRepository participationVCSAccessTokenRepository,
             RepositoryVCSAccessTokenRepository repositoryVCSAccessTokenRepository, Optional<VcsAccessLogService> vcsAccessLogService,
             AuthorizationCheckService authorizationCheckService, RateLimitService rateLimitService, ExerciseVersionService exerciseVersionService,
@@ -239,7 +239,7 @@ public class LocalVCServletService {
         this.ciTriggerService = ciTriggerService;
         this.programmingSubmissionService = programmingSubmissionService;
         this.programmingSubmissionMessagingService = programmingSubmissionMessagingService;
-        this.programmingExerciseGradingService = programmingExerciseGradingService;
+        this.userStoryExerciseService = userStoryExerciseService;
         this.programmingExerciseTestCaseChangedService = programmingExerciseTestCaseChangedService;
         this.participationVCSAccessTokenRepository = participationVCSAccessTokenRepository;
         this.repositoryVCSAccessTokenRepository = repositoryVCSAccessTokenRepository;
@@ -1654,8 +1654,7 @@ public class LocalVCServletService {
             // and needs its own "building..." indicator right now, not only once ProgrammingExerciseGradingService's
             // result fan-out runs after the build completes - otherwise a sibling's status box has nothing to show
             // for the entire duration of the build and jumps straight from "-" to the final score.
-            // TODO: verify that this is still the right service to call
-            programmingExerciseGradingService.provisionPendingSubmissionsForUserStoryExercises(submission, milestoneExercise, milestoneParticipation);
+            userStoryExerciseService.provisionPendingSubmissionsForUserStoryExercises(submission, milestoneExercise, milestoneParticipation);
         }
     }
 

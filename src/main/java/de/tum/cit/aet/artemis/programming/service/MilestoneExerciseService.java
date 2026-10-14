@@ -174,6 +174,8 @@ public class MilestoneExerciseService {
         MilestoneExercise milestoneExercise = createDTO.toMilestoneExercise();
         ProgrammingExerciseBuildConfig buildConfig = createDTO.toBuildConfig();
         milestoneExercise.setCourse(course);
+        // The plagiarism checks of the whole group run on the milestone, whose repositories its user stories share.
+        PlagiarismDetectionConfigHelper.applyToExercise(milestoneExercise, createDTO.plagiarismDetectionConfig());
         programmingExerciseValidationService.validateNewProgrammingExerciseSettings(milestoneExercise, buildConfig, course);
         PlagiarismDetectionConfigHelper.validatePlagiarismDetectionConfigOrThrow(milestoneExercise, ENTITY_NAME);
 

@@ -194,6 +194,18 @@ describe('ManageAssessmentButtonsComponent', () => {
             expect(refreshSpy).toHaveBeenCalled();
         });
 
+        it.each([ExerciseType.USER_STORY, ExerciseType.MILESTONE])('should cancel a %s assessment like a programming assessment', (type) => {
+            const cancelSpy = vi.spyOn(programmingAssessmentService, 'cancelAssessment').mockReturnValue(of(undefined));
+            const refreshSpy = vi.spyOn(comp.refresh, 'emit');
+            fixture.componentRef.setInput('exercise', { ...exercise, type } as Exercise);
+            const result = { id: 30, submission: { id: 20 } } as Result;
+
+            comp.cancelAssessment(result, comp.participation());
+
+            expect(cancelSpy).toHaveBeenCalledWith(20, 30);
+            expect(refreshSpy).toHaveBeenCalledOnce();
+        });
+
         it('should cancel modeling assessment', () => {
             const cancelSpy = vi.spyOn(modelingAssessmentService, 'cancelAssessment').mockReturnValue(of(undefined));
             const refreshSpy = vi.spyOn(comp.refresh, 'emit');

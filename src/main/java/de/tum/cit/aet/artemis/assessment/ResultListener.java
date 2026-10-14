@@ -101,7 +101,8 @@ public class ResultListener {
      * @param participation the participation of the result that changed
      */
     private void scheduleMilestoneScore(StudentParticipation participation) {
-        if (!(participation.getExercise() instanceof UserStoryExercise userStoryExercise)) {
+        // A practice result never counts towards the aggregate, which reads the graded participations only.
+        if (!(participation.getExercise() instanceof UserStoryExercise userStoryExercise) || participation.isPracticeMode()) {
             return;
         }
         try {

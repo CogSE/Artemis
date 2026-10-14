@@ -5,7 +5,7 @@ import { PlagiarismSubmission } from 'app/plagiarism/shared/entities/PlagiarismS
 import { TextSubmission } from 'app/text/shared/entities/text-submission.model';
 import { TextExercise } from 'app/text/shared/entities/text-exercise.model';
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
-import { ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { FileWithHasMatch } from 'app/plagiarism/manage/plagiarism-split-view/split-pane-header/split-pane-header.component';
 import { escape } from 'lodash-es';
 import { faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
@@ -100,7 +100,7 @@ export class TextSubmissionViewerComponent {
                 if (plagiarismSubmission && !this.hideContent()) {
                     this.loading.set(true);
 
-                    if (this.exercise()?.type === ExerciseType.PROGRAMMING) {
+                    if (isProgrammingExerciseType(this.exercise()?.type)) {
                         this.loadProgrammingExercise(plagiarismSubmission);
                     } else {
                         this.loadTextExercise(plagiarismSubmission);
@@ -243,7 +243,7 @@ export class TextSubmissionViewerComponent {
             return escape(fileContent);
         }
 
-        if (this.exercise()?.type === ExerciseType.PROGRAMMING) {
+        if (isProgrammingExerciseType(this.exercise()?.type)) {
             return this.buildFileContentWithHighlightedMatchesAsWholeLines(fileContent, matches);
         }
         return this.buildFileContentWithHighlightedMatches(fileContent, matches);

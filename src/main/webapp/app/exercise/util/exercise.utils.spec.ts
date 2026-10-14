@@ -129,6 +129,20 @@ describe('ExerciseUtils', () => {
             expect(isStartPracticeAvailable(exercise, participation)).toBe(startPracticeAvailable);
         });
 
+        it.each([ExerciseType.USER_STORY, ExerciseType.MILESTONE])('should allow practicing a %s exercise after the due date like a programming exercise', (type) => {
+            const exercise: ProgrammingExercise = {
+                numberOfAssessmentsOfCorrectionRounds: [],
+                secondCorrectionEnabled: false,
+                studentAssignedTeamIdComputed: false,
+                type,
+                dueDate: dayjs().subtract(1, 'day'),
+            };
+
+            expect(isStartPracticeAvailable(exercise)).toBe(true);
+            expect(isStartPracticeAvailable({ ...exercise, dueDate: dayjs().add(1, 'day') })).toBe(false);
+            expect(isStartPracticeAvailable(exercise, { initializationState: InitializationState.INITIALIZED })).toBe(false);
+        });
+
         it.each([
             { type: ExerciseType.TEXT, teamMode: false, startPracticeAvailable: true },
             { type: ExerciseType.TEXT, teamMode: true, startPracticeAvailable: false },

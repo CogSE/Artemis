@@ -7,7 +7,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ProgrammingSubmissionService } from 'app/programming/shared/services/programming-submission.service';
 import { ActionType } from 'app/shared-ui/delete-dialog/delete-dialog.model';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Exercise, ExerciseType, getExerciseUrlSegment } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, getExerciseUrlSegment, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { FeatureToggle } from 'app/foundation/feature-toggle/feature-toggle.service';
 import { ExerciseService } from 'app/exercise/services/exercise.service';
 import { AccountService } from 'app/core/auth/account.service';
@@ -99,7 +99,6 @@ export class ParticipationComponent implements OnInit, OnDestroy {
 
     protected FilterProp = FilterProp;
 
-    protected readonly ExerciseType = ExerciseType;
     protected readonly ActionType = ActionType;
     protected readonly FeatureToggle = FeatureToggle;
     protected readonly RepositoryType = RepositoryType;
@@ -149,7 +148,7 @@ export class ParticipationComponent implements OnInit, OnDestroy {
             switch (f) {
                 case FilterProp.FAILED:
                 case FilterProp.NO_PRACTICE:
-                    return ex.type === ExerciseType.PROGRAMMING;
+                    return isProgrammingExerciseType(ex.type);
                 default:
                     return true;
             }
@@ -157,6 +156,7 @@ export class ParticipationComponent implements OnInit, OnDestroy {
     });
 
     readonly isExamExercise = computed(() => !!this.exercise()?.exerciseGroup);
+    readonly isProgrammingExercise = computed(() => isProgrammingExerciseType(this.exercise()?.type));
 
     private lastLazyEvent: TableLazyLoadEvent | undefined;
     private currentLoadRequestId = 0;
@@ -229,7 +229,7 @@ export class ParticipationComponent implements OnInit, OnDestroy {
             );
         }
 
-        if (ex.type === ExerciseType.PROGRAMMING && ex.isAtLeastInstructor) {
+        if (isProgrammingExerciseType(ex.type) && ex.isAtLeastInstructor) {
             cols.push({
                 headerKey: 'artemisApp.participation.repository',
                 width: '80px',
@@ -262,7 +262,7 @@ export class ParticipationComponent implements OnInit, OnDestroy {
             },
         );
 
-        if (ex.type === ExerciseType.PROGRAMMING && this.afterDueDate()) {
+        if (isProgrammingExerciseType(ex.type) && this.afterDueDate()) {
             cols.push({
                 headerKey: 'artemisApp.participation.practice',
                 field: 'testRun',
@@ -329,7 +329,7 @@ export class ParticipationComponent implements OnInit, OnDestroy {
             this.exercise.set(ex);
             this.afterDueDate.set(!!ex.dueDate && dayjs().isAfter(ex.dueDate));
             this.loadGradingScale(ex.course?.id);
-            if (ex.type === ExerciseType.PROGRAMMING) {
+            if (isProgrammingExerciseType(ex.type)) {
                 this.loadSubmissionState(exerciseId);
                 this.setupFailedFilterWebsocket(exerciseId);
             }

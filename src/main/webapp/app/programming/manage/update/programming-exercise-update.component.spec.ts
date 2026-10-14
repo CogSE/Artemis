@@ -1457,6 +1457,17 @@ describe('ProgrammingExerciseUpdateComponent', () => {
             expect(reasons).not.toContainEqual({ translateKey: 'artemisApp.programmingExercise.gradingSection.invalidReason', translateValues: {} });
         });
 
+        it('should offer the plagiarism control on a milestone, but not on a user story', () => {
+            // The user stories work in their milestone's repositories, so the group is checked through the milestone.
+            comp.isSimpleMode.set(false);
+            comp.isMilestoneMode = true;
+            expect(comp.isEditFieldDisplayedRecord().plagiarismControl).toBe(true);
+
+            comp.isMilestoneMode = false;
+            comp.isUserStoryMode = true;
+            expect(comp.isEditFieldDisplayedRecord().plagiarismControl).toBe(false);
+        });
+
         it('Check that no package name related validation error occurs for language C', () => {
             comp.programmingExercise.programmingLanguage = ProgrammingLanguage.C;
             expect(comp.getInvalidReasons()).not.toContainEqual({

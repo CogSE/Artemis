@@ -93,6 +93,9 @@ class ProgrammingTriggerServiceTest {
     @Mock
     private ProgrammingSubmissionMessagingService programmingSubmissionMessagingService;
 
+    @Mock
+    private UserStoryExerciseService userStoryExerciseService;
+
     private ProgrammingTriggerService programmingTriggerService;
 
     private ProgrammingExercise exercise;
@@ -102,7 +105,7 @@ class ProgrammingTriggerServiceTest {
         programmingTriggerService = new ProgrammingTriggerService(programmingSubmissionRepository, programmingExerciseRepository, Optional.of(continuousIntegrationTriggerService),
                 participationService, programmingExerciseParticipationService, auditEventRepository, programmingExerciseStudentParticipationRepository, programmingMessagingService,
                 templateProgrammingExerciseParticipationRepository, solutionProgrammingExerciseParticipationRepository, programmingExerciseTestCaseChangedService,
-                programmingSubmissionMessagingService);
+                programmingSubmissionMessagingService, userStoryExerciseService);
         // Batching is configured from properties, which a plain unit test does not read; without a size the batch pause
         // divides by zero. A large batch keeps every test below the point where the service would sleep.
         ReflectionTestUtils.setField(programmingTriggerService, "externalSystemRequestBatchSize", 100);

@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -52,7 +53,9 @@ import de.tum.cit.aet.artemis.plagiarism.service.ContinuousPlagiarismControlServ
 import de.tum.cit.aet.artemis.plagiarism.service.PlagiarismCaseService;
 import de.tum.cit.aet.artemis.plagiarism.service.PlagiarismDetectionService;
 import de.tum.cit.aet.artemis.plagiarism.service.PlagiarismPostService;
+import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.quiz.domain.QuizExercise;
 import de.tum.cit.aet.artemis.text.domain.TextExercise;
 import de.tum.cit.aet.artemis.text.domain.TextSubmission;
@@ -221,6 +224,27 @@ class ContinuousPlagiarismControlServiceTest {
         // then
         verify(plagiarismCaseRepository).delete(plagiarismCase);
         verifyNoMoreInteractions(plagiarismComparisonRepository, plagiarismCaseService, plagiarismPostService, plagiarismResultRepository);
+    }
+
+    @Test
+    void shouldCheckTheMilestoneButNotItsUserStories() throws IOException, ProgrammingLanguageNotSupportedForPlagiarismDetectionException {
+        // given: a milestone and a user story working in its repositories, both with cpc enabled
+        var milestoneExercise = new MilestoneExercise();
+        milestoneExercise.setId(104L);
+        milestoneExercise.setDueDate(ZonedDateTime.now().plusDays(1));
+        var userStoryExercise = new UserStoryExercise();
+        userStoryExercise.setId(105L);
+        userStoryExercise.setDueDate(ZonedDateTime.now().plusDays(1));
+        when(exerciseRepository.findAllExercisesWithDueDateOnOrAfterYesterdayAndContinuousPlagiarismControlEnabledIsTrue())
+                .thenReturn(Set.of(milestoneExercise, userStoryExercise));
+        when(plagiarismChecksService.checkProgrammingExercise(milestoneExercise)).thenReturn(new PlagiarismResult());
+
+        // when
+        service.executeChecks();
+
+        // then: the group's repositories are checked once, through the milestone
+        verify(plagiarismChecksService).checkProgrammingExercise(milestoneExercise);
+        verify(plagiarismChecksService, never()).checkProgrammingExercise(userStoryExercise);
     }
 
     @Test

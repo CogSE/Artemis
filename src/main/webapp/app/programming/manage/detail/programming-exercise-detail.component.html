@@ -63,7 +63,7 @@
                                 <span class="d-none d-md-inline" jhiTranslate="artemisApp.exercise.exerciseAssessmentDashboard"></span>
                             </a>
                         }
-                        @if (programmingExercise().isAtLeastEditor && plagiarismCheckSupported()) {
+                        @if (programmingExercise().isAtLeastEditor && plagiarismCheckSupported() && !isUserStoryExercise()) {
                             <jhi-feature-overlay [enabled]="plagiarismEnabled()">
                                 <!-- Absolute rather than relative: this page is also served under the milestone group path, which has no 'plagiarism' child route. -->
                                 <a [jhiFeatureToggleLink]="FeatureToggle.ProgrammingExercises" class="btn btn-info btn-sm" [routerLink]="[baseResource(), 'plagiarism']">

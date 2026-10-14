@@ -2,7 +2,7 @@ import { Component, ElementRef, OnDestroy, OnInit, afterNextRender, computed, ef
 import { PlagiarismComparison, PlagiarismComparisonSummary } from 'app/plagiarism/shared/entities/PlagiarismComparison';
 import { FromToElement } from 'app/plagiarism/shared/entities/PlagiarismSubmissionElement';
 import { Subject } from 'rxjs';
-import { Exercise, ExerciseType, getCourseId } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, getCourseId, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { PlagiarismSubmission } from 'app/plagiarism/shared/entities/PlagiarismSubmission';
 import { PlagiarismCasesService } from 'app/plagiarism/shared/services/plagiarism-cases.service';
 import { HttpResponse } from '@angular/common/http';
@@ -65,7 +65,7 @@ export class PlagiarismSplitViewComponent implements OnInit, OnDestroy {
     // Replaces the ngOnChanges 'exercise' branch: pure derived state, recomputed whenever the exercise input changes.
     readonly isProgrammingOrTextExercise = computed(() => {
         const exercise = this.exercise();
-        return exercise?.type === ExerciseType.PROGRAMMING || exercise?.type === ExerciseType.TEXT;
+        return isProgrammingExerciseType(exercise?.type) || exercise?.type === ExerciseType.TEXT;
     });
 
     /** Course of the exercise under review, undefined until the exercise input is bound. Derived so the comparison fetch can track it. */

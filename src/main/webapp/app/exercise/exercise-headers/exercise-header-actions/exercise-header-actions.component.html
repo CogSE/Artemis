@@ -138,7 +138,7 @@
                         (practiceModeStarted)="receiveNewParticipation($event)"
                     />
                 }
-                @if (exercise().type === ExerciseType.PROGRAMMING && showFeedbackPopover() && activeParticipationForCode() && programmingExercise()?.allowOnlineEditor === false) {
+                @if (isProgrammingExercise() && showFeedbackPopover() && activeParticipationForCode() && programmingExercise()?.allowOnlineEditor === false) {
                     <jhi-request-feedback-button
                         [exercise]="exercise()"
                         [smallButtons]="smallButtons()"

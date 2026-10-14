@@ -13,7 +13,7 @@
                     <jhi-exercise-categories [exercise]="exercise()" [showTags]="{ difficulty: true, notReleased: true }" [ngClass]="'badge-row'" />
                 }
             </div>
-            @if (exercise().maxPoints || (exercise().assessmentType && exercise().type === ExerciseType.PROGRAMMING)) {
+            @if (exercise().maxPoints || (exercise().assessmentType && isProgrammingExercise())) {
                 <div class="points-assessment-row">
                     @if (exercise().maxPoints) {
                         <span [style.margin-right]="exercise().maxPoints ? '30px' : null">
@@ -32,7 +32,7 @@
                             }
                         </span>
                     }
-                    @if (exercise().assessmentType && exercise().type === ExerciseType.PROGRAMMING) {
+                    @if (exercise().assessmentType && isProgrammingExercise()) {
                         <span>
                             <div>
                                 {{ 'artemisApp.courseOverview.exerciseDetails.assessmentType' | artemisTranslate }}

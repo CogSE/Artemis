@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
 import { SortService } from 'app/foundation/service/sort.service';
 import dayjs from 'dayjs/esm';
-import { Exercise, ExerciseType, IncludedInOverallScore, getCourseFromExercise, getIcon, getIconTooltip } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, IncludedInOverallScore, getCourseFromExercise, getIcon, getIconTooltip, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { Exam } from 'app/exam/shared/entities/exam.model';
 import { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { ExerciseCategory } from 'app/exercise/shared/entities/exercise/exercise-category.model';
@@ -46,7 +46,6 @@ export class HeaderExercisePageWithDetailsComponent implements OnInit {
 
     readonly IncludedInOverallScore = IncludedInOverallScore;
     readonly AssessmentType = AssessmentType;
-    readonly ExerciseType = ExerciseType;
     readonly getIcon = getIcon;
     readonly getIconTooltip = getIconTooltip;
     readonly dayjs = dayjs;
@@ -60,6 +59,7 @@ export class HeaderExercisePageWithDetailsComponent implements OnInit {
     readonly submissionPolicy = input<SubmissionPolicy>();
 
     readonly effectiveCourse = computed(() => this.course() ?? getCourseFromExercise(this.exercise()));
+    readonly isProgrammingExercise = computed(() => isProgrammingExerciseType(this.exercise().type));
 
     public readonly exerciseCategories = signal<ExerciseCategory[]>(undefined!);
     public readonly dueDate = signal<dayjs.Dayjs | undefined>(undefined);
@@ -115,7 +115,7 @@ export class HeaderExercisePageWithDetailsComponent implements OnInit {
             this.icon = getIcon(exercise.type);
         }
 
-        this.programmingExercise = exercise.type === ExerciseType.PROGRAMMING ? exercise : undefined;
+        this.programmingExercise = isProgrammingExerciseType(exercise.type) ? exercise : undefined;
 
         if (exam) {
             this.determineNextRelevantDateExamMode();

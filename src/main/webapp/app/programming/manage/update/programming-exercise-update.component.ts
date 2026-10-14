@@ -83,7 +83,6 @@ const MILESTONE_HIDDEN_FIELDS: ProgrammingExerciseInputField[] = [
     ProgrammingExerciseInputField.COMPLAINT_ON_AUTOMATIC_ASSESSMENT,
     ProgrammingExerciseInputField.ASSESSMENT_INSTRUCTIONS,
     ProgrammingExerciseInputField.PRESENTATION_SCORE,
-    ProgrammingExerciseInputField.PLAGIARISM_CONTROL,
 ];
 
 const LANGUAGE_STEP_TITLE = 'artemisApp.programmingExercise.wizardMode.detailedSteps.languageStepTitle';
@@ -115,6 +114,8 @@ const USER_STORY_HIDDEN_FIELDS: ProgrammingExerciseInputField[] = [
     // A user story's points count through its milestone group, so its inclusion is not a per-story decision: it stays
     // INCLUDED_COMPLETELY and the score calculation skips group members instead (see UserStoryExercise server-side).
     ProgrammingExerciseInputField.INCLUDE_EXERCISE_IN_COURSE_SCORE_CALCULATION,
+    // A user story works in its milestone's repositories, so the group's plagiarism checks are configured on the milestone.
+    ProgrammingExerciseInputField.PLAGIARISM_CONTROL,
 ];
 // TIMELINE/RELEASE_DATE/START_DATE/DUE_DATE are deliberately NOT hidden here (unlike for a MilestoneExercise): the
 // "Grading" section's timeline block (jhi-programming-exercise-update-timeline) bundles the date pickers together

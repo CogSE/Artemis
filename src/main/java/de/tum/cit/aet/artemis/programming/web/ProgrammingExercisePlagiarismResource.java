@@ -40,6 +40,7 @@ import de.tum.cit.aet.artemis.plagiarism.dto.PlagiarismResultDTO;
 import de.tum.cit.aet.artemis.plagiarism.exception.PlagiarismApiNotPresentException;
 import de.tum.cit.aet.artemis.plagiarism.exception.ProgrammingLanguageNotSupportedForPlagiarismDetectionException;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 
 /**
@@ -113,6 +114,7 @@ public class ProgrammingExercisePlagiarismResource {
 
         ProgrammingExercise programmingExercise = programmingExerciseRepository.findByIdElseThrow(exerciseId);
         authCheckService.checkHasAtLeastRoleForExerciseElseThrow(Role.EDITOR, programmingExercise, null);
+        rejectUserStoryExercise(programmingExercise);
 
         long start = System.nanoTime();
         log.info("Started manual plagiarism checks for programming exercise: exerciseId={}.", exerciseId);
@@ -149,6 +151,7 @@ public class ProgrammingExercisePlagiarismResource {
         log.debug("REST request to check plagiarism for ProgrammingExercise with id: {}", exerciseId);
         ProgrammingExercise programmingExercise = programmingExerciseRepository.findByIdElseThrow(exerciseId);
         authCheckService.checkHasAtLeastRoleForExerciseElseThrow(Role.EDITOR, programmingExercise, null);
+        rejectUserStoryExercise(programmingExercise);
 
         long start = System.nanoTime();
         log.info("Started manual plagiarism checks with Jplag report for programming exercise: exerciseId={}.", exerciseId);
@@ -168,6 +171,18 @@ public class ProgrammingExercisePlagiarismResource {
         }
         finally {
             log.info("Finished manual plagiarism checks with Jplag report for programming exercise: exerciseId={}, elapsed={}.", exerciseId, TimeLogUtil.formatDurationFrom(start));
+        }
+    }
+
+    /**
+     * Rejects a plagiarism check of a user story. Its participations work in the repositories of its group's milestone,
+     * so checking it would compare exactly what the milestone's check compares and open the same cases a second time.
+     *
+     * @param programmingExercise the exercise a plagiarism check was requested for
+     */
+    private static void rejectUserStoryExercise(ProgrammingExercise programmingExercise) {
+        if (programmingExercise instanceof UserStoryExercise) {
+            throw new BadRequestAlertException("Plagiarism checks of a user story run on its milestone exercise", ENTITY_NAME, "plagiarismNotSupportedForUserStory");
         }
     }
 }

@@ -477,9 +477,10 @@ public class MilestoneExerciseImportExportService {
                 milestoneDetails.allowOfflineIde(), Boolean.TRUE.equals(milestoneDetails.allowOnlineIde()), milestoneDetails.staticCodeAnalysisEnabled(),
                 milestoneDetails.maxStaticCodeAnalysisPenalty(), keepDates ? milestoneDetails.releaseDate() : null, keepDates ? milestoneDetails.startDate() : null,
                 keepDates ? milestoneDetails.dueDate() : null, keepDates ? milestoneDetails.assessmentDueDate() : null,
-                keepDates ? milestoneDetails.exampleSolutionPublicationDate() : null, null);
+                keepDates ? milestoneDetails.exampleSolutionPublicationDate() : null, null, milestoneDetails.plagiarismDetectionConfig());
         MilestoneExercise milestoneExercise = createDTO.toMilestoneExercise();
         milestoneExercise.setCourse(course);
+        PlagiarismDetectionConfigHelper.applyToExercise(milestoneExercise, createDTO.plagiarismDetectionConfig());
         // The complete build configuration of the export, which the creation payload would only partially carry.
         ProgrammingExerciseBuildConfig buildConfig = milestoneDetails.buildConfig() == null ? new ProgrammingExerciseBuildConfig() : milestoneDetails.buildConfig().toEntity();
         PlagiarismDetectionConfigHelper.validatePlagiarismDetectionConfigOrThrow(milestoneExercise, ENTITY_NAME);
