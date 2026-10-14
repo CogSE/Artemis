@@ -12,14 +12,7 @@ import { FeatureToggle } from 'app/foundation/feature-toggle/feature-toggle.serv
 import { ProgrammingSubmissionService } from 'app/programming/shared/services/programming-submission.service';
 import { areManualResultsAllowed } from 'app/exercise/util/exercise.utils';
 import { ResultService } from 'app/exercise/result/result.service';
-import {
-    Exercise,
-    ExerciseType,
-    baseExerciseType,
-    getExerciseUrlSegment,
-    getExerciseUrlSegmentOrEmpty,
-    isProgrammingExerciseType,
-} from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, getExerciseUrlSegment, getExerciseUrlSegmentOrEmpty, isProgrammingExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { AssessmentType } from 'app/assessment/shared/entities/assessment-type.model';
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
 import { createBuildPlanUrl } from 'app/programming/shared/utils/programming-exercise.utils';
@@ -487,7 +480,7 @@ export class ExerciseScoresComponent implements OnInit, OnDestroy {
         const ex = this.exercise();
         return {
             id: dto.participationId,
-            type: this.isProgrammingExercise() ? ParticipationType.PROGRAMMING : ParticipationType.STUDENT,
+            type: isProgrammingExerciseType(ex?.type) ? ParticipationType.PROGRAMMING : ParticipationType.STUDENT,
             exercise: ex,
             submissionCount: dto.submissionCount,
             submissions: dto.submissionId ? [this.toSubmission(dto)] : [],
@@ -503,7 +496,7 @@ export class ExerciseScoresComponent implements OnInit, OnDestroy {
      */
     private toSubmission(dto: ParticipationScoreDTO): Submission {
         const results = this.toResults(dto);
-        if (baseExerciseType(this.exercise()?.type) === ExerciseType.PROGRAMMING) {
+        if (isProgrammingExerciseType(this.exercise()?.type)) {
             const submission = new ProgrammingSubmission();
             submission.id = dto.submissionId;
             submission.results = results;

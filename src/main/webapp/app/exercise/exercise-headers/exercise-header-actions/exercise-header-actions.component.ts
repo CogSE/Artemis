@@ -211,7 +211,7 @@ export class ExerciseHeaderActionsComponent {
     });
     readonly showFeedbackPopover = computed(() => {
         const exercise = this.exercise();
-        if (this.isProgrammingExercise() && exercise.assessmentType !== AssessmentType.SEMI_AUTOMATIC) {
+        if (isProgrammingExerciseType(exercise.type) && exercise.assessmentType !== AssessmentType.SEMI_AUTOMATIC) {
             // Athena feedback requests for programming exercises require manual assessment to be enabled
             return false;
         }
@@ -220,7 +220,7 @@ export class ExerciseHeaderActionsComponent {
             this.hasUserAcceptedLLM() &&
             this.athenaEnabled &&
             (exercise.course?.athenaFormativeFeedbackEnabled ?? false) &&
-            (this.isProgrammingExercise() || exercise.type === ExerciseType.TEXT || exercise.type === ExerciseType.MODELING)
+            (isProgrammingExerciseType(exercise.type) || exercise.type === ExerciseType.TEXT || exercise.type === ExerciseType.MODELING)
         );
     });
     readonly hasProgrammingSubmission = computed(() => !!this.activeParticipationForCode()?.submissions?.some((submission) => submission.submitted));

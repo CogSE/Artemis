@@ -115,7 +115,7 @@ export class HeaderExercisePageWithDetailsComponent implements OnInit {
             this.icon = getIcon(exercise.type);
         }
 
-        this.programmingExercise = this.isProgrammingExercise() ? exercise : undefined;
+        this.programmingExercise = isProgrammingExerciseType(exercise.type) ? exercise : undefined;
 
         if (exam) {
             this.determineNextRelevantDateExamMode();
