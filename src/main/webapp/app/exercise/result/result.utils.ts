@@ -283,17 +283,24 @@ export const getSubmissionUnderReview = (result: Result | undefined, participati
 };
 
 /**
- * The share of passed tests, in percent, for a user story that shows its test progress instead of its score (see
- * {@link ProgrammingExercise#showTestProgressAsScore}), or undefined when the result is displayed by its score.
+ * The share of passed tests, in percent, where it replaces the score, or undefined when the result is displayed by its
+ * score. Two cases qualify:
  *
- * Only an automatic result qualifies: such a story is manually assessed, its tests usually carry no points, and its
- * score would read 0% until a tutor has assessed it. Once the manual assessment is shown, its score is what counts.
+ * - A programming exercise worth 0 points. Its score is always 0%, since there are no points to achieve, so the score
+ *   would read 0% even with every test passing. This holds for every result, the manual ones included.
+ * - A user story that shows its test progress instead of its score (see
+ *   {@link ProgrammingExercise#showTestProgressAsScore}), for an automatic result only: such a story is manually
+ *   assessed, its tests usually carry no points, and its score would read 0% until a tutor has assessed it. Once the
+ *   manual assessment is shown, its score is what counts.
  */
 export const getTestProgressScore = (result: Result, exercise: Exercise | undefined): number | undefined => {
-    if (exercise?.type !== ExerciseType.USER_STORY || !(exercise as ProgrammingExercise).showTestProgressAsScore) {
+    if (!result.testCaseCount) {
         return undefined;
     }
-    if (result.assessmentType !== AssessmentType.AUTOMATIC || !result.testCaseCount) {
+    const isZeroPointProgrammingExercise = isProgrammingExerciseType(exercise?.type) && exercise?.maxPoints === 0;
+    const isUserStoryShowingTestProgress =
+        exercise?.type === ExerciseType.USER_STORY && !!(exercise as ProgrammingExercise).showTestProgressAsScore && result.assessmentType === AssessmentType.AUTOMATIC;
+    if (!isZeroPointProgrammingExercise && !isUserStoryShowingTestProgress) {
         return undefined;
     }
     return ((result.passedTestCaseCount ?? 0) * 100) / result.testCaseCount;

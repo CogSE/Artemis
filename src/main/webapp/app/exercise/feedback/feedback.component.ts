@@ -121,7 +121,7 @@ export class FeedbackComponent implements OnInit {
     );
     /** Whether the score chart is currently shown; seeded from the input, hidden at runtime once we know there is no chart data (see updateChart). */
     readonly scoreChartVisible = linkedSignal(() => this.showScoreChart());
-    /** The share of passed tests that replaces the score of a user story result (see {@link getTestProgressScore}), or undefined. */
+    /** The share of passed tests where it replaces the score (see {@link getTestProgressScore}), or undefined. */
     readonly testProgressScore = computed(() => getTestProgressScore(this.result(), this.resolvedExercise()));
 
     readonly isExamReviewPage = input(false);

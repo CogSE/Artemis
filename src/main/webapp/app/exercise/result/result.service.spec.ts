@@ -353,6 +353,18 @@ describe('ResultService', () => {
             });
         });
 
+        it('shows the share of passed tests without points for a zero-point programming exercise', () => {
+            const zeroPointExercise: ProgrammingExercise = { ...programmingExercise, maxPoints: 0 };
+            // No points to achieve, so the score is always 0, whichever tests pass.
+            const allPassed: Result = { id: 21, score: 0, assessmentType: AssessmentType.AUTOMATIC, testCaseCount: 5, passedTestCaseCount: 5 };
+
+            expect(resultService.getResultString(allPassed, zeroPointExercise, undefined)).toBe('artemisApp.result.resultString.programmingShort');
+            expect(translateServiceSpy).toHaveBeenCalledWith('artemisApp.result.resultString.programmingShort', {
+                relativeScore: 100,
+                buildAndTestMessage: 'artemisApp.result.resultString.buildSuccessfulTests',
+            });
+        });
+
         it('should return correct string for programming exercise with code issues', () => {
             expect(resultService.getResultString(result4, programmingExercise, participation1)).toBe('artemisApp.result.resultString.programmingCodeIssues');
             expect(translateServiceSpy).toHaveBeenCalledTimes(2);

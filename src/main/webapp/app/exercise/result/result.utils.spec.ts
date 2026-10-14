@@ -4,6 +4,7 @@ import {
     ResultTemplateStatus,
     breakCircularResultBackReferences,
     evaluateTemplateStatus,
+    getDisplayedScore,
     getManualUnreferencedFeedback,
     getResultIconClass,
     getTestProgressScore,
@@ -284,6 +285,35 @@ describe('ResultUtils', () => {
         },
     ])('should correctly determine text color class', ({ result, participation, templateStatus, expected }) => {
         expect(getTextColorClass(result, participation, templateStatus!)).toBe(expected);
+    });
+
+    describe('test progress of a zero-point programming exercise', () => {
+        const zeroPointExercise = { type: ExerciseType.PROGRAMMING, maxPoints: 0 } as ProgrammingExercise;
+        const allPassed: Result = { score: 0, successful: false, assessmentType: AssessmentType.AUTOMATIC, testCaseCount: 5, passedTestCaseCount: 5 };
+
+        it('replaces the always-zero score with the share of passed tests', () => {
+            expect(getTestProgressScore(allPassed, zeroPointExercise)).toBe(100);
+            expect(getDisplayedScore(allPassed, zeroPointExercise)).toBe(100);
+            expect(getTestProgressScore({ ...allPassed, passedTestCaseCount: 2 }, zeroPointExercise)).toBe(40);
+        });
+
+        it('also replaces the score of a manual result', () => {
+            expect(getTestProgressScore({ ...allPassed, assessmentType: AssessmentType.SEMI_AUTOMATIC }, zeroPointExercise)).toBe(100);
+        });
+
+        it.each([
+            { name: 'a result without tests', result: { ...allPassed, testCaseCount: 0 }, exercise: zeroPointExercise },
+            { name: 'a programming exercise worth points', result: allPassed, exercise: { type: ExerciseType.PROGRAMMING, maxPoints: 10 } as ProgrammingExercise },
+            { name: 'a zero-point text exercise', result: allPassed, exercise: { type: ExerciseType.TEXT, maxPoints: 0 } as Exercise },
+        ])('keeps the score for $name', ({ result, exercise }) => {
+            expect(getTestProgressScore(result, exercise)).toBeUndefined();
+        });
+
+        it('colours the result by its test progress', () => {
+            const participation = {} as Participation;
+            expect(getTextColorClass(allPassed, participation, ResultTemplateStatus.HAS_RESULT, zeroPointExercise)).toBe('text-state-success');
+            expect(getResultIconClass(allPassed, participation, ResultTemplateStatus.HAS_RESULT, zeroPointExercise)).toBe(faCheckCircle);
+        });
     });
 
     describe('test progress of a user story', () => {
