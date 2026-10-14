@@ -609,7 +609,6 @@ public class ProgrammingExerciseGradingService {
         targetResult.setRatedIfNotAfterDueDate();
 
         // only copy test case feedback here, all other feedbacks must be evaluated in the milestone..
-        // TODO: rather use the same test case for all US?!?!
         for (TestCaseFeedback testFeedback : sourceResult.getTestCaseFeedbacks()) {
             ProgrammingExerciseTestCase matchedTestCase = testFeedback.getTestCase() == null ? null : targetTestCasesByName.get(testFeedback.getTestCase().getTestName());
             if (matchedTestCase == null) {
