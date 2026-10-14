@@ -249,7 +249,7 @@ Write test cases in the Test repository using language-specific frameworks:
 
 | No. | Language   | Package Manager | Build System   | Testing Framework                                                                        |
 |-----|------------|-----------------|----------------|------------------------------------------------------------------------------------------|
-| 1   | Java       | Maven / Gradle  | Maven / Gradle | [JUnit 5](https://junit.org/junit5/) with [Ares](https://github.com/ls1intum/Ares)       |
+| 1   | Java       | Maven / Gradle  | Maven / Gradle | [JUnit 5](https://junit.org/junit5/) with [Ares 2](https://github.com/ls1intum/Ares2)    |
 | 2   | Python     | pip             | pip            | [pytest](https://docs.pytest.org/)                                                       |
 | 3   | C          | -               | Makefile       | Python scripts / [FACT](https://fact.readthedocs.io/)                                    |
 | 4   | Haskell    | Stack           | Stack          | [Tasty](https://hackage.haskell.org/package/tasty)                                       |
@@ -283,17 +283,29 @@ Check the build plan results:
 
 ## Testing with Ares
 
-Ares is a JUnit 5 extension for easy and secure Java testing on Artemis.
+Ares is a JUnit 5 extension for easy and secure Java testing on Artemis. The Java templates target Java 25 and use
+[Ares 2](https://github.com/ls1intum/Ares2). The Kotlin templates still use [Ares 1](https://github.com/ls1intum/Ares).
 
 Main features:
 
-- Security manager to prevent students from crashing tests or cheating
+- Restrictions that prevent students from crashing tests or cheating, such as file system, network or thread access
 - More robust tests and builds with limits on time, threads, and I/O
 - Support for public and hidden Artemis tests with custom due dates
 - Utilities for improved feedback (multiline error messages, exception location hints)
 - Utilities to test exercises using System.out and System.in
 
-**For more information see** [Ares GitHub](https://github.com/ls1intum/Ares)
+### Security policy
+
+Ares 2 replaces the path annotations of Ares 1 (`@WhitelistPath`, `@BlacklistPath`) with a security policy file. The Java
+test repository contains `SecurityPolicy.yaml` in its root, and every test class references it with
+`@Policy(value = "SecurityPolicy.yaml")`. The policy names the package of the student code, lists the test classes and
+lists what the student code may do, for example which files it may read or how many threads it may start.
+
+When you add a test class, add its fully qualified name to `theFollowingClassesAreTestClasses` in `SecurityPolicy.yaml`.
+Otherwise Ares treats the test class like student code and blocks what it does. See the
+[policy reference](https://ls1intum.github.io/Ares2/instructor/policy-reference) for every setting.
+
+**For more information see** [Ares 2 on GitHub](https://github.com/ls1intum/Ares2)
 
 ## Best Practices for Writing Test Cases
 

@@ -10,7 +10,7 @@ plugins {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 version = '1.0.0'
@@ -28,18 +28,21 @@ repositories {
     mavenLocal()
 }
 
-dependencies {
-    // artemis-java-test-sandbox still resolves to Logback 1.5.18 and AssertJ 3.27.3, both of which carry
-    // published advisories (GHSA-25qh-j22f-pwp8, GHSA-qqpg-mvqg-649v, GHSA-p47f-322f-whfh,
-    // GHSA-jhq6-gfmj-v8fx and GHSA-rqfh-9r24-8c9r). Pin the patched releases here until the sandbox
-    // ships them itself; both bumps stay within the same minor version and are API-compatible.
-    constraints {
-        testImplementation 'ch.qos.logback:logback-classic:1.5.38'
-        testImplementation 'ch.qos.logback:logback-core:1.5.38'
-        testImplementation 'org.assertj:assertj-core:3.27.7'
-    }
+def aresVersion = '2.2.1'
 
-    testImplementation 'de.tum.in.ase:artemis-java-test-sandbox:1.15.0'
+configurations {
+    // The Ares agent jar, resolved on its own so that it can be passed to the test JVM as -javaagent
+    aresAgent {
+        canBeConsumed = false
+        transitive = false
+    }
+}
+
+dependencies {
+    // Ares 2 comes with JUnit 5 and AssertJ. It runs in instrumentation mode here (see SecurityPolicy.yaml), so the
+    // agent is all it needs at runtime and the student code is not woven at compile time.
+    testImplementation "de.tum.cit.ase:ares:${aresVersion}"
+    aresAgent "de.tum.cit.ase:ares:${aresVersion}:agent"
     implementation 'org.apache.commons:commons-lang3:3.18.0'
 
     // testImplementation(':${exerciseNamePomXml}')
@@ -47,7 +50,6 @@ dependencies {
 }
 
 def assignmentSrcDir = "${studentWorkingDirectoryNoSlash}"
-def studentOutputDir = sourceSets.main.java.destinationDirectory.get()
 // %static-code-analysis-start%
 def scaConfigDirectory = "$projectDir/staticCodeAnalysisConfig"
 // %static-code-analysis-stop%
@@ -98,33 +100,78 @@ sourceSets {
     }
 }
 
-def forbiddenPackageFolders = [ //(2)
-                                "$studentOutputDir/ch/qos/logback/",
-                                "$studentOutputDir/com/github/javaparser/",
-                                "$studentOutputDir/com/intellij/",
-                                "$studentOutputDir/com/sun/",
-                                "$studentOutputDir/de/tum/in/test/api/",
-                                "$studentOutputDir/java/",
-                                "$studentOutputDir/javax/",
-                                "$studentOutputDir/jdk/",
-                                "$studentOutputDir/net/jqwik/",
-                                "$studentOutputDir/org/assertj/",
-                                "$studentOutputDir/org/apache/",
-                                "$studentOutputDir/org/eclipse/",
-                                "$studentOutputDir/org/gradle/",
-                                "$studentOutputDir/org/jacoco/",
-                                "$studentOutputDir/org/json/",
-                                "$studentOutputDir/org/junit/",
-                                "$studentOutputDir/org/opentest4j/",
-                                "$studentOutputDir/sun/",
-                                "$studentOutputDir/worker/org/gradle/"
+// Ares reserved-package build boundary, version 2 (shipped with Ares as GradleReservedPackages.gradle): student code must
+// not shadow trusted packages. Student classes in these packages would replace the real ones, e.g. an Assertions class
+// that never fails, and forge the grading. Every Test task depends on this check, not only `check`.
+def aresReservedPackagePatterns = [
+        // The JDK
+        'java/**', 'javax/**', 'jdk/**', 'sun/**', 'com/sun/**',
+        // Ares and the libraries it brings to the test runtime
+        'anonymous/toolclasses/**', 'ch/qos/logback/**', 'com/fasterxml/**', 'com/github/javaparser/**', 'com/google/**',
+        'com/ibm/wala/**', 'com/intellij/**', 'com/opencsv/**', 'com/tngtech/archunit/**', 'de/tum/cit/ase/ares/**',
+        'javassist/**', 'junit/**', 'metatest/**', 'net/bytebuddy/**', 'net/jqwik/**', 'org/apache/**', 'org/apfloat/**',
+        'org/apiguardian/**', 'org/aspectj/**', 'org/assertj/**', 'org/checkerframework/**', 'org/eclipse/**',
+        'org/gradle/**', 'org/hamcrest/**', 'org/jacoco/**', 'org/jgrapht/**', 'org/jheaps/**', 'org/json/**',
+        'org/jspecify/**', 'org/junit/**', 'org/mockito/**', 'org/objenesis/**', 'org/opentest4j/**', 'org/slf4j/**',
+        'org/yaml/**', 'worker/org/gradle/**'
 ]
-test {
-    doFirst { //(1)
-        for (String packageFolder in forbiddenPackageFolders) {
-            assert !file(packageFolder).exists(): "$packageFolder must not exist within the submission."
+
+tasks.register('verifyAresReservedPackagesV2') {
+    dependsOn tasks.named('classes')
+    def studentClassesDirs = sourceSets.main.output.classesDirs
+    def reservedPrefixes = aresReservedPackagePatterns.collect { it.substring(0, it.length() - 2) }
+    inputs.files(studentClassesDirs).withPropertyName('studentClasses')
+    doLast {
+        def forbidden = []
+        studentClassesDirs.files.each { root ->
+            if (!root.isDirectory()) {
+                return
+            }
+            def rootPath = root.toPath()
+            root.eachFileRecurse { candidate ->
+                if (!candidate.isFile()) {
+                    return
+                }
+                def relative = rootPath.relativize(candidate.toPath()).toString().replace(File.separator, '/')
+                if (reservedPrefixes.any { relative.startsWith(it) }) {
+                    forbidden << relative
+                }
+            }
+        }
+        if (!forbidden.isEmpty()) {
+            throw new GradleException("Ares reserved-package validation 2 rejected student output: ${forbidden.sort()}. No bypass flag is supported.")
         }
     }
+}
+tasks.named('check') { dependsOn tasks.named('verifyAresReservedPackagesV2') }
+
+tasks.withType(Test).configureEach {
+    dependsOn tasks.named('verifyAresReservedPackagesV2')
+    def aresAgentJar = configurations.aresAgent
+    inputs.files(aresAgentJar).withPropertyName('aresAgent')
+    jvmArgumentProviders.add({
+        ["-javaagent:${aresAgentJar.singleFile.absolutePath}",
+         '--add-exports', 'java.base/java.lang=ALL-UNNAMED',
+         '--add-exports', 'java.base/jdk.internal.misc=ALL-UNNAMED',
+         '--add-opens', 'java.base/java.io=ALL-UNNAMED',
+         '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+         '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+         '--add-opens', 'java.base/java.net=ALL-UNNAMED',
+         '--add-opens', 'java.base/java.nio=ALL-UNNAMED',
+         '--add-opens', 'java.base/java.nio.channels=ALL-UNNAMED',
+         '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+         '--add-opens', 'java.base/java.util.concurrent=ALL-UNNAMED',
+         '--add-opens', 'java.base/java.util.concurrent.atomic=ALL-UNNAMED',
+         '--add-opens', 'java.base/java.util.concurrent.locks=ALL-UNNAMED',
+         '--add-opens', 'java.base/jdk.internal.misc=ALL-UNNAMED',
+         '--add-opens', 'java.base/sun.net.www.protocol.http=ALL-UNNAMED',
+         '--add-opens', 'java.base/sun.net.www.protocol.https=ALL-UNNAMED',
+         '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
+         '--add-opens', 'jdk.unsupported/sun.misc=ALL-UNNAMED']
+    } as CommandLineArgumentProvider)
+}
+
+test {
     defaultCharacterEncoding = 'UTF-8'
     testLogging.showStandardStreams = true
     useJUnitPlatform()
@@ -153,6 +200,7 @@ tasks.register('behaviorTests', Test) {
 
 // %static-code-analysis-start%
 checkstyle {
+    toolVersion = '14.3.0'
     configFile = file("$scaConfigDirectory/checkstyle-configuration.xml")
     configDirectory.set(file(scaConfigDirectory))
     ignoreFailures = true
@@ -164,6 +212,7 @@ checkstyle {
 }
 
 spotbugs {
+    toolVersion = '4.10.4'
     excludeFilter = file("$scaConfigDirectory/spotbugs-exclusions.xml")
     ignoreFailures = true
     // exclude the test files
@@ -181,7 +230,7 @@ pmd {
     ruleSets = ["$scaConfigDirectory/pmd-configuration.xml"]
     rulesMinimumPriority = 5
     ignoreFailures = true
-    toolVersion = '7.16.0'
+    toolVersion = '7.28.0'
     // exclude the test files
     pmdTest.enabled = false
     pmdMain.reports {

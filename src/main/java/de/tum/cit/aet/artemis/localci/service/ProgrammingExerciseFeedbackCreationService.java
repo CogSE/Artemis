@@ -70,8 +70,9 @@ public class ProgrammingExerciseFeedbackCreationService {
 
     private static final String PYTHON_EXCEPTION_LINE_PREFIX = "E       ";
 
-    private static final Pattern JVM_RESULT_MESSAGE_MATCHER = prepareJVMResultMessageMatcher(
-            List.of("java.lang.AssertionError", "org.opentest4j.AssertionFailedError", "de.tum.in.test.api.util.UnexpectedExceptionError"));
+    // Ares 2 (Java templates) and Ares 1 (Kotlin templates) report an unexpected exception under different names.
+    private static final Pattern JVM_RESULT_MESSAGE_MATCHER = prepareJVMResultMessageMatcher(List.of("java.lang.AssertionError", "org.opentest4j.AssertionFailedError",
+            "de.tum.cit.ase.ares.api.util.UnexpectedExceptionError", "de.tum.in.test.api.util.UnexpectedExceptionError"));
 
     private static final Predicate<String> IS_NOT_STACK_TRACE_LINE = line -> !line.startsWith("\tat ");
 

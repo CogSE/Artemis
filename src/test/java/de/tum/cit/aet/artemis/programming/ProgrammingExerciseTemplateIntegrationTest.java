@@ -95,7 +95,7 @@ class ProgrammingExerciseTemplateIntegrationTest extends AbstractProgrammingInte
      */
     private static final Duration EXTERNAL_BUILD_TIMEOUT = Duration.ofMinutes(5);
 
-    private static File java17Home;
+    private static File java25Home;
 
     private ProgrammingExercise exercise;
 
@@ -134,16 +134,16 @@ class ProgrammingExerciseTemplateIntegrationTest extends AbstractProgrammingInte
     }
 
     @BeforeAll
-    static void findAndSetJava17Home() throws Exception {
+    static void findAndSetJava25Home() throws Exception {
         if (Os.isFamily(Os.FAMILY_UNIX) || Os.isFamily(Os.FAMILY_MAC)) {
-            findAndSetJava17UnixSystems();
+            findAndSetJava25UnixSystems();
         }
         else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-            findAndSetJava17Windows();
+            findAndSetJava25Windows();
         }
     }
 
-    private static void findAndSetJava17UnixSystems() throws Exception {
+    private static void findAndSetJava25UnixSystems() throws Exception {
         // Use which to find all java installations on Linux
         var javaInstallations = runProcess(new ProcessBuilder("which", "-a", "java"));
         for (String path : javaInstallations) {
@@ -155,12 +155,12 @@ class ProgrammingExerciseTemplateIntegrationTest extends AbstractProgrammingInte
 
         // Mac systems have additional locations where Java could potentially be
         if (Os.isFamily(Os.FAMILY_MAC)) {
-            findAndSetJava17Mac();
+            findAndSetJava25Mac();
         }
     }
 
-    private static void findAndSetJava17Mac() throws Exception {
-        var alternativeInstallations = runProcess(new ProcessBuilder("/usr/libexec/java_home", "-v", "17"));
+    private static void findAndSetJava25Mac() throws Exception {
+        var alternativeInstallations = runProcess(new ProcessBuilder("/usr/libexec/java_home", "-v", "25"));
         for (String path : alternativeInstallations) {
             File binFolder = Path.of(path).toFile().getParentFile();
             binFolder = binFolder.toPath().resolve("Home/bin").toFile();
@@ -170,7 +170,7 @@ class ProgrammingExerciseTemplateIntegrationTest extends AbstractProgrammingInte
         }
     }
 
-    private static void findAndSetJava17Windows() {
+    private static void findAndSetJava25Windows() {
         // Use PATH to find all java installations on windows
         String[] path = System.getenv("PATH").split(";");
         Arrays.stream(path).map(Path::of).filter(p -> p.endsWith("bin")).filter(Files::isDirectory).filter(binDir -> Files.exists(binDir.resolve("java.exe"))).forEach(binDir -> {
@@ -186,9 +186,9 @@ class ProgrammingExerciseTemplateIntegrationTest extends AbstractProgrammingInte
     private static boolean checkJavaVersion(File binFolder, String... command) throws Exception {
         ProcessBuilder processBuilder = new ProcessBuilder(command).directory(binFolder);
         var version = runProcess(processBuilder);
-        if (!version.isEmpty() && version.getFirst().contains("version \"17")) {
-            java17Home = binFolder.getParentFile(); // JAVA_HOME/bin/java
-            log.debug("Using {} as JAVA_HOME.", java17Home);
+        if (!version.isEmpty() && version.getFirst().contains("version \"25")) {
+            java25Home = binFolder.getParentFile(); // JAVA_HOME/bin/java
+            log.debug("Using {} as JAVA_HOME.", java25Home);
             return true;
         }
         return false;
@@ -513,7 +513,7 @@ class ProgrammingExerciseTemplateIntegrationTest extends AbstractProgrammingInte
         if (projectType == null || projectType.isMaven()) {
             assumeTrue(isMavenHomeSet(), "Could not find Maven. Skipping execution of template tests.");
         }
-        assumeTrue(java17Home != null, "Could not find Java 17. Skipping execution of template tests.");
+        assumeTrue(java25Home != null, "Could not find Java 25. Skipping execution of template tests.");
     }
 
     /**
@@ -691,7 +691,7 @@ class ProgrammingExerciseTemplateIntegrationTest extends AbstractProgrammingInte
         log.info("Using isolated Maven local repository: {}", localMavenRepo);
 
         InvocationRequest mvnRequest = new DefaultInvocationRequest();
-        mvnRequest.setJavaHome(java17Home);
+        mvnRequest.setJavaHome(java25Home);
         mvnRequest.setPomFile(testRepositoryPath.toFile());
         mvnRequest.addArgs(List.of("clean", "test", "-Dmaven.repo.local=" + localMavenRepo.toAbsolutePath(), "-B"));
         mvnRequest.setShowVersion(true);
@@ -826,7 +826,7 @@ class ProgrammingExerciseTemplateIntegrationTest extends AbstractProgrammingInte
             future = executor.submit(() -> {
                 try (ProjectConnection connector = GradleConnector.newConnector().forProjectDirectory(testRepositoryPath.toFile()).useBuildDistribution().connect()) {
                     BuildLauncher launcher = connector.newBuild();
-                    launcher.setJavaHome(java17Home);
+                    launcher.setJavaHome(java25Home);
                     // Isolate Gradle user home to avoid transform cache corruption from parallel builds
                     launcher.addArguments("-g", gradleUserHome.toAbsolutePath().toString());
                     // Resolve through the Maven Central mirror instead of Maven Central itself, which rate-limits CI runners.

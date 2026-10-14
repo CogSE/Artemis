@@ -94,6 +94,17 @@ class ProgrammingExerciseFeedbackCreationServiceTest extends AbstractProgramming
     }
 
     @Test
+    void createFeedbackFromTestCaseStripsTheUnexpectedExceptionErrorOfBothAresVersions() {
+        String ares2Message = """
+                de.tum.cit.ase.ares.api.util.UnexpectedExceptionError: an unexpected exception was thrown""";
+        String ares1Message = """
+                de.tum.in.test.api.util.UnexpectedExceptionError: another unexpected exception was thrown""";
+
+        assertThat(createFeedbackFromTestCase("test1", List.of(ares2Message), false)).isEqualTo("an unexpected exception was thrown");
+        assertThat(createFeedbackFromTestCase("test1", List.of(ares1Message), false)).isEqualTo("another unexpected exception was thrown");
+    }
+
+    @Test
     void createFeedbackFromTestCaseMatchMultiple() {
         String msgMatchMultiple = """
                 java.lang.AssertionError: expected:

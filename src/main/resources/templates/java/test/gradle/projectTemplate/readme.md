@@ -43,6 +43,16 @@ The described changes to the `build.gradle` and `settings.gradle` files must
 all three projects in the local IDE.
 
 
+### Security policy
+The tests use [Ares 2](https://github.com/ls1intum/Ares2), which restricts what
+the student code may do while the tests run. The rules are in
+`SecurityPolicy.yaml`, which every test class references with
+`@Policy(value = "SecurityPolicy.yaml")`.
+When you add a test class, also add its fully qualified name to
+`theFollowingClassesAreTestClasses` in `SecurityPolicy.yaml`. Otherwise Ares
+treats the test class like student code and blocks what it does.
+
+
 ### Sequential test runs
 In case you have enabled sequential test runs when creating the exercise a
 special folder structure of the test repository is used to differentiate
