@@ -383,7 +383,8 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
     /**
      * The course overview is what the student group view builds its groups from, so a milestone group's members have to
      * carry the anchor exercise id along with the discriminator - otherwise the view knows the group is a milestone but
-     * not which exercise its actions address.
+     * not which exercise its actions address. The group's dates come from the anchor too, since the group has none of
+     * its own.
      */
     @Test
     @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
@@ -407,6 +408,9 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
             assertThat(exercise.exerciseVariantGroup()).isNotNull();
             assertThat(exercise.exerciseVariantGroup().type()).isEqualTo("milestone");
             assertThat(exercise.exerciseVariantGroup().milestoneExerciseId()).isEqualTo(milestoneExercise.getId());
+            // A milestone group's dates are its anchor's; the group page shows the deadline from these.
+            assertThat(exercise.exerciseVariantGroup().releaseDate()).isEqualTo(milestoneExercise.getReleaseDate());
+            assertThat(exercise.exerciseVariantGroup().dueDate()).isEqualTo(milestoneExercise.getDueDate());
         });
     }
 
