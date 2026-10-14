@@ -92,7 +92,7 @@ public class UserStoryTaskService {
      */
     public UserStoryTaskDTO create(long exerciseId, UserStoryTaskDTO taskDTO, User user) {
         StudentParticipation participation = resolveOwnParticipationElseThrow(exerciseId, user);
-        checkBeforeDueDateElseThrow(participation);
+        checkBoardWritableElseThrow(participation, user);
         validate(taskDTO);
 
         UserStoryTask task = new UserStoryTask();
@@ -115,7 +115,7 @@ public class UserStoryTaskService {
      */
     public UserStoryTaskDTO update(long taskId, UserStoryTaskDTO taskDTO, User user) {
         UserStoryTask task = userStoryTaskRepository.findByIdElseThrow(taskId);
-        checkBeforeDueDateElseThrow(checkOwnTaskElseThrow(task, user));
+        checkBoardWritableElseThrow(checkOwnTaskElseThrow(task, user), user);
         validate(taskDTO);
         checkDoneRequiresActualEffort(taskDTO.state(), taskDTO.actualEffortHours());
         applyFields(task, taskDTO);
@@ -133,7 +133,7 @@ public class UserStoryTaskService {
      */
     public UserStoryTaskDTO advanceState(long taskId, User user) {
         UserStoryTask task = userStoryTaskRepository.findByIdElseThrow(taskId);
-        checkBeforeDueDateElseThrow(checkOwnTaskElseThrow(task, user));
+        checkBoardWritableElseThrow(checkOwnTaskElseThrow(task, user), user);
         TaskState next = task.getState().next();
         if (next == null) {
             throw new BadRequestAlertException("A done task cannot be advanced any further", ENTITY_NAME, "alreadyDone");
@@ -153,7 +153,7 @@ public class UserStoryTaskService {
      */
     public List<UserStoryTaskDTO> reorder(long exerciseId, List<Long> orderedTaskIds, User user) {
         StudentParticipation participation = resolveOwnParticipationElseThrow(exerciseId, user);
-        checkBeforeDueDateElseThrow(participation);
+        checkBoardWritableElseThrow(participation, user);
         List<UserStoryTask> tasks = userStoryTaskRepository.findAllByParticipationIdOrderByOrderIndexAsc(participation.getId());
 
         if (orderedTaskIds.size() != tasks.size() || new HashSet<>(orderedTaskIds).size() != orderedTaskIds.size()) {
@@ -180,7 +180,7 @@ public class UserStoryTaskService {
      */
     public void delete(long taskId, User user) {
         UserStoryTask task = userStoryTaskRepository.findByIdElseThrow(taskId);
-        checkBeforeDueDateElseThrow(checkOwnTaskElseThrow(task, user));
+        checkBoardWritableElseThrow(checkOwnTaskElseThrow(task, user), user);
         userStoryTaskRepository.delete(task);
     }
 
@@ -208,15 +208,16 @@ public class UserStoryTaskService {
      *
      * @param exerciseId the id of the exercise, which must be a {@link UserStoryExercise}
      * @param user       the requesting user
-     * @return the user's (or their team's) participation in that exercise
+     * @return the user's (or their team's) graded participation in that exercise
      */
     private StudentParticipation resolveOwnParticipationElseThrow(long exerciseId, User user) {
         Exercise exercise = exerciseRepository.findByIdElseThrow(exerciseId);
         if (!(exercise instanceof UserStoryExercise)) {
             throw new BadRequestAlertException("Tasks can only be created for a user story exercise", ENTITY_NAME, "notUserStoryExercise");
         }
-        // Team-aware: for a team exercise this resolves the team's single participation, so its members share one board.
-        StudentParticipation participation = participationService.findOneByExerciseAndStudentAnyState(exercise, user)
+        // The graded participation: a practice participation has no board of its own. Team-aware: for a team exercise this
+        // resolves the team's single participation, so its members share one board.
+        StudentParticipation participation = participationService.findOneGradedByExerciseAndStudentAnyState(exercise, user)
                 .orElseThrow(() -> new BadRequestAlertException("The exercise has to be started before tasks can be created for it", ENTITY_NAME, "participationMissing"));
         // Belt and braces: the lookup above is already scoped to this user, so this only ever fires if that changes.
         participationAuthorizationCheckService.checkCanAccessParticipationElseThrow(participation);
@@ -237,6 +238,17 @@ public class UserStoryTaskService {
             throw new AccessForbiddenException(ENTITY_NAME, task.getId());
         }
         return participation;
+    }
+
+    /**
+     * Rejects any change to a board that is frozen: once its story is due (see {@link #checkBeforeDueDateElseThrow}), and
+     * while the user works on the story in practice mode, which must not alter the board the story is assessed against.
+     */
+    private void checkBoardWritableElseThrow(StudentParticipation participation, User user) {
+        checkBeforeDueDateElseThrow(participation);
+        if (studentParticipationRepository.existsPracticeByExerciseIdAndStudentId(participation.getExercise().getId(), user.getId())) {
+            throw new BadRequestAlertException("Tasks cannot be changed in practice mode", ENTITY_NAME, "practiceMode");
+        }
     }
 
     /**

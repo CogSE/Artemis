@@ -413,6 +413,45 @@ public interface StudentParticipationRepository extends ArtemisJpaRepository<Stu
             """)
     Optional<StudentParticipation> findWithEagerExerciseContextByExerciseIdAndStudentId(@Param("exerciseId") long exerciseId, @Param("studentId") long studentId);
 
+    /**
+     * Like {@link #findWithEagerExerciseContextByExerciseIdAndStudentId(long, long)}, but only the graded participation, so that a practice participation
+     * in the same exercise does not make the result ambiguous.
+     *
+     * @param exerciseId the id of the exercise
+     * @param studentId  the id of the student
+     * @return the graded participation with its exercise, course, exam and student
+     */
+    @Query("""
+            SELECT DISTINCT p
+            FROM StudentParticipation p
+                LEFT JOIN FETCH p.exercise ex
+                LEFT JOIN FETCH ex.course
+                LEFT JOIN FETCH ex.exerciseGroup exerciseGroup
+                LEFT JOIN FETCH exerciseGroup.exam exam
+                LEFT JOIN FETCH exam.course
+                LEFT JOIN FETCH p.student
+            WHERE p.exercise.id = :exerciseId
+                AND p.student.id = :studentId
+                AND p.testRun = FALSE
+            """)
+    Optional<StudentParticipation> findGradedWithEagerExerciseContextByExerciseIdAndStudentId(@Param("exerciseId") long exerciseId, @Param("studentId") long studentId);
+
+    /**
+     * Whether the student has started practice mode in the exercise.
+     *
+     * @param exerciseId the id of the exercise
+     * @param studentId  the id of the student
+     * @return true if the student owns a practice participation in the exercise
+     */
+    @Query("""
+            SELECT COUNT(p.id) > 0
+            FROM StudentParticipation p
+            WHERE p.exercise.id = :exerciseId
+                AND p.student.id = :studentId
+                AND p.testRun = TRUE
+            """)
+    boolean existsPracticeByExerciseIdAndStudentId(@Param("exerciseId") long exerciseId, @Param("studentId") long studentId);
+
     Optional<StudentParticipation> findFirstByExerciseIdAndStudentIdOrderByIdDesc(long exerciseId, long studentId);
 
     /**

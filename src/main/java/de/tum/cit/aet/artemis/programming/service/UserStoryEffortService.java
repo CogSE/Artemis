@@ -79,15 +79,16 @@ public class UserStoryEffortService {
      *
      * @param exerciseId the id of the exercise, which must be a {@link UserStoryExercise}
      * @param user       the requesting user
-     * @return the user's (or their team's) participation in that exercise
+     * @return the user's (or their team's) graded participation in that exercise
      */
     private StudentParticipation resolveOwnParticipationElseThrow(long exerciseId, User user) {
         Exercise exercise = exerciseRepository.findByIdElseThrow(exerciseId);
         if (!(exercise instanceof UserStoryExercise)) {
             throw new BadRequestAlertException("Effort can only be reported for a user story exercise", ENTITY_NAME, "notUserStoryExercise");
         }
-        // Team-aware: for a team exercise this resolves the team's single participation, so its members share one pair.
-        StudentParticipation participation = participationService.findOneByExerciseAndStudentAnyState(exercise, user)
+        // The graded participation: a practice participation has no board of its own. Team-aware: for a team exercise this
+        // resolves the team's single participation, so its members share one pair.
+        StudentParticipation participation = participationService.findOneGradedByExerciseAndStudentAnyState(exercise, user)
                 .orElseThrow(() -> new BadRequestAlertException("The exercise has to be started before its effort can be reported", ENTITY_NAME, "participationMissing"));
         // Belt and braces: the lookup above is already scoped to this user, so this only ever fires if that changes.
         participationAuthorizationCheckService.checkCanAccessParticipationElseThrow(participation);

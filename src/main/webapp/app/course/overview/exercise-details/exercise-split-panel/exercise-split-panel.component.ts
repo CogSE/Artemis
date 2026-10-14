@@ -154,8 +154,10 @@ export class ExerciseSplitPanelComponent {
 
     readonly showTasks = computed(() => this.exercise().type === ExerciseType.USER_STORY && this.studentParticipation()?.id !== undefined);
 
-    /** The task board is frozen once the story is due; the server rejects any change from then on. */
-    readonly tasksReadOnly = computed(() => hasExerciseDueDatePassed(this.exercise(), this.studentParticipation()));
+    /** The task board is frozen once the story is due and in practice mode; the server rejects any change then. */
+    readonly tasksReadOnly = computed(
+        () => this.participationMode() === 'practice' || !!this.studentParticipation()?.testRun || hasExerciseDueDatePassed(this.exercise(), this.studentParticipation()),
+    );
 
     /** A UserStoryExercise is a ProgrammingExercise (shares its group's repositories/code editor), so it follows the same student-facing behavior wherever this file branches on ExerciseType.PROGRAMMING. */
     private static isProgrammingLike(type: ExerciseType | undefined): boolean {

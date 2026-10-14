@@ -133,6 +133,19 @@ class UserStoryEffortIntegrationTest extends AbstractProgrammingIntegrationIndep
 
     @Test
     @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void readingEffortReportsTheGradedBoardInPracticeMode() throws Exception {
+        var participation = participationUtilService.addStudentParticipationForProgrammingExercise(userStory, studentLogin);
+        taskFor(participation, 2.0, 1.0);
+        participationUtilService.createAndSavePracticeParticipationForExercise(userStory, studentLogin);
+
+        UserStoryEffortDTO effort = request.get(effortUrl(userStory.getId()), HttpStatus.OK, UserStoryEffortDTO.class);
+
+        assertThat(effort.estimatedEffort()).isEqualTo(2.0);
+        assertThat(effort.actualEffort()).isEqualTo(1.0);
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
     void readingEffortIsRejectedWithoutAParticipation() throws Exception {
         request.get(effortUrl(userStory.getId()), HttpStatus.BAD_REQUEST, UserStoryEffortDTO.class);
     }

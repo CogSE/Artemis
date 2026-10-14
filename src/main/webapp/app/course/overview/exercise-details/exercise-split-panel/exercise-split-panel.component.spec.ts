@@ -12,6 +12,7 @@ import { AccountService } from 'app/core/auth/account.service';
 import { LLMSelectionDecision } from 'app/account/user/shared/dto/updateLLMSelectionDecision.dto';
 import { User } from 'app/account/user/user.model';
 import { Exercise, ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
+import dayjs from 'dayjs/esm';
 import { StudentParticipation } from 'app/exercise/shared/entities/participation/student-participation.model';
 import { IrisChatService } from 'app/iris/overview/services/iris-chat.service';
 import { ExerciseSplitPanelComponent } from 'app/course/overview/exercise-details/exercise-split-panel/exercise-split-panel.component';
@@ -184,6 +185,28 @@ describe('ExerciseSplitPanelComponent', () => {
         fixture.detectChanges();
 
         expect(navigateSpy).not.toHaveBeenCalled();
+    });
+
+    describe('user story task board', () => {
+        // The due date is still ahead, so only practice mode can make the board read-only.
+        const userStory = { id: 7, type: ExerciseType.USER_STORY, allowOnlineEditor: false, dueDate: dayjs().add(1, 'day') } as unknown as Exercise;
+
+        it('is editable on the graded participation before the due date', () => {
+            fixture.componentRef.setInput('exercise', userStory);
+            fixture.componentRef.setInput('studentParticipation', { id: 11 } as StudentParticipation);
+
+            expect(component.tasksReadOnly()).toBe(false);
+        });
+
+        it('is read-only in practice mode', () => {
+            fixture.componentRef.setInput('exercise', userStory);
+            fixture.componentRef.setInput('studentParticipation', { id: 12, testRun: true } as StudentParticipation);
+            expect(component.tasksReadOnly()).toBe(true);
+
+            fixture.componentRef.setInput('studentParticipation', { id: 11 } as StudentParticipation);
+            fixture.componentRef.setInput('participationMode', 'practice');
+            expect(component.tasksReadOnly()).toBe(true);
+        });
     });
 
     describe('quiz practice navigation', () => {

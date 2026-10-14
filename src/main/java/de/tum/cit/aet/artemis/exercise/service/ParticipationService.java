@@ -1112,6 +1112,22 @@ public class ParticipationService {
     }
 
     /**
+     * Get the graded participation (in any state) of a student in an exercise, ignoring a practice participation the student may also own.
+     *
+     * @param exercise the exercise for which to find a participation
+     * @param student  the student whose participation to find
+     * @return the graded participation of the given student (or their team) in the given exercise
+     */
+    public Optional<StudentParticipation> findOneGradedByExerciseAndStudentAnyState(Exercise exercise, User student) {
+        if (exercise.isTeamMode()) {
+            // A team exercise has no practice mode, so the team's participation is the graded one.
+            Optional<Team> optionalTeam = teamRepository.findOneByExerciseIdAndUserId(exercise.getId(), student.getId());
+            return optionalTeam.flatMap(team -> studentParticipationRepository.findOneByExerciseIdAndTeamId(exercise.getId(), team.getId()));
+        }
+        return studentParticipationRepository.findGradedWithEagerExerciseContextByExerciseIdAndStudentId(exercise.getId(), student.getId());
+    }
+
+    /**
      * Get one graded participation (in any state) by its participant and exercise.
      *
      * @param exercise    the exercise for which to find a participation
