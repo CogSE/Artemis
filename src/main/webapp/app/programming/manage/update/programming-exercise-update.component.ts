@@ -86,6 +86,8 @@ const MILESTONE_HIDDEN_FIELDS: ProgrammingExerciseInputField[] = [
     ProgrammingExerciseInputField.PLAGIARISM_CONTROL,
 ];
 
+const LANGUAGE_STEP_TITLE = 'artemisApp.programmingExercise.wizardMode.detailedSteps.languageStepTitle';
+
 /**
  * Fields forced hidden for a UserStoryExercise - the mirror image of MILESTONE_HIDDEN_FIELDS. Language/Version-Control/
  * build-config/IDE/timeline settings are owned by the group's MilestoneExercise (see
@@ -878,7 +880,7 @@ export class ProgrammingExerciseUpdateComponent implements AfterViewInit, OnDest
                 valid: (this.exerciseDifficultyComponent()?.teamConfigComponent?.formValid && this.validIdeSelection()) ?? false,
             },
             {
-                title: 'artemisApp.programmingExercise.wizardMode.detailedSteps.languageStepTitle',
+                title: LANGUAGE_STEP_TITLE,
                 valid: (this.exerciseLanguageComponent()?.formValid && this.validOnlineIdeSelection()) ?? false,
             },
             {
@@ -901,6 +903,13 @@ export class ProgrammingExerciseUpdateComponent implements AfterViewInit, OnDest
             // which is why the difficulty is moved to the general section instead
             const MODE_SECTION_INDEX = 1;
             updatedFormStatusSections.splice(MODE_SECTION_INDEX, MODE_SECTION_INDEX);
+        }
+
+        // A user story takes its language from its milestone, so the page has no language section to check. Read
+        // through the signal so the effect in the constructor recalculates once the route resolves user story mode.
+        if (this.isUserStoryModeSignal()) {
+            this.formStatusSections.set(updatedFormStatusSections.filter((section) => section.title !== LANGUAGE_STEP_TITLE));
+            return;
         }
 
         this.formStatusSections.set(updatedFormStatusSections);

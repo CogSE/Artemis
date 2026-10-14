@@ -1915,6 +1915,17 @@ describe('ProgrammingExerciseUpdateComponent', () => {
         expect(problemSection?.valid).toBe(false);
     });
 
+    it('should not show the language section for a user story, whose language comes from its milestone', () => {
+        comp.programmingExercise = new ProgrammingExercise(undefined, undefined);
+        comp.isUserStoryMode = true;
+
+        comp.calculateFormStatusSections();
+
+        const titles = comp.formStatusSections().map((section) => section.title);
+        expect(titles).not.toContain('artemisApp.programmingExercise.wizardMode.detailedSteps.languageStepTitle');
+        expect(titles).toContain('artemisApp.programmingExercise.wizardMode.detailedSteps.problemStepTitle');
+    });
+
     it('should validate form sections', () => {
         const calculateFormValidSectionsSpy = vi.spyOn(comp, 'calculateFormStatusSections');
         comp.programmingExercise = new ProgrammingExercise(undefined, undefined);
