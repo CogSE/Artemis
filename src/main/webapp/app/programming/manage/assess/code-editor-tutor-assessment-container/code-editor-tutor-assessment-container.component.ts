@@ -224,6 +224,11 @@ export class CodeEditorTutorAssessmentContainerComponent implements OnInit, OnDe
      * the whole group, so the per-exercise dashboard of one user story is not where the tutor belongs.
      */
     readonly overrideExerciseDashboardLink = input<string[] | undefined>(undefined);
+    /**
+     * Whether to show the effort the participant reported. The milestone assessment page turns it off because its task
+     * table above the editor already shows the estimated and actual effort.
+     */
+    readonly showReportedEffort = input<boolean>(true);
     readonly hostCorrectionRound = input<number | undefined>(undefined);
 
     /**
@@ -943,7 +948,7 @@ export class CodeEditorTutorAssessmentContainerComponent implements OnInit, OnDe
      */
     private loadReportedEffort(exercise: ProgrammingExercise, participationId: number | undefined): void {
         this.reportedEffort.set(undefined);
-        if (exercise?.type !== ExerciseType.USER_STORY || participationId === undefined) {
+        if (!this.showReportedEffort() || exercise?.type !== ExerciseType.USER_STORY || participationId === undefined) {
             return;
         }
         this.userStoryEffortService.getEffortForParticipation(participationId).subscribe({

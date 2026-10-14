@@ -60,7 +60,7 @@
         />
         <!-- A user story's reported effort. Read off the participation, which is already loaded here, so this costs no
              request; shown even when unreported, since "not reported" is itself information while assessing. -->
-        @if (exercise()?.type === USER_STORY) {
+        @if (showReportedEffort() && exercise()?.type === USER_STORY) {
             <div class="d-flex gap-3 mb-2" id="user-story-effort-assessment">
                 <span>
                     <span jhiTranslate="artemisApp.userStoryEffort.estimatedEffortShort"></span>:
