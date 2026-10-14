@@ -318,6 +318,7 @@
                     "createHeader": "Create Task",
                     "editHeader": "Edit Task",
                     "emptyState": "No tasks created yet.",
+                    "readOnlyAfterDueDate": "The due date has passed, so the tasks can no longer be changed.",
                     "title": "Title",
                     "titlePlaceholder": "Enter a short title",
                     "description": "Description",

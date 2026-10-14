@@ -2,6 +2,7 @@ package de.tum.cit.aet.artemis.programming.service;
 
 import static de.tum.cit.aet.artemis.core.config.Constants.PROFILE_CORE;
 
+import java.time.ZonedDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -91,6 +92,7 @@ public class UserStoryTaskService {
      */
     public UserStoryTaskDTO create(long exerciseId, UserStoryTaskDTO taskDTO, User user) {
         StudentParticipation participation = resolveOwnParticipationElseThrow(exerciseId, user);
+        checkBeforeDueDateElseThrow(participation);
         validate(taskDTO);
 
         UserStoryTask task = new UserStoryTask();
@@ -113,7 +115,7 @@ public class UserStoryTaskService {
      */
     public UserStoryTaskDTO update(long taskId, UserStoryTaskDTO taskDTO, User user) {
         UserStoryTask task = userStoryTaskRepository.findByIdElseThrow(taskId);
-        checkOwnTaskElseThrow(task, user);
+        checkBeforeDueDateElseThrow(checkOwnTaskElseThrow(task, user));
         validate(taskDTO);
         checkDoneRequiresActualEffort(taskDTO.state(), taskDTO.actualEffortHours());
         applyFields(task, taskDTO);
@@ -131,7 +133,7 @@ public class UserStoryTaskService {
      */
     public UserStoryTaskDTO advanceState(long taskId, User user) {
         UserStoryTask task = userStoryTaskRepository.findByIdElseThrow(taskId);
-        checkOwnTaskElseThrow(task, user);
+        checkBeforeDueDateElseThrow(checkOwnTaskElseThrow(task, user));
         TaskState next = task.getState().next();
         if (next == null) {
             throw new BadRequestAlertException("A done task cannot be advanced any further", ENTITY_NAME, "alreadyDone");
@@ -151,6 +153,7 @@ public class UserStoryTaskService {
      */
     public List<UserStoryTaskDTO> reorder(long exerciseId, List<Long> orderedTaskIds, User user) {
         StudentParticipation participation = resolveOwnParticipationElseThrow(exerciseId, user);
+        checkBeforeDueDateElseThrow(participation);
         List<UserStoryTask> tasks = userStoryTaskRepository.findAllByParticipationIdOrderByOrderIndexAsc(participation.getId());
 
         if (orderedTaskIds.size() != tasks.size() || new HashSet<>(orderedTaskIds).size() != orderedTaskIds.size()) {
@@ -177,7 +180,7 @@ public class UserStoryTaskService {
      */
     public void delete(long taskId, User user) {
         UserStoryTask task = userStoryTaskRepository.findByIdElseThrow(taskId);
-        checkOwnTaskElseThrow(task, user);
+        checkBeforeDueDateElseThrow(checkOwnTaskElseThrow(task, user));
         userStoryTaskRepository.delete(task);
     }
 
@@ -225,11 +228,29 @@ public class UserStoryTaskService {
      * stricter than {@link ParticipationAuthorizationCheckService#checkCanAccessParticipationElseThrow}, which also
      * lets a tutor read the participation: a personal task board is the participant's own to change. A tutor only ever
      * reads it, through the milestone assessment ({@code MilestoneAssessmentService}).
+     *
+     * @return the participation the task belongs to
      */
-    private void checkOwnTaskElseThrow(UserStoryTask task, User user) {
+    private StudentParticipation checkOwnTaskElseThrow(UserStoryTask task, User user) {
         StudentParticipation participation = studentParticipationRepository.findByIdElseThrow(task.getParticipation().getId());
         if (!participation.isOwnedBy(user)) {
             throw new AccessForbiddenException(ENTITY_NAME, task.getId());
+        }
+        return participation;
+    }
+
+    /**
+     * Rejects any change to a board once its story is due: the board is what the story is assessed against, so it is
+     * frozen from then on. A participation's individual due date wins over the story's own, as for submissions.
+     * The exercise is reloaded by id, since the participation's may be an unfetched proxy.
+     */
+    private void checkBeforeDueDateElseThrow(StudentParticipation participation) {
+        ZonedDateTime dueDate = participation.getIndividualDueDate();
+        if (dueDate == null) {
+            dueDate = exerciseRepository.findByIdElseThrow(participation.getExercise().getId()).getDueDate();
+        }
+        if (dueDate != null && ZonedDateTime.now().isAfter(dueDate)) {
+            throw new BadRequestAlertException("Tasks can no longer be changed after the due date", ENTITY_NAME, "dueDatePassed");
         }
     }
 

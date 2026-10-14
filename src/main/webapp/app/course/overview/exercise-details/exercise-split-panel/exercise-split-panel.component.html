@@ -140,7 +140,7 @@
 
     @if (showTasks()) {
         <ng-template jhiPanel [label]="'artemisApp.courseOverview.exerciseDetails.tasks.label'" [icon]="faListCheck">
-            <jhi-user-story-tasks [exerciseId]="exercise().id!" />
+            <jhi-user-story-tasks [exerciseId]="exercise().id!" [readOnly]="tasksReadOnly()" />
         </ng-template>
     }
 

@@ -318,6 +318,7 @@
                     "createHeader": "Task erstellen",
                     "editHeader": "Task bearbeiten",
                     "emptyState": "Noch keine Tasks erstellt.",
+                    "readOnlyAfterDueDate": "Die Abgabefrist ist vorbei, die Tasks können nicht mehr geändert werden.",
                     "title": "Titel",
                     "titlePlaceholder": "Kurzen Titel eingeben",
                     "description": "Beschreibung",

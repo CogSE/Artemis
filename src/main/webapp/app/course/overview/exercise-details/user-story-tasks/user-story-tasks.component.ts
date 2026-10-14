@@ -54,6 +54,8 @@ export class UserStoryTasksComponent implements OnInit {
     private readonly alertService = inject(AlertService);
 
     readonly exerciseId = input.required<number>();
+    /** Set once the story is due: the board stays visible, but nothing on it can be created, changed or moved. */
+    readonly readOnly = input<boolean>(false);
 
     protected readonly faPlus = faPlus;
     protected readonly faPen = faPen;
@@ -133,7 +135,7 @@ export class UserStoryTasksComponent implements OnInit {
 
     /** Editable only while IN_PROGRESS: NEW hides the field entirely, and DONE freezes whatever was last logged. */
     protected canEditActualEffort(task: UserStoryTask): boolean {
-        return (task.state ?? 'NEW') === 'IN_PROGRESS';
+        return !this.readOnly() && (task.state ?? 'NEW') === 'IN_PROGRESS';
     }
 
     /** The advance button would move an IN_PROGRESS task to DONE, which requires a logged actual effort first. */
