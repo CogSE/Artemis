@@ -162,7 +162,7 @@ export class ExerciseScoresComponent implements OnInit, OnDestroy {
         return Object.values(FilterProp).filter((f) => {
             switch (f) {
                 case FilterProp.BUILD_FAILED:
-                    return this.isProgrammingExercise();
+                    return isProgrammingExerciseType(ex.type);
                 case FilterProp.MANUAL:
                 case FilterProp.AUTOMATIC:
                     return this.newManualResultAllowed() || !!ex.allowComplaintsForAutomaticAssessments;
@@ -251,7 +251,7 @@ export class ExerciseScoresComponent implements OnInit, OnDestroy {
             });
         }
 
-        if (!compact && this.isProgrammingExercise() && this.afterDueDate()) {
+        if (!compact && isProgrammingExerciseType(ex.type) && this.afterDueDate()) {
             cols.push({
                 headerKey: 'artemisApp.participation.practice',
                 field: 'testRun',
