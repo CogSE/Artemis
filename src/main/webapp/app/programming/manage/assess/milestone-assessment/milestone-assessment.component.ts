@@ -3,7 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
-import { TumAetUiTabComponent, TumAetUiTabListComponent, TumAetUiTabValue, TumAetUiTabsComponent } from '@tumaet/ui-angular';
+import { TumAetUiTabComponent, TumAetUiTabListComponent, TumAetUiTabValue, TumAetUiTabsComponent, TumAetUiTooltipDirective } from '@tumaet/ui-angular';
 import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pipe';
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
 import { AlertService } from 'app/foundation/service/alert.service';
@@ -47,6 +47,7 @@ const OVERVIEW_TAB = 'milestone';
         TumAetUiTabsComponent,
         TumAetUiTabListComponent,
         TumAetUiTabComponent,
+        TumAetUiTooltipDirective,
         CourseTitleBarTitleDirective,
         MilestoneAssessmentOverviewComponent,
         MilestoneAssessmentTasksComponent,

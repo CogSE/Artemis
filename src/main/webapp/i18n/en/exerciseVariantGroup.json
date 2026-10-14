@@ -69,6 +69,7 @@
             "nextExercise": "Assess Next Exercise",
             "overviewTab": "Milestone",
             "exerciseNotStarted": "This student has not started this exercise, so there is nothing to assess.",
+            "nothingSubmittedTooltip": "This student has not handed in anything for this exercise, so there is nothing to assess.",
             "quizAutomatic": "Quizzes are graded automatically, so there is nothing to assess by hand.",
             "loadFailed": "The milestone assessment could not be loaded.",
             "overview": {
