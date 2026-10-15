@@ -39,9 +39,9 @@ import de.tum.cit.aet.artemis.programming.repository.StaticCodeAnalysisCategoryR
  * <li>a test case the build has not created yet is created here, active and with the exported settings. The build
  * finds it by name and leaves it as it is, and would deactivate it if the tests no longer contained it.</li>
  * </ul>
- * The user stories copy these settings from the milestone whenever they sync their test cases (see
+ * The user stories copy these settings from the milestone when their own test case rows are created (see
  * {@link UserStoryExerciseService#syncTestCasesFromMilestone}), so applying them to the milestone before the user
- * stories are created is all they need.
+ * stories are created is all they need. Later changes to the milestone's settings do not reach existing user stories.
  */
 @Profile(PROFILE_CORE)
 @Lazy

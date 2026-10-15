@@ -339,10 +339,12 @@ public class ProgrammingExerciseUpdateResource {
         // milestone with no members yet, and for every other exercise type. Re-fetched fresh (rather than reusing
         // savedProgrammingExercise) because the save above ran in its own session and did not eagerly load
         // template/solution participations, so touching them here would otherwise throw LazyInitializationException.
-        if (savedProgrammingExercise instanceof UserStoryExercise) {
+        if (savedProgrammingExercise instanceof UserStoryExercise userStoryExercise) {
             // A story's points are a share of its milestone's total, so repointing one repoints the milestone (which also
             // re-derives the group's static code analysis budget) and invalidates every student's aggregated score.
             milestoneExercisePointsService.syncMaxPointsForUserStory(savedProgrammingExercise.getId());
+            // Its tasks, which the saved problem statement may have changed, decide which of its test cases count.
+            userStoryExerciseService.updateRelevantTestCases(userStoryExercise);
         }
         if (savedProgrammingExercise instanceof MilestoneExercise) {
             // update() already keeps the persisted points; re-deriving them as well makes the invariant hold even if the

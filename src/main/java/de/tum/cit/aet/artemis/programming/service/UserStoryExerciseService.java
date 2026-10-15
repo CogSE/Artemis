@@ -1,6 +1,7 @@
 package de.tum.cit.aet.artemis.programming.service;
 
 import static de.tum.cit.aet.artemis.core.config.Constants.PROFILE_CORE;
+import static de.tum.cit.aet.artemis.programming.web.ProgrammingWebsocketTopics.TEST_CASES;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+import de.tum.cit.aet.artemis.communication.service.WebsocketMessagingService;
 import de.tum.cit.aet.artemis.exercise.domain.Exercise;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
@@ -27,6 +29,7 @@ import de.tum.cit.aet.artemis.programming.domain.ProgrammingSubmission;
 import de.tum.cit.aet.artemis.programming.domain.SolutionProgrammingExerciseParticipation;
 import de.tum.cit.aet.artemis.programming.domain.TemplateProgrammingExerciseParticipation;
 import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
+import de.tum.cit.aet.artemis.programming.dto.ProgrammingExerciseTestCaseResponseDTO;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseBuildConfigRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseStudentParticipationRepository;
@@ -85,11 +88,14 @@ public class UserStoryExerciseService {
 
     private final ProgrammingSubmissionMessagingService programmingSubmissionMessagingService;
 
+    private final WebsocketMessagingService websocketMessagingService;
+
     public UserStoryExerciseService(ProgrammingExerciseTestCaseRepository programmingExerciseTestCaseRepository,
             ProgrammingExerciseTaskRepository programmingExerciseTaskRepository, ProgrammingExerciseTaskService programmingExerciseTaskService,
             ProgrammingExerciseRepository programmingExerciseRepository, ProgrammingExerciseBuildConfigRepository programmingExerciseBuildConfigRepository,
             MilestoneExerciseGroupRepository milestoneExerciseGroupRepository, ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository,
-            ProgrammingSubmissionRepository programmingSubmissionRepository, ProgrammingSubmissionMessagingService programmingSubmissionMessagingService) {
+            ProgrammingSubmissionRepository programmingSubmissionRepository, ProgrammingSubmissionMessagingService programmingSubmissionMessagingService,
+            WebsocketMessagingService websocketMessagingService) {
         this.programmingExerciseTestCaseRepository = programmingExerciseTestCaseRepository;
         this.programmingExerciseTaskRepository = programmingExerciseTaskRepository;
         this.programmingExerciseTaskService = programmingExerciseTaskService;
@@ -99,6 +105,7 @@ public class UserStoryExerciseService {
         this.programmingExerciseStudentParticipationRepository = programmingExerciseStudentParticipationRepository;
         this.programmingSubmissionRepository = programmingSubmissionRepository;
         this.programmingSubmissionMessagingService = programmingSubmissionMessagingService;
+        this.websocketMessagingService = websocketMessagingService;
     }
 
     /**
@@ -193,8 +200,10 @@ public class UserStoryExerciseService {
      *
      * @param userStoryExercise the exercise to update in place
      * @param milestoneExercise the group's milestone exercise to copy the configuration from
+     * @param copyAllSettings   whether the grading settings of test cases the user story already has are reset to the
+     *                              milestone's as well, see {@link #syncTestCasesFromMilestone}
      */
-    public void applyMilestoneConfig(UserStoryExercise userStoryExercise, MilestoneExercise milestoneExercise) {
+    public void applyMilestoneConfig(UserStoryExercise userStoryExercise, MilestoneExercise milestoneExercise, boolean copyAllSettings) {
         userStoryExercise.setProgrammingLanguage(milestoneExercise.getProgrammingLanguage());
         userStoryExercise.setPackageName(milestoneExercise.getPackageName());
         userStoryExercise.setProjectType(milestoneExercise.getProjectType());
@@ -232,7 +241,9 @@ public class UserStoryExerciseService {
         // that case; see the create endpoint.
         if (userStoryExercise.getId() != null) {
             syncBuildConfigFromMilestone(userStoryExercise, milestoneExercise);
-            syncTestCasesFromMilestone(userStoryExercise, milestoneExercise);
+            syncTestCasesFromMilestone(userStoryExercise, milestoneExercise, copyAllSettings);
+            // the synced rows need a relevance decision, and the open problem statement editor the new test list
+            updateRelevantTestCases(userStoryExercise);
         }
     }
 
@@ -253,17 +264,24 @@ public class UserStoryExerciseService {
     }
 
     /**
-     * Duplicates {@code milestoneExercise}'s current test case definitions (name, weight, bonus, visibility, type) onto
-     * {@code userStoryExercise} as its own rows, matched by test name. New rows start inactive; existing rows keep
-     * their current {@code active} state (only {@link #updateRelevantTestCases} changes that, based on task
-     * membership). A test case removed from the milestone's suite is removed here too, dropping its task links along
-     * with it (join table). Persists immediately, since (unlike the other config synced above) there is no single
-     * owning entity save that would otherwise cascade these rows.
+     * Duplicates {@code milestoneExercise}'s current test suite onto {@code userStoryExercise} as its own rows, matched
+     * by test name. A new row starts inactive and with the milestone's weight, bonus and visibility; from then on these
+     * grading settings belong to the user story and are configured on its own grading page, so a later sync leaves them
+     * alone and only keeps the test type in step with the milestone. Existing rows keep their current {@code active}
+     * state (only {@link #updateRelevantTestCases} changes that, based on task membership). A test case removed from the
+     * milestone's suite is removed here too, dropping its task links along with it (join table). Persists immediately,
+     * since (unlike the other config synced above) there is no single owning entity save that would otherwise cascade
+     * these rows.
+     * <p>
+     * With {@code copyAllSettings}, the grading settings of existing rows are reset to the milestone's as well. That is
+     * for a user story that moved to another milestone: what was configured for the old milestone's tests does not carry
+     * over to the new one's.
      *
      * @param userStoryExercise the exercise whose test cases to update; must already be persisted (have an id)
      * @param milestoneExercise the group's milestone exercise, the source of truth for the shared test suite
+     * @param copyAllSettings   whether existing rows also take the milestone's weight, bonus and visibility
      */
-    public void syncTestCasesFromMilestone(UserStoryExercise userStoryExercise, MilestoneExercise milestoneExercise) {
+    public void syncTestCasesFromMilestone(UserStoryExercise userStoryExercise, MilestoneExercise milestoneExercise, boolean copyAllSettings) {
         Set<ProgrammingExerciseTestCase> milestoneTestCases = programmingExerciseTestCaseRepository.findByExerciseId(milestoneExercise.getId());
         Set<ProgrammingExerciseTestCase> ownTestCases = programmingExerciseTestCaseRepository.findByExerciseId(userStoryExercise.getId());
         Map<String, ProgrammingExerciseTestCase> ownByName = ownTestCases.stream()
@@ -278,10 +296,17 @@ public class UserStoryExerciseService {
                 own.setExercise(userStoryExercise);
                 own.setActive(false);
             }
-            own.setWeight(milestoneTestCase.getWeight());
-            own.setBonusMultiplier(milestoneTestCase.getBonusMultiplier());
-            own.setBonusPoints(milestoneTestCase.getBonusPoints());
-            own.setVisibility(milestoneTestCase.getVisibility());
+            else if (!copyAllSettings && own.getType() == milestoneTestCase.getType()) {
+                // nothing the sync owns has changed, so the row is not written on every milestone build
+                continue;
+            }
+            if (own.getId() == null || copyAllSettings) {
+                // Only the initial grading settings come from the milestone, unless all are reset - see the javadoc
+                own.setWeight(milestoneTestCase.getWeight());
+                own.setBonusMultiplier(milestoneTestCase.getBonusMultiplier());
+                own.setBonusPoints(milestoneTestCase.getBonusPoints());
+                own.setVisibility(milestoneTestCase.getVisibility());
+            }
             own.setType(milestoneTestCase.getType());
             toSave.add(own);
         }
@@ -296,7 +321,8 @@ public class UserStoryExerciseService {
      * Runs {@link #syncTestCasesFromMilestone} for every {@code UserStoryExercise} member of {@code milestoneGroup},
      * then re-derives each one's relevant (active) test cases from its own current tasks. Called after the milestone's
      * solution build extracts a (possibly changed) set of test cases from its test repository, so every sibling's test
-     * case rows - and therefore its grading - stay current without requiring an edit to that sibling itself.
+     * case rows stay current without requiring an edit to that sibling itself. Each sibling keeps its own grading
+     * settings for the test cases it already has (see {@link #syncTestCasesFromMilestone}).
      *
      * @param milestoneGroup    the group whose members to update; its {@code exercises} must already be loaded
      * @param milestoneExercise the group's milestone exercise, freshly reloaded so its test cases are up to date
@@ -304,7 +330,7 @@ public class UserStoryExerciseService {
     public void syncAllMembersTestCases(MilestoneExerciseGroup milestoneGroup, MilestoneExercise milestoneExercise) {
         for (var exercise : milestoneGroup.getExercises()) {
             if (exercise instanceof UserStoryExercise userStoryExercise) {
-                syncTestCasesFromMilestone(userStoryExercise, milestoneExercise);
+                syncTestCasesFromMilestone(userStoryExercise, milestoneExercise, false);
                 updateRelevantTestCases(userStoryExercise);
             }
         }
@@ -329,7 +355,7 @@ public class UserStoryExerciseService {
     public void syncAllMembersConfig(MilestoneExerciseGroup milestoneGroup, MilestoneExercise milestoneExercise) {
         for (var exercise : milestoneGroup.getExercises()) {
             if (exercise instanceof UserStoryExercise) {
-                programmingExerciseRepository.save(applyMilestoneConfigFreshFromDatabase(exercise.getId(), milestoneExercise));
+                programmingExerciseRepository.save(applyMilestoneConfigFreshFromDatabase(exercise.getId(), milestoneExercise, false));
             }
         }
     }
@@ -346,12 +372,13 @@ public class UserStoryExerciseService {
      *
      * @param userStoryExerciseId the id of the already-persisted user story exercise to update
      * @param milestoneExercise   the group's milestone exercise, the source of truth for the shared config
+     * @param copyAllSettings     whether the grading settings of existing test cases are reset to the milestone's as well
      * @return the fresh, config-updated instance - the caller still saves it, so its own further changes land on the same save
      */
-    public UserStoryExercise applyMilestoneConfigFreshFromDatabase(long userStoryExerciseId, MilestoneExercise milestoneExercise) {
+    public UserStoryExercise applyMilestoneConfigFreshFromDatabase(long userStoryExerciseId, MilestoneExercise milestoneExercise, boolean copyAllSettings) {
         UserStoryExercise userStoryExercise = (UserStoryExercise) programmingExerciseRepository
                 .findByIdWithTemplateAndSolutionParticipationTeamAssignmentConfigCategoriesCompetenciesAndVariantGroupElseThrow(userStoryExerciseId);
-        applyMilestoneConfig(userStoryExercise, milestoneExercise);
+        applyMilestoneConfig(userStoryExercise, milestoneExercise, copyAllSettings);
         return userStoryExercise;
     }
 
@@ -363,7 +390,8 @@ public class UserStoryExerciseService {
      * this alone is enough to make an unreferenced (shared-but-irrelevant-here) test case not count for this exercise.
      * <p>
      * Call whenever a user story's problem statement is saved (its own tasks may have changed) and after
-     * {@link #syncTestCasesFromMilestone} (new test cases need a relevance decision too).
+     * {@link #syncTestCasesFromMilestone} (new test cases need a relevance decision too). Sends the resulting test cases
+     * to the exercise's open editors.
      *
      * @param userStoryExercise the exercise whose task-to-test-case relevance to re-derive; must already be persisted
      */
@@ -383,5 +411,19 @@ public class UserStoryExerciseService {
             }
         }
         programmingExerciseTestCaseRepository.saveAll(changed);
+        broadcastTestCases(userStoryExercise);
+    }
+
+    /**
+     * Sends the user story's current test cases to its open editors. Their test case list is otherwise only refreshed by
+     * a build of the exercise itself, which a user story never has - its rows are created, removed and (de)activated
+     * here instead.
+     *
+     * @param userStoryExercise the exercise whose test cases changed
+     */
+    private void broadcastTestCases(UserStoryExercise userStoryExercise) {
+        Set<ProgrammingExerciseTestCaseResponseDTO> testCaseDTOs = programmingExerciseTestCaseRepository.findByExerciseId(userStoryExercise.getId()).stream()
+                .map(ProgrammingExerciseTestCaseResponseDTO::of).collect(Collectors.toSet());
+        websocketMessagingService.sendMessage(TEST_CASES.at(userStoryExercise.getId()), testCaseDTOs);
     }
 }

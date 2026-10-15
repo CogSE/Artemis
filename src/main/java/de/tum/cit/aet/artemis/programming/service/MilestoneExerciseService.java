@@ -242,7 +242,7 @@ public class MilestoneExerciseService {
         // the form (USER_STORY_HIDDEN_FIELDS). Double counting is prevented by the score calculation skipping milestone
         // group members - see CourseScoreCalculator.includeIntoScoreCalculation - not by lying about this value.
         userStoryExercise.setIncludedInOverallScore(IncludedInOverallScore.INCLUDED_COMPLETELY);
-        userStoryExerciseService.applyMilestoneConfig(userStoryExercise, milestoneGroup.getMilestoneExercise());
+        userStoryExerciseService.applyMilestoneConfig(userStoryExercise, milestoneGroup.getMilestoneExercise(), false);
         userStoryExercise.setReleaseDate(milestoneGroup.getReleaseDate());
         userStoryExercise.setStartDate(milestoneGroup.getStartDate());
         userStoryExercise.setDueDate(milestoneGroup.getDueDate());
@@ -277,7 +277,7 @@ public class MilestoneExerciseService {
         // skipped this for the same reason); the initial relevance derivation runs against a still-empty problem
         // statement, but re-runs on every later update - see the corresponding TODO on the (not yet implemented)
         // update endpoint.
-        userStoryExerciseService.syncTestCasesFromMilestone(created, milestoneGroup.getMilestoneExercise());
+        userStoryExerciseService.syncTestCasesFromMilestone(created, milestoneGroup.getMilestoneExercise(), false);
         userStoryExerciseService.updateRelevantTestCases(created);
         // The group just became worth more, and the milestone carries that total - both for the students' scores and for
         // the static code analysis budget derived from it. Sync before backfilling, so the results written below are

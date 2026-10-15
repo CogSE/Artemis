@@ -188,8 +188,10 @@ public class ExerciseVariantGroupService {
             // as the timeline below - a user story is never independently configured on any of these. The passed-in
             // exercise never eagerly loads templateParticipation/solutionParticipation/buildConfig (it's typically a
             // generic ExerciseRepository lookup), so continue with the fresh, fully-loaded instance this returns
-            // instead - see its doc comment.
-            exercise = userStoryExerciseService.applyMilestoneConfigFreshFromDatabase(exercise.getId(), milestoneGroup.getMilestoneExercise());
+            // instead - see its doc comment. Grading settings configured for another milestone's tests do not carry over,
+            // so a story coming from a different milestone starts again from its new milestone's settings.
+            boolean movedFromAnotherMilestone = previousMilestoneExerciseId.isPresent() && !previousMilestoneExerciseId.get().equals(milestoneGroup.getMilestoneExercise().getId());
+            exercise = userStoryExerciseService.applyMilestoneConfigFreshFromDatabase(exercise.getId(), milestoneGroup.getMilestoneExercise(), movedFromAnotherMilestone);
         }
         // Joining changes the dates as much as a group edit, so snapshot here too; unassignment makes the side effects no-ops.
         TimelineSnapshot snapshot = TimelineSnapshot.of(exercise);

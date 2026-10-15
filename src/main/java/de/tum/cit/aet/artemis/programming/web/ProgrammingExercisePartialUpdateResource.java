@@ -30,12 +30,14 @@ import de.tum.cit.aet.artemis.core.util.HeaderUtil;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseService;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseVariantGroupService;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseVersionService;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.dto.ProgrammingExerciseResponseDTO;
 import de.tum.cit.aet.artemis.programming.dto.ProgrammingExerciseTimelineUpdateDTO;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseBuildConfigRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseCreationUpdateService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseTaskService;
+import de.tum.cit.aet.artemis.programming.service.UserStoryExerciseService;
 
 /**
  * REST controller for updating partial information of a programming exercise such as the timeline or the problem statement.
@@ -72,10 +74,12 @@ public class ProgrammingExercisePartialUpdateResource {
 
     private final ExerciseVariantGroupService exerciseVariantGroupService;
 
+    private final UserStoryExerciseService userStoryExerciseService;
+
     public ProgrammingExercisePartialUpdateResource(ProgrammingExerciseRepository programmingExerciseRepository, UserRepository userRepository,
             AuthorizationCheckService authCheckService, ExerciseService exerciseService, ProgrammingExerciseCreationUpdateService programmingExerciseCreationUpdateService,
             ProgrammingExerciseTaskService programmingExerciseTaskService, ExerciseVersionService exerciseVersionService, ExerciseVariantGroupService exerciseVariantGroupService,
-            ProgrammingExerciseBuildConfigRepository programmingExerciseBuildConfigRepository) {
+            ProgrammingExerciseBuildConfigRepository programmingExerciseBuildConfigRepository, UserStoryExerciseService userStoryExerciseService) {
         this.programmingExerciseCreationUpdateService = programmingExerciseCreationUpdateService;
         this.programmingExerciseTaskService = programmingExerciseTaskService;
         this.programmingExerciseRepository = programmingExerciseRepository;
@@ -85,6 +89,7 @@ public class ProgrammingExercisePartialUpdateResource {
         this.exerciseService = exerciseService;
         this.exerciseVersionService = exerciseVersionService;
         this.exerciseVariantGroupService = exerciseVariantGroupService;
+        this.userStoryExerciseService = userStoryExerciseService;
     }
 
     /**
@@ -139,6 +144,10 @@ public class ProgrammingExercisePartialUpdateResource {
         var user = userRepository.getUserWithAuthorities();
         authCheckService.checkHasAtLeastRoleForExerciseElseThrow(Role.EDITOR, programmingExercise, user);
         var updatedProgrammingExercise = programmingExerciseCreationUpdateService.updateProblemStatement(programmingExercise, updatedProblemStatement, notificationText);
+        if (updatedProgrammingExercise instanceof UserStoryExercise userStoryExercise) {
+            // a user story's tasks decide which of its test cases count, see UserStoryExerciseService.updateRelevantTestCases
+            userStoryExerciseService.updateRelevantTestCases(userStoryExercise);
+        }
         exerciseService.logUpdate(updatedProgrammingExercise, updatedProgrammingExercise.getCourseViaExerciseGroupOrCourseMember(), user);
         exerciseVersionService.createExerciseVersion(updatedProgrammingExercise, user);
         // we saved a problem statement with test ids instead of test names. For easier editing we send a problem statement with test names to the client:

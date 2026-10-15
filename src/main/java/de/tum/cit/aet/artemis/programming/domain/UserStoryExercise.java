@@ -15,8 +15,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * Its test cases are its own rows (standard {@link #getTestCases()}, not overridden) - duplicated from the milestone's
  * shared test suite by {@code UserStoryExerciseService.syncTestCasesFromMilestone} rather than referenced live, since
  * the grading/task pipeline resolves test cases via a direct database query keyed by this exercise's own id, not
- * through the object graph. Only its own {@link ProgrammingExerciseTask}s (parsed from its own problem statement)
- * determine which of its test cases are marked {@code active} and therefore count toward its (independently
+ * through the object graph. A duplicated row takes the milestone's weight, bonus and visibility only when it is
+ * created; after that they are this exercise's own grading settings. Only its own {@link ProgrammingExerciseTask}s
+ * (parsed from its own problem statement) determine which of its test cases are marked {@code active} and therefore count toward its (independently
  * configurable) grade - see {@code UserStoryExerciseService.updateRelevantTestCases}.
  * <p>
  * Its {@code includedInOverallScore} stays {@code INCLUDED_COMPLETELY} and is not instructor-editable (see

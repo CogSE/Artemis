@@ -1,10 +1,13 @@
 package de.tum.cit.aet.artemis.programming;
 
 import static de.tum.cit.aet.artemis.assessment.web.AssessmentWebsocketTopics.NEW_RESULTS;
+import static de.tum.cit.aet.artemis.programming.web.ProgrammingWebsocketTopics.TEST_CASES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 
 import java.time.ZonedDateTime;
@@ -21,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 
 import de.tum.cit.aet.artemis.account.domain.User;
@@ -38,23 +42,28 @@ import de.tum.cit.aet.artemis.exercise.domain.InitializationState;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.domain.SubmissionType;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseVariantGroupRepository;
+import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
+import de.tum.cit.aet.artemis.exercise.service.ExerciseVariantGroupService;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationService;
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseTestCase;
+import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseTestCaseType;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingSubmission;
 import de.tum.cit.aet.artemis.programming.domain.StaticCodeAnalysisTool;
 import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.domain.build.BuildLogEntry;
 import de.tum.cit.aet.artemis.programming.dto.BuildLogEntryDTO;
+import de.tum.cit.aet.artemis.programming.dto.ProgrammingExerciseResponseDTO;
 import de.tum.cit.aet.artemis.programming.dto.ResultDTO;
 import de.tum.cit.aet.artemis.programming.service.MilestoneExercisePointsService;
 import de.tum.cit.aet.artemis.programming.service.MilestoneScoreScheduleService;
 import de.tum.cit.aet.artemis.programming.service.MilestoneScoreService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseTaskService;
 import de.tum.cit.aet.artemis.programming.service.UserStoryExerciseService;
+import de.tum.cit.aet.artemis.programming.test_repository.ProgrammingExerciseTaskTestRepository;
 import de.tum.cit.aet.artemis.programming.util.ProgrammingExerciseFactory;
 
 /**
@@ -93,6 +102,15 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
 
     @Autowired
     private UserStoryExerciseService userStoryExerciseService;
+
+    @Autowired
+    private ExerciseVariantGroupService exerciseVariantGroupService;
+
+    @Autowired
+    private MilestoneExerciseGroupRepository milestoneExerciseGroupRepository;
+
+    @Autowired
+    private ProgrammingExerciseTaskTestRepository programmingExerciseTaskRepository;
 
     private Course course;
 
@@ -1015,6 +1033,192 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
         @WithMockUser(username = TEST_PREFIX + "student2", roles = "USER")
         void cannotBeReadByAnotherStudent() throws Exception {
             request.getList(buildLogsUrl(), HttpStatus.FORBIDDEN, BuildLogEntryDTO.class);
+        }
+    }
+
+    /**
+     * The test suite of a user story follows its milestone, but the grading settings of a test case are copied only when
+     * the user story gets the test case, so they can be configured per user story afterwards.
+     */
+    @Nested
+    class TestCaseSyncFromMilestone {
+
+        private ProgrammingExerciseTestCase userStoryTestCase(UserStoryExercise userStory, String name) {
+            return testCaseRepository.findByExerciseIdAndTestName(userStory.getId(), name).orElseThrow();
+        }
+
+        @Test
+        void copiesTheGradingSettingsOnlyWhenTheTestCaseIsCreated() {
+            ProgrammingExerciseTestCase milestoneTestCase = createTestCase(milestoneExercise, "testA");
+            milestoneTestCase.setWeight(2.0);
+            milestoneTestCase.setBonusMultiplier(1.5);
+            milestoneTestCase.setBonusPoints(3.0);
+            milestoneTestCase.setType(ProgrammingExerciseTestCaseType.BEHAVIORAL);
+            milestoneTestCase = testCaseRepository.save(milestoneTestCase);
+            UserStoryExercise userStory = createUserStoryExercise("sync");
+
+            userStoryExerciseService.syncTestCasesFromMilestone(userStory, milestoneExercise, false);
+
+            ProgrammingExerciseTestCase copied = userStoryTestCase(userStory, "testA");
+            assertThat(copied.getWeight()).isEqualTo(2.0);
+            assertThat(copied.getBonusMultiplier()).isEqualTo(1.5);
+            assertThat(copied.getBonusPoints()).isEqualTo(3.0);
+            assertThat(copied.getVisibility()).isEqualTo(Visibility.ALWAYS);
+            assertThat(copied.isActive()).isFalse();
+
+            // the instructor grades the user story differently, and later changes the milestone
+            copied.setWeight(5.0);
+            copied.setVisibility(Visibility.AFTER_DUE_DATE);
+            testCaseRepository.save(copied);
+            milestoneTestCase.setWeight(7.0);
+            milestoneTestCase.setBonusPoints(9.0);
+            milestoneTestCase.setVisibility(Visibility.NEVER);
+            milestoneTestCase.setType(ProgrammingExerciseTestCaseType.STRUCTURAL);
+            testCaseRepository.save(milestoneTestCase);
+
+            userStoryExerciseService.syncTestCasesFromMilestone(userStory, milestoneExercise, false);
+
+            ProgrammingExerciseTestCase kept = userStoryTestCase(userStory, "testA");
+            assertThat(kept.getWeight()).isEqualTo(5.0);
+            assertThat(kept.getBonusPoints()).isEqualTo(3.0);
+            assertThat(kept.getVisibility()).isEqualTo(Visibility.AFTER_DUE_DATE);
+            assertThat(kept.getType()).isEqualTo(ProgrammingExerciseTestCaseType.STRUCTURAL);
+        }
+
+        @Test
+        void followsTheTestSuiteOfTheMilestone() {
+            ProgrammingExerciseTestCase removedTestCase = createTestCase(milestoneExercise, "testA");
+            UserStoryExercise userStory = createUserStoryExercise("suite");
+            userStoryExerciseService.syncTestCasesFromMilestone(userStory, milestoneExercise, false);
+
+            testCaseRepository.delete(removedTestCase);
+            ProgrammingExerciseTestCase addedTestCase = createTestCase(milestoneExercise, "testB");
+            addedTestCase.setWeight(4.0);
+            testCaseRepository.save(addedTestCase);
+
+            userStoryExerciseService.syncTestCasesFromMilestone(userStory, milestoneExercise, false);
+
+            assertThat(testCaseRepository.findByExerciseId(userStory.getId())).extracting(ProgrammingExerciseTestCase::getTestName, ProgrammingExerciseTestCase::getWeight)
+                    .containsExactly(tuple("testB", 4.0));
+        }
+
+        @Test
+        void resetsTheGradingSettingsOfExistingTestCasesWhenCopyingAll() {
+            ProgrammingExerciseTestCase milestoneTestCase = createTestCase(milestoneExercise, "testA");
+            UserStoryExercise userStory = createUserStoryExercise("reset");
+            userStoryExerciseService.syncTestCasesFromMilestone(userStory, milestoneExercise, false);
+            ProgrammingExerciseTestCase own = userStoryTestCase(userStory, "testA");
+            own.setWeight(5.0);
+            own.setVisibility(Visibility.AFTER_DUE_DATE);
+            testCaseRepository.save(own);
+            milestoneTestCase.setWeight(7.0);
+            milestoneTestCase.setBonusPoints(2.0);
+            testCaseRepository.save(milestoneTestCase);
+
+            userStoryExerciseService.syncTestCasesFromMilestone(userStory, milestoneExercise, true);
+
+            ProgrammingExerciseTestCase reset = userStoryTestCase(userStory, "testA");
+            assertThat(reset.getId()).isEqualTo(own.getId());
+            assertThat(reset.getWeight()).isEqualTo(7.0);
+            assertThat(reset.getBonusPoints()).isEqualTo(2.0);
+            assertThat(reset.getVisibility()).isEqualTo(Visibility.ALWAYS);
+        }
+
+        /** A user story as {@code MilestoneExerciseService} creates it: with a build config and the participations its milestone's repositories are copied onto. */
+        private UserStoryExercise createMovableUserStory(String shortNameSuffix, String problemStatement) {
+            UserStoryExercise userStory = createUserStoryExercise(shortNameSuffix);
+            programmingExerciseParticipationUtilService.addTemplateParticipationForProgrammingExercise(userStory);
+            programmingExerciseParticipationUtilService.addSolutionParticipationForProgrammingExercise(userStory);
+            programmingExerciseBuildConfigRepository.saveForExercise(ProgrammingExerciseFactory.generateDefaultBuildConfig(), userStory);
+            userStory.setProblemStatement(problemStatement);
+            userStory = (UserStoryExercise) programmingExerciseRepository.save(userStory);
+            userStoryExerciseService.syncTestCasesFromMilestone(userStory, milestoneExercise, false);
+            userStoryExerciseService.updateRelevantTestCases(userStory);
+            return userStory;
+        }
+
+        /** A second milestone group of the course, whose milestone has the given tests. */
+        private MilestoneExerciseGroup createOtherMilestoneGroup(String... testNames) {
+            MilestoneExercise otherMilestone = new MilestoneExercise();
+            otherMilestone.setTitle("Other Milestone");
+            otherMilestone.setShortName("othermilestone" + TEST_PREFIX);
+            otherMilestone.setProgrammingLanguage(ProgrammingLanguage.JAVA);
+            otherMilestone.setCourse(course);
+            otherMilestone.setMaxPoints(0.0);
+            otherMilestone.generateAndSetProjectKey();
+            otherMilestone = (MilestoneExercise) programmingExerciseRepository.save(otherMilestone);
+            for (String testName : testNames) {
+                createTestCase(otherMilestone, testName);
+            }
+            MilestoneExerciseGroup otherGroup = new MilestoneExerciseGroup();
+            otherGroup.setTitle("Other Milestone Group " + TEST_PREFIX);
+            otherGroup.setMilestoneExercise(otherMilestone);
+            otherGroup.setCourse(course);
+            otherGroup = (MilestoneExerciseGroup) exerciseVariantGroupRepository.save(otherGroup);
+            course = courseRepository.findWithEagerExerciseVariantGroupsByIdElseThrow(course.getId());
+            course.addExerciseVariantGroup(otherGroup);
+            courseRepository.save(course);
+            return otherGroup;
+        }
+
+        /** Moves the user story, loading both the way the assignment endpoint does. */
+        private void moveTo(UserStoryExercise userStory, MilestoneExerciseGroup targetGroup) {
+            exerciseVariantGroupService.assignToGroup(programmingExerciseRepository.findByIdElseThrow(userStory.getId()),
+                    milestoneExerciseGroupRepository.findByIdAndCourseIdWithDetailsElseThrow(targetGroup.getId(), course.getId()));
+        }
+
+        @Test
+        @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+        void resetsTheGradingSettingsWhenTheUserStoryMovesToAnotherMilestone() {
+            createTestCase(milestoneExercise, "testA");
+            UserStoryExercise userStory = createMovableUserStory("move", null);
+            ProgrammingExerciseTestCase own = userStoryTestCase(userStory, "testA");
+            own.setWeight(5.0);
+            testCaseRepository.save(own);
+            MilestoneExerciseGroup otherGroup = createOtherMilestoneGroup("testA");
+            ProgrammingExerciseTestCase otherMilestoneTestCase = testCaseRepository.findByExerciseIdAndTestName(otherGroup.getMilestoneExercise().getId(), "testA").orElseThrow();
+            otherMilestoneTestCase.setWeight(3.0);
+            testCaseRepository.save(otherMilestoneTestCase);
+
+            moveTo(userStory, otherGroup);
+
+            assertThat(userStoryTestCase(userStory, "testA").getWeight()).isEqualTo(3.0);
+        }
+
+        @Test
+        @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+        void relinksItsTasksWhenMovedToAnotherMilestoneAndBack() {
+            createTestCase(milestoneExercise, "testA");
+            createTestCase(milestoneExercise, "testB");
+            UserStoryExercise userStory = createMovableUserStory("roundtrip", "[task][Sort](testB)");
+            assertThat(userStoryTestCase(userStory, "testB").isActive()).isTrue();
+            MilestoneExerciseGroup otherGroup = createOtherMilestoneGroup("testA");
+
+            moveTo(userStory, otherGroup);
+            assertThat(testCaseRepository.findByExerciseIdAndTestName(userStory.getId(), "testB")).isEmpty();
+
+            Mockito.reset(websocketMessagingService);
+            moveTo(userStory, group);
+
+            ProgrammingExerciseTestCase recreated = userStoryTestCase(userStory, "testB");
+            assertThat(recreated.isActive()).isTrue();
+            assertThat(programmingExerciseTaskRepository.findByExerciseIdWithTestCases(userStory.getId())).singleElement()
+                    .satisfies(task -> assertThat(task.getTestCases()).extracting(ProgrammingExerciseTestCase::getId).containsExactly(recreated.getId()));
+            // the open problem statement editor learns about the new rows without a reload
+            verify(websocketMessagingService, atLeastOnce()).sendMessage(eq(TEST_CASES.at(userStory.getId())), any(Object.class));
+        }
+
+        @Test
+        @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+        void activatesATestCaseOnceTheSavedProblemStatementReferencesIt() throws Exception {
+            createTestCase(milestoneExercise, "testA");
+            UserStoryExercise userStory = createMovableUserStory("statement", null);
+            assertThat(userStoryTestCase(userStory, "testA").isActive()).isFalse();
+
+            request.patchWithResponseBody("/api/programming/programming-exercises/" + userStory.getId() + "/problem-statement", "[task][Sort](testA)",
+                    ProgrammingExerciseResponseDTO.class, HttpStatus.OK, MediaType.TEXT_PLAIN);
+
+            assertThat(userStoryTestCase(userStory, "testA").isActive()).isTrue();
         }
     }
 }
