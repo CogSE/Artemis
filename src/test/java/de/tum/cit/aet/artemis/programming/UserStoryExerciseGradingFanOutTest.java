@@ -1204,6 +1204,7 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
             assertThat(recreated.isActive()).isTrue();
             assertThat(programmingExerciseTaskRepository.findByExerciseIdWithTestCases(userStory.getId())).singleElement()
                     .satisfies(task -> assertThat(task.getTestCases()).extracting(ProgrammingExerciseTestCase::getId).containsExactly(recreated.getId()));
+            assertThat(storedProblemStatement(userStory)).isEqualTo("[task][Sort](<testid>" + recreated.getId() + "</testid>)");
             // the open problem statement editor learns about the new rows without a reload
             verify(websocketMessagingService, atLeastOnce()).sendMessage(eq(TEST_CASES.at(userStory.getId())), any(Object.class));
         }
@@ -1215,10 +1216,32 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
             UserStoryExercise userStory = createMovableUserStory("statement", null);
             assertThat(userStoryTestCase(userStory, "testA").isActive()).isFalse();
 
-            request.patchWithResponseBody("/api/programming/programming-exercises/" + userStory.getId() + "/problem-statement", "[task][Sort](testA)",
-                    ProgrammingExerciseResponseDTO.class, HttpStatus.OK, MediaType.TEXT_PLAIN);
+            ProgrammingExerciseResponseDTO response = request.patchWithResponseBody("/api/programming/programming-exercises/" + userStory.getId() + "/problem-statement",
+                    "[task][Sort](testA)", ProgrammingExerciseResponseDTO.class, HttpStatus.OK, MediaType.TEXT_PLAIN);
 
-            assertThat(userStoryTestCase(userStory, "testA").isActive()).isTrue();
+            ProgrammingExerciseTestCase activated = userStoryTestCase(userStory, "testA");
+            assertThat(activated.isActive()).isTrue();
+            // a student's client does not load the test cases, so it can only match results to tasks that refer to tests by id
+            assertThat(storedProblemStatement(userStory)).isEqualTo("[task][Sort](<testid>" + activated.getId() + "</testid>)");
+            // the editor still gets the names
+            assertThat(response.problemStatement()).isEqualTo("[task][Sort](testA)");
+        }
+
+        @Test
+        void refersToANewlySyncedTestCaseByIdOnceItIsActive() {
+            createTestCase(milestoneExercise, "testA");
+            UserStoryExercise userStory = createMovableUserStory("synced", "[task][Sort](testA,testB)");
+            createTestCase(milestoneExercise, "testB");
+
+            milestoneExerciseGroupRepository.findByMilestoneExerciseIdWithExercises(milestoneExercise.getId())
+                    .ifPresent(milestoneGroup -> userStoryExerciseService.syncAllMembersTestCases(milestoneGroup, milestoneExercise));
+
+            assertThat(storedProblemStatement(userStory)).isEqualTo(
+                    "[task][Sort](<testid>" + userStoryTestCase(userStory, "testA").getId() + "</testid>,<testid>" + userStoryTestCase(userStory, "testB").getId() + "</testid>)");
+        }
+
+        private String storedProblemStatement(UserStoryExercise userStory) {
+            return programmingExerciseRepository.findByIdElseThrow(userStory.getId()).getProblemStatement();
         }
     }
 }
