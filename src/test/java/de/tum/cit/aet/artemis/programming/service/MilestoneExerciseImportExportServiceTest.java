@@ -151,9 +151,9 @@ class MilestoneExerciseImportExportServiceTest {
         FileUtils.writeStringToFile(milestoneArchive.toFile(), "milestone", StandardCharsets.UTF_8);
         when(milestoneExerciseGroupRepository.findByIdAndCourseIdElseThrow(5L, 1L)).thenReturn(group);
         when(milestoneExerciseGroupRepository.findMilestoneExerciseIdByGroupId(5L)).thenReturn(Optional.of(10L));
-        when(programmingExerciseRepository.findByIdWithPlagiarismDetectionConfigTeamConfigGradingCriteriaAndCategoriesElseThrow(10L)).thenReturn(milestone);
-        when(programmingExerciseRepository.findByIdWithPlagiarismDetectionConfigTeamConfigGradingCriteriaAndCategoriesElseThrow(11L)).thenReturn(firstStory);
-        when(programmingExerciseRepository.findByIdWithPlagiarismDetectionConfigTeamConfigGradingCriteriaAndCategoriesElseThrow(12L)).thenReturn(secondStory);
+        when(programmingExerciseRepository.findByIdWithGradingCriteriaAndCategoriesElseThrow(10L)).thenReturn(milestone);
+        when(programmingExerciseRepository.findByIdWithGradingCriteriaAndCategoriesElseThrow(11L)).thenReturn(firstStory);
+        when(programmingExerciseRepository.findByIdWithGradingCriteriaAndCategoriesElseThrow(12L)).thenReturn(secondStory);
         when(fileService.createTemporaryDirectory(eq(tempDir), anyString(), anyLong())).thenReturn(exportDir);
         when(programmingExerciseExportService.exportProgrammingExerciseForDownload(eq(milestone), anyList())).thenReturn(milestoneArchive);
         when(milestoneGradingSettingsTransferService.exportTestCases(10L)).thenReturn(List.of(new MilestoneTestCaseExportDTO("testLogin", 3.0, 1.0, 0.0, Visibility.ALWAYS)));
@@ -435,7 +435,7 @@ class MilestoneExerciseImportExportServiceTest {
         FileUtils.writeStringToFile(milestoneArchive.toFile(), "milestone", StandardCharsets.UTF_8);
         when(milestoneExerciseGroupRepository.findByIdAndCourseIdElseThrow(5L, 1L)).thenReturn(group);
         when(milestoneExerciseGroupRepository.findMilestoneExerciseIdByGroupId(5L)).thenReturn(Optional.of(10L));
-        when(programmingExerciseRepository.findByIdWithPlagiarismDetectionConfigTeamConfigGradingCriteriaAndCategoriesElseThrow(10L)).thenReturn(milestone);
+        when(programmingExerciseRepository.findByIdWithGradingCriteriaAndCategoriesElseThrow(10L)).thenReturn(milestone);
         when(fileService.createTemporaryDirectory(eq(tempDir), anyString(), anyLong())).thenReturn(exportDir);
         when(programmingExerciseExportService.exportProgrammingExerciseForDownload(eq(milestone), anyList())).thenReturn(milestoneArchive);
         when(milestoneMemberImportExportService.isSupported(essay)).thenReturn(true);

@@ -17,7 +17,11 @@
                     @if (showLeadingIcon()) {
                         <fa-icon [fixedWidth]="true" [icon]="iconForGroup(groupKey)" />
                     }
-                    {{ 'artemisApp.courseOverview.sidebar.' + groupKey | artemisTranslate | titlecase }}
+                    @if (groupedData()[groupKey].translationKey; as translationKey) {
+                        {{ translationKey | artemisTranslate | titlecase }}
+                    } @else {
+                        {{ 'artemisApp.courseOverview.sidebar.' + groupKey | artemisTranslate | titlecase }}
+                    }
                     @if (!groupedData()[groupKey].isHideCount) {
                         ({{ (groupedData()[groupKey].entityData | searchFilter: ['title', 'type'] : searchValue() : 'groupedItems')?.length }})
                     }
@@ -61,22 +65,21 @@
                                                 separated by a line rather than by a gap.
                                             -->
                                             <div class="sidebar-group sidebar-group--connected" data-testid="sidebar-group-members">
-                                                <div
-                                                    class="sidebar-group-header"
-                                                    jhiSidebarCard
-                                                    [size]="sidebarItem.size"
-                                                    [itemSelected]="itemSelected()"
-                                                    [sidebarType]="sidebarType()"
-                                                    [sidebarItem]="sidebarItem"
-                                                    [groupKey]="groupKey"
-                                                    [activeItemId]="selectedItemId()"
-                                                    (onUpdateSidebar)="onUpdateSidebar.emit()"
-                                                ></div>
+                                                <div class="sidebar-group-header">
+                                                    <jhi-sidebar-card
+                                                        [size]="sidebarItem.size"
+                                                        [itemSelected]="itemSelected()"
+                                                        [sidebarType]="sidebarType()"
+                                                        [sidebarItem]="sidebarItem"
+                                                        [groupKey]="groupKey"
+                                                        [activeItemId]="selectedItemId()"
+                                                        (onUpdateSidebar)="onUpdateSidebar.emit()"
+                                                    />
+                                                </div>
                                                 <div class="sidebar-group-content">
                                                     @for (member of sidebarItem.groupedItems; track member.id) {
                                                         <div class="sidebar-group-variant">
-                                                            <div
-                                                                jhiSidebarCard
+                                                            <jhi-sidebar-card
                                                                 [size]="member.size"
                                                                 [itemSelected]="itemSelected()"
                                                                 [sidebarType]="sidebarType()"
@@ -84,15 +87,13 @@
                                                                 [groupKey]="groupKey"
                                                                 [activeItemId]="selectedItemId()"
                                                                 (onUpdateSidebar)="onUpdateSidebar.emit()"
-                                                            ></div>
+                                                            />
                                                         </div>
                                                     }
                                                 </div>
                                             </div>
                                         } @else {
-                                            <!-- loading sidebarCard with help of a directive depending on its size input-->
-                                            <div
-                                                jhiSidebarCard
+                                            <jhi-sidebar-card
                                                 [size]="sidebarItem.size"
                                                 [itemSelected]="itemSelected()"
                                                 [sidebarType]="sidebarType()"
@@ -100,7 +101,7 @@
                                                 [groupKey]="groupKey"
                                                 [activeItemId]="selectedItemId()"
                                                 (onUpdateSidebar)="onUpdateSidebar.emit()"
-                                            ></div>
+                                            />
                                         }
                                     </div>
                                 }

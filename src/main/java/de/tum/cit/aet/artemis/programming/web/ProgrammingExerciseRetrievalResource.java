@@ -24,7 +24,6 @@ import de.tum.cit.aet.artemis.account.domain.User;
 import de.tum.cit.aet.artemis.account.repository.UserRepository;
 import de.tum.cit.aet.artemis.assessment.domain.GradingCriterion;
 import de.tum.cit.aet.artemis.assessment.repository.GradingCriterionRepository;
-import de.tum.cit.aet.artemis.communication.domain.conversation.Channel;
 import de.tum.cit.aet.artemis.communication.repository.conversation.ChannelRepository;
 import de.tum.cit.aet.artemis.core.dto.SearchResultPageDTO;
 import de.tum.cit.aet.artemis.core.dto.pageablesearch.SearchTermPageableSearchDTO;
@@ -44,9 +43,10 @@ import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.domain.participation.StudentParticipation;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseVariantGroupRepository;
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
+import de.tum.cit.aet.artemis.exercise.repository.PlagiarismDetectionConfigRepository;
 import de.tum.cit.aet.artemis.exercise.repository.StudentParticipationRepository;
+import de.tum.cit.aet.artemis.exercise.repository.TeamAssignmentConfigRepository;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseService;
-import de.tum.cit.aet.artemis.plagiarism.domain.PlagiarismDetectionConfigHelper;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.dto.AuxiliaryRepositoryDTO;
@@ -94,6 +94,10 @@ public class ProgrammingExerciseRetrievalResource {
 
     private final ProgrammingExerciseBuildConfigRepository programmingExerciseBuildConfigRepository;
 
+    private final TeamAssignmentConfigRepository teamAssignmentConfigRepository;
+
+    private final PlagiarismDetectionConfigRepository plagiarismDetectionConfigRepository;
+
     private final StudentParticipationRepository studentParticipationRepository;
 
     private final GradingCriterionRepository gradingCriterionRepository;
@@ -118,7 +122,10 @@ public class ProgrammingExerciseRetrievalResource {
             TemplateProgrammingExerciseParticipationRepository templateProgrammingExerciseParticipationRepository,
             SolutionProgrammingExerciseParticipationRepository solutionProgrammingExerciseParticipationRepository, RepositoryCheckoutService repositoryCheckoutService,
             RepositoryParticipationService repositoryParticipationService, ExerciseVariantGroupRepository exerciseVariantGroupRepository,
-            MilestoneExerciseGroupRepository milestoneExerciseGroupRepository) {
+            MilestoneExerciseGroupRepository milestoneExerciseGroupRepository, TeamAssignmentConfigRepository teamAssignmentConfigRepository,
+            PlagiarismDetectionConfigRepository plagiarismDetectionConfigRepository) {
+        this.teamAssignmentConfigRepository = teamAssignmentConfigRepository;
+        this.plagiarismDetectionConfigRepository = plagiarismDetectionConfigRepository;
         this.programmingExerciseService = programmingExerciseService;
         this.programmingExerciseRepository = programmingExerciseRepository;
         this.courseRepository = courseRepository;
@@ -163,13 +170,12 @@ public class ProgrammingExerciseRetrievalResource {
     }
 
     private ProgrammingExercise findProgrammingExercise(Long exerciseId, boolean includePlagiarismDetectionConfig) {
+        var programmingExercise = programmingExerciseRepository.findByIdWithTemplateAndSolutionParticipationCategoriesCompetenciesAndVariantGroupElseThrow(exerciseId);
         if (includePlagiarismDetectionConfig) {
-            var programmingExercise = programmingExerciseRepository
-                    .findByIdWithTemplateAndSolutionParticipationTeamAssignmentConfigCategoriesAndCompetenciesAndPlagiarismDetectionConfigElseThrow(exerciseId);
-            PlagiarismDetectionConfigHelper.createAndSaveDefaultIfNullAndCourseExercise(programmingExercise, programmingExerciseRepository);
-            return programmingExercise;
+            // The plagiarism detection configuration is not part of the exercise, so it is read here.
+            plagiarismDetectionConfigRepository.attachTo(programmingExercise);
         }
-        return programmingExerciseRepository.findByIdWithTemplateAndSolutionParticipationTeamAssignmentConfigCategoriesCompetenciesAndVariantGroupElseThrow(exerciseId);
+        return programmingExercise;
     }
 
     /**
@@ -193,6 +199,8 @@ public class ProgrammingExerciseRetrievalResource {
         if (programmingExercise.getExerciseVariantGroup() instanceof MilestoneExerciseGroup milestoneGroup) {
             milestoneExerciseGroupRepository.findMilestoneExerciseByGroupId(milestoneGroup.getId()).ifPresent(milestoneGroup::setMilestoneExercise);
         }
+        // The response reports the team assignment configuration, which an exercise does not carry by itself.
+        teamAssignmentConfigRepository.attachTo(programmingExercise);
         // Fetch grading criterion into exercise of participation
         Set<GradingCriterion> gradingCriteria = gradingCriterionRepository.findByExerciseIdWithEagerGradingCriteria(programmingExercise.getId());
         programmingExercise.setGradingCriteria(gradingCriteria);
@@ -206,9 +214,9 @@ public class ProgrammingExerciseRetrievalResource {
             authCheckService.checkHasAtLeastRoleForExerciseElseThrow(Role.TEACHING_ASSISTANT, programmingExercise, null);
         }
         if (programmingExercise.isCourseExercise()) {
-            Channel channel = channelRepository.findChannelByExerciseId(programmingExercise.getId());
-            if (channel != null) {
-                programmingExercise.setChannelName(channel.getName());
+            String channelName = channelRepository.findChannelNameByExerciseId(programmingExercise.getId());
+            if (channelName != null) {
+                programmingExercise.setChannelName(channelName);
             }
         }
 
@@ -249,7 +257,7 @@ public class ProgrammingExerciseRetrievalResource {
         User user = userRepository.getUserWithAuthorities();
         var programmingExercise = programmingExerciseService.findByIdWithTemplateAndSolutionParticipationAndAuxiliaryReposAndLatestResultFeedbackTestCasesElseThrow(exerciseId);
         authCheckService.checkHasAtLeastRoleForExerciseElseThrow(Role.EDITOR, programmingExercise, user);
-        var assignmentParticipation = studentParticipationRepository.findByExerciseIdAndStudentIdAndTestRunWithLatestResult(programmingExercise.getId(), user.getId(), false);
+        var assignmentParticipation = studentParticipationRepository.findByExerciseIdAndStudentIdAndTestRunWithLatestResult(exerciseId, user.getId(), false);
         Set<StudentParticipation> participations = new HashSet<>();
         assignmentParticipation.ifPresent(participations::add);
         programmingExercise.setStudentParticipations(participations);
@@ -302,7 +310,7 @@ public class ProgrammingExerciseRetrievalResource {
     @GetMapping("programming-exercises/{exerciseId}/test-case-state")
     @EnforceAtLeastTutor
     public ResponseEntity<ProgrammingExerciseTestCaseStateDTO> getTestCaseState(@PathVariable long exerciseId) {
-        var programmingExercise = programmingExerciseRepository.findByIdWithTemplateAndSolutionParticipationTeamAssignmentConfigCategoriesElseThrow(exerciseId);
+        var programmingExercise = programmingExerciseRepository.findByIdWithTemplateAndSolutionParticipationCategoriesElseThrow(exerciseId);
         authCheckService.checkHasAtLeastRoleForExerciseElseThrow(Role.TEACHING_ASSISTANT, programmingExercise, null);
         boolean hasAtLeastOneResult = programmingExerciseService.hasAtLeastOneResult(programmingExercise);
         boolean isReleased = programmingExercise.isReleased();

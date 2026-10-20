@@ -54,7 +54,8 @@ public class ResultListener {
     @PostPersist
     @PostUpdate
     public void createOrUpdateResult(Result result) {
-        if (result.getSubmission() != null && result.getSubmission().getParticipation() instanceof StudentParticipation participation) {
+        if (result.getSubmission() != null && result.getSubmission().getParticipation() instanceof StudentParticipation participation
+                && ParticipantScoreScheduleService.hasParticipantScore(participation)) {
             instanceMessageSendService.sendParticipantScoreSchedule(participation.getExercise().getId(), participation.getParticipant().getId(), null);
             scheduleMilestoneScore(participation);
         }
@@ -71,7 +72,8 @@ public class ResultListener {
         // We can not retrieve the participation in a @PostRemove callback, so we use @PreRemove here
         // Then, we pass the result id to the scheduler to assure it is not used during the calculation of the new score
         // If the participation does not exist, we assume it will be deleted as well (no need to update the score in that case)
-        if (result.getSubmission() != null && result.getSubmission().getParticipation() instanceof StudentParticipation participation && participation.getParticipant() != null) {
+        if (result.getSubmission() != null && result.getSubmission().getParticipation() instanceof StudentParticipation participation
+                && ParticipantScoreScheduleService.hasParticipantScore(participation)) {
             instanceMessageSendService.sendParticipantScoreSchedule(participation.getExercise().getId(), participation.getParticipant().getId(), result.getId());
             // The milestone aggregate recomputes from whatever results still exist, so a deletion needs no special
             // handling beyond being told to run again.

@@ -6,8 +6,8 @@
     <packaging>${packaging}</packaging>
     <version>1.0</version>
     <name>${exerciseName} Tests</name>
-	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <ares.version>2.2.1</ares.version>
         <aspectj.version>1.9.25.1</aspectj.version>
         <!-- Keeps @{argLine} resolvable when no other plugin contributes JVM arguments -->
@@ -16,7 +16,7 @@
         <scaConfigDirectory>${project.basedir}/staticCodeAnalysisConfig</scaConfigDirectory>
         <analyzeTests>false</analyzeTests>
         <!--%static-code-analysis-stop%-->
-	</properties>
+    </properties>
     <dependencies>
         <dependency>
             <!-- Ares 2 comes with JUnit 5 and AssertJ. It is needed on the aspect path while compiling, hence "provided" instead of "test" -->
@@ -33,7 +33,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.18.0</version>
+            <version>3.21.0</version>
         </dependency>
     </dependencies>
     <!--%maven-central-mirror-start%-->

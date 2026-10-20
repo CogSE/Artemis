@@ -377,7 +377,7 @@ public class UserStoryExerciseService {
      */
     public UserStoryExercise applyMilestoneConfigFreshFromDatabase(long userStoryExerciseId, MilestoneExercise milestoneExercise, boolean copyAllSettings) {
         UserStoryExercise userStoryExercise = (UserStoryExercise) programmingExerciseRepository
-                .findByIdWithTemplateAndSolutionParticipationTeamAssignmentConfigCategoriesCompetenciesAndVariantGroupElseThrow(userStoryExerciseId);
+                .findByIdWithTemplateAndSolutionParticipationCategoriesCompetenciesAndVariantGroupElseThrow(userStoryExerciseId);
         applyMilestoneConfig(userStoryExercise, milestoneExercise, copyAllSettings);
         return userStoryExercise;
     }

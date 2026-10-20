@@ -80,7 +80,6 @@
         <module name="JavadocMethod"/>
         <module name="JavadocType"/>
         <!--<module name="JavadocVariable"/> -->
-        <!-- Checkstyle 11 removed JavadocStyle; SummaryJavadoc keeps its main rule, a first sentence that ends with a period -->
         <module name="SummaryJavadoc"/>
         <module name="MissingJavadocMethod">
             <property name="allowMissingPropertyJavadoc" value="true"/>

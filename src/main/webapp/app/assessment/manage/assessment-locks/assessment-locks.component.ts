@@ -26,10 +26,6 @@ import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pip
     imports: [TranslateDirective, FaIconComponent, NgbTooltip, RouterLink, ArtemisDatePipe, ArtemisTranslatePipe],
 })
 export class AssessmentLocksComponent implements OnInit {
-    protected exerciseUrlSegment(exerciseType?: ExerciseType): string {
-        return getExerciseUrlSegmentOrEmpty(exerciseType);
-    }
-
     private route = inject(ActivatedRoute);
     private alertService = inject(AlertService);
     private modelingAssessmentService = inject(ModelingAssessmentService);
@@ -38,6 +34,10 @@ export class AssessmentLocksComponent implements OnInit {
     private programmingAssessmentService = inject(ProgrammingAssessmentManualResultService);
     private courseService = inject(CourseManagementService);
     private examManagementService = inject(ExamManagementService);
+
+    protected exerciseUrlSegment(exerciseType?: ExerciseType): string {
+        return getExerciseUrlSegmentOrEmpty(exerciseType);
+    }
 
     readonly ExerciseType = ExerciseType;
 

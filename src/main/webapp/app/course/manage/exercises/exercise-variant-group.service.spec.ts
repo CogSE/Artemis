@@ -1,3 +1,4 @@
+import { GradingInstruction } from 'app/exercise/structured-grading-criterion/grading-instruction.model';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
@@ -252,7 +253,7 @@ describe('ExerciseVariantGroupService', () => {
         it('should map grading criteria and competency links to their DTO shape', () => {
             const exercise = userStoryFormModel();
             exercise.gradingInstructions = 'Be fair';
-            exercise.gradingCriteria = [{ id: 3, title: 'Style', structuredGradingInstructions: [{ id: 9, credits: 1, feedback: 'ok' }] }];
+            exercise.gradingCriteria = [{ id: 3, title: 'Style', structuredGradingInstructions: [{ id: 9, credits: 1, feedback: 'ok' } as GradingInstruction] }];
             exercise.competencyLinks = [{ competency: { id: 4, title: 'Rendering' }, weight: 0.5 }];
 
             const payload = toCreateUserStoryExercisePayload(exercise);

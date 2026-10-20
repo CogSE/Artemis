@@ -1,3 +1,4 @@
+import { ProgrammingTestStatusDetail } from 'app/shared-ui/detail-overview-list/detail.model';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the diff.utils module to avoid Monaco Editor issues in tests — must be hoisted above imports.
@@ -422,7 +423,9 @@ describe('ProgrammingExerciseDetailComponent', () => {
         } as ProgrammingExercise;
 
         /** Finds a detail row of the language section by its i18n title key. */
-        const languageDetail = (title: string) => comp.getExerciseDetailsLanguageSection(comp.programmingExercise()).details.find((detail) => detail && detail.title === title);
+        const languageDetail = (title: string) =>
+            comp.getExerciseDetailsLanguageSection(comp.programmingExercise()).details.find((detail) => detail && detail.title === title) as
+                ProgrammingTestStatusDetail | undefined;
 
         it('should route the edit button to the milestone group form for a milestone exercise', async () => {
             const milestone = new ProgrammingExercise(new Course(), undefined);

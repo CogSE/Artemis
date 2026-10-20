@@ -58,7 +58,9 @@ class ExerciseVariantGroupServiceCreateGroupTest {
         service = new ExerciseVariantGroupService(exerciseVariantGroupRepository, mock(ExerciseTestRepository.class), courseRepository,
                 mock(ProgrammingExerciseCreationUpdateService.class), mock(ParticipationTestRepository.class), mock(ExerciseService.class), mock(ExerciseVersionService.class),
                 mock(InstanceMessageSendService.class), mock(QuizExerciseService.class), mock(UserStoryExerciseService.class), Optional.<SlideApi>empty(),
-                mock(MilestoneExerciseGroupRepository.class), mock(MilestoneExercisePointsService.class));
+                mock(MilestoneExerciseGroupRepository.class), mock(MilestoneExercisePointsService.class),
+                mock(de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseMutationGuardService.class),
+                mock(de.tum.cit.aet.artemis.programming.test_repository.ProgrammingExerciseTestRepository.class));
 
         group = new ExerciseVariantGroup();
         group.setTitle("Variants of the quiz");

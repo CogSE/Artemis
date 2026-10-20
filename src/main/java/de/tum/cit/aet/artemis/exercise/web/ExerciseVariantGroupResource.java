@@ -195,7 +195,7 @@ public class ExerciseVariantGroupResource {
             // MilestoneExerciseService does correctly.
             throw new BadRequestAlertException("A milestone exercise group must be deleted through its own endpoint", ENTITY_NAME, "milestoneGroupWrongEndpoint");
         }
-        exerciseVariantGroupRepository.delete(group);
+        exerciseVariantGroupService.deleteGroup(groupId, courseId);
         return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, group.getTitle())).build();
     }
 

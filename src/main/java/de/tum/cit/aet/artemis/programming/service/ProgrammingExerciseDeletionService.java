@@ -75,7 +75,7 @@ public class ProgrammingExerciseDeletionService {
     public void delete(Long programmingExerciseId, boolean deleteBaseReposBuildPlans) {
         // Note: This method does not accept a programming exercise to solve issues with nested Transactions.
         // It would be good to refactor the delete calls and move the validity checks down from the resources to the service methods (e.g. EntityNotFound).
-        final var programmingExercise = programmingExerciseRepository.findWithTemplateAndSolutionParticipationTeamAssignmentConfigCategoriesById(programmingExerciseId)
+        final var programmingExercise = programmingExerciseRepository.findWithTemplateAndSolutionParticipationCategoriesById(programmingExerciseId)
                 .orElseThrow(() -> new EntityNotFoundException("Programming Exercise", programmingExerciseId));
 
         // Resolved before the exercise is gone: a milestone's maxPoints is the sum of its user stories' points, so

@@ -35,6 +35,7 @@ import de.tum.cit.aet.artemis.exercise.domain.ExerciseType;
 import de.tum.cit.aet.artemis.exercise.domain.IncludedInOverallScore;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseTestRepository;
+import de.tum.cit.aet.artemis.exercise.repository.TeamAssignmentConfigRepository;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseDeletionService;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseVariantGroupService;
 import de.tum.cit.aet.artemis.fileupload.api.FileUploadImportApi;
@@ -82,6 +83,9 @@ class MilestoneMemberImportExportServiceTest {
     @Mock
     private ExerciseDeletionService exerciseDeletionService;
 
+    @Mock
+    private TeamAssignmentConfigRepository teamAssignmentConfigRepository;
+
     @TempDir
     private Path tempDir;
 
@@ -101,7 +105,7 @@ class MilestoneMemberImportExportServiceTest {
         FilePathConverter.setFileUploadPath(tempDir.resolve("uploads"));
         service = new MilestoneMemberImportExportService(exerciseRepository, gradingCriterionRepository, quizExerciseRepository, quizExerciseService,
                 Optional.of(textExerciseImportApi), Optional.of(modelingExerciseImportApi), Optional.<FileUploadImportApi>empty(), exerciseVariantGroupService,
-                exerciseDeletionService);
+                exerciseDeletionService, teamAssignmentConfigRepository);
         course.setId(1L);
     }
 
@@ -120,7 +124,7 @@ class MilestoneMemberImportExportServiceTest {
         essay.setExampleSolution("Solution");
         essay.setCategories(Set.of("{\"category\":\"homework\"}"));
         essay.setMaxPoints(10.0);
-        when(exerciseRepository.findByIdWithCategoriesAndTeamAssignmentConfigElseThrow(7L)).thenReturn(essay);
+        when(exerciseRepository.findByIdWithCategoriesElseThrow(7L)).thenReturn(essay);
         when(gradingCriterionRepository.findByExerciseIdWithEagerGradingCriteria(7L)).thenReturn(Set.of());
 
         MilestoneMemberExportDTO exported = service.exportMember(essay, tempDir);

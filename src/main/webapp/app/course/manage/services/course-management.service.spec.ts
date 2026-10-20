@@ -234,11 +234,13 @@ describe('Course Management Service', () => {
     });
 
     it('should search the students of a course by login or name', () => {
-        courseManagementService.searchStudents(1, 'ada').subscribe();
+        courseManagementService.searchStudents(1, 'ada', 0, 25).subscribe();
 
         const req = httpMock.expectOne((request) => request.url === `${resourceUrl}/1/students/search`);
         expect(req.request.method).toBe('GET');
         expect(req.request.params.get('loginOrName')).toBe('ada');
+        expect(req.request.params.get('page')).toBe('0');
+        expect(req.request.params.get('size')).toBe('25');
         req.flush([]);
     });
 
@@ -592,6 +594,25 @@ describe('Course Management Service', () => {
         expect(result).toEqual({ content: mockUsers, totalElements: 2 });
     });
 
+    it('should search students using the requested page and size', () => {
+        const users = [new User(1, 'student1')];
+
+        courseManagementService
+            .searchStudents(course.id!, 'student', 2, 10)
+            .pipe(take(1))
+            .subscribe((res) => expect(res.body).toEqual(users));
+
+        const req = httpMock.expectOne(
+            (request) =>
+                request.method === 'GET' &&
+                request.url === `${resourceUrl}/${course.id}/students/search` &&
+                request.params.get('loginOrName') === 'student' &&
+                request.params.get('page') === '2' &&
+                request.params.get('size') === '10',
+        );
+        req.flush(users);
+    });
+
     it('getNumberOfAllowedComplaintsInCourse', () => {
         const courseId = 42;
         const teamMode = true;
@@ -794,6 +815,7 @@ describe('Course DTO adapter boundary', () => {
         athenaGradingFeedbackEnabled: false,
         athenaFormativeFeedbackEnabled: false,
         learningPathsEnabled: false,
+        presentationAssessmentsEnabled: false,
         trainingEnabled: false,
     };
 
@@ -868,6 +890,34 @@ describe('Course DTO adapter boundary', () => {
             quizMode: QuizMode.SYNCHRONIZED,
             quizBatches: [{ id: 3, startTime: '2026-02-01T09:00:00Z', started: true }],
         },
+        [ExerciseType.MILESTONE]: {
+            id: 506,
+            type: ExerciseType.MILESTONE,
+            title: 'Milestone fixture',
+            releaseDate: '2026-01-01T00:00:00Z',
+            startDate: '2026-01-02T00:00:00Z',
+            dueDate: '2026-02-01T00:00:00Z',
+            assessmentDueDate: '2026-02-15T00:00:00Z',
+            exampleSolutionPublicationDate: '2026-03-01T00:00:00Z',
+            categories: [exerciseCategoryJson],
+            teamMode: true,
+            exerciseVariantGroup: { id: 9, title: 'Group', dueDate: '2026-02-05T00:00:00Z' },
+            programmingLanguage: ProgrammingLanguage.JAVA,
+        },
+        [ExerciseType.USER_STORY]: {
+            id: 507,
+            type: ExerciseType.USER_STORY,
+            title: 'User story fixture',
+            releaseDate: '2026-01-01T00:00:00Z',
+            startDate: '2026-01-02T00:00:00Z',
+            dueDate: '2026-02-01T00:00:00Z',
+            assessmentDueDate: '2026-02-15T00:00:00Z',
+            exampleSolutionPublicationDate: '2026-03-01T00:00:00Z',
+            categories: [exerciseCategoryJson],
+            teamMode: true,
+            exerciseVariantGroup: { id: 9, title: 'Group', dueDate: '2026-02-05T00:00:00Z' },
+            programmingLanguage: ProgrammingLanguage.JAVA,
+        },
     };
 
     const expectedModelClass: Record<ExerciseType, new (...args: never[]) => Exercise> = {
@@ -876,6 +926,9 @@ describe('Course DTO adapter boundary', () => {
         [ExerciseType.MODELING]: ModelingExercise,
         [ExerciseType.FILE_UPLOAD]: FileUploadExercise,
         [ExerciseType.QUIZ]: QuizExercise,
+        // Milestone and user story exercises are programming exercises on the client
+        [ExerciseType.MILESTONE]: ProgrammingExercise,
+        [ExerciseType.USER_STORY]: ProgrammingExercise,
     };
 
     it.each(Object.values(ExerciseType))('hydrates the %s management payload into its concrete model with every date converted', (type) => {
@@ -1021,6 +1074,11 @@ describe('Course DTO adapter boundary', () => {
 
         expect(courseFromManagementDTO(withArchive).courseArchivePath).toBe('archives/course-1.zip');
         expect(courseFromManagementDTO(minimalCourseManagementDTO).courseArchivePath).toBeUndefined();
+    });
+
+    it.each([true, false])('preserves presentationAssessmentsEnabled=%s when hydrating a management response', (enabled) => {
+        const dto: CourseManagementDTO = { ...minimalCourseManagementDTO, presentationAssessmentsEnabled: enabled };
+        expect(courseFromManagementDTO(dto).presentationAssessmentsEnabled).toBe(enabled);
     });
 
     it('hydrates title, semester, description and prerequisites from the enrollment DTO', () => {

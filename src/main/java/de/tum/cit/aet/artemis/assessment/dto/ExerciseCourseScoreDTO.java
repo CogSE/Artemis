@@ -57,8 +57,9 @@ public record ExerciseCourseScoreDTO(long id, ExerciseType type, @NotNull Includ
         Long variantGroupId = variantGroup != null ? variantGroup.getId() : null;
         Double variantGroupMaxPoints = variantGroup != null ? variantGroup.getMaxPoints() : null;
         boolean creditedThroughMilestone = variantGroup instanceof MilestoneExerciseGroup && exercise instanceof UserStoryExercise;
+        var course = exercise.getCourseViaExerciseGroupOrCourseMemberElseThrow();
         return new ExerciseCourseScoreDTO(exercise.getId(), ExerciseType.getExerciseTypeFromClass(exercise.getClass()), exercise.getIncludedInOverallScore(),
                 exercise.getAssessmentType(), exercise.getDueDate(), exercise.getAssessmentDueDate(), buildAndTestStudentSubmissionsAfterDueDate, exercise.getMaxPoints(),
-                exercise.getBonusPoints(), exercise.getCourseViaExerciseGroupOrCourseMember().getId(), variantGroupId, variantGroupMaxPoints, creditedThroughMilestone);
+                exercise.getBonusPoints(), course.getId(), variantGroupId, variantGroupMaxPoints, creditedThroughMilestone);
     }
 }

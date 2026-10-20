@@ -263,11 +263,12 @@ public class MilestoneExerciseService {
         // applyMilestoneConfig above attaches fresh, still-transient template/solution participations, which do not cascade
         // PERSIST, so they need their own save dance, as does the build config.
         UserStoryExercise created = programmingExerciseCreationUpdateService.saveNewExerciseWithOwnAssociations(userStoryExercise, buildConfig);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so the
+        // user story joins its milestone group with a second save. The competency links cascade from the exercise and are
+        // persisted by the same save.
+        created.setExerciseVariantGroup(milestoneGroup);
         competencyExerciseLinkService.addCompetencyLinksForCreation(created, competencyLinks);
-        if (!created.getCompetencyLinks().isEmpty()) {
-            // The links cascade from the exercise, and nothing else on this path saves it again.
-            programmingExerciseRepository.save(created);
-        }
+        programmingExerciseRepository.save(created);
         // Unlike the generic programming-exercise creation flow (ProgrammingExerciseCreationUpdateService.createProgrammingExercise),
         // saveNewExerciseWithOwnAssociations above is a narrow "persist this exercise plus its own build config/participations"
         // helper and does not create a communication channel - without this, students saw no channel at all under the

@@ -78,8 +78,10 @@ class UserStoryTaskIntegrationTest extends AbstractProgrammingIntegrationIndepen
         userStory.setCourse(course);
         userStory.setMaxPoints(2.0);
         userStory.setDueDate(ZonedDateTime.now().plusDays(7));
-        userStory.setExerciseVariantGroup(group);
         userStory.generateAndSetProjectKey();
+        programmingExerciseRepository.save(userStory);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        userStory.setExerciseVariantGroup(group);
         userStory = (UserStoryExercise) programmingExerciseRepository.save(userStory);
     }
 

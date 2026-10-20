@@ -7,6 +7,10 @@ import java.util.regex.Pattern;
  */
 public final class Constants {
 
+    public static final String HYPERION_LIVE_SAVE_COORDINATION_MAP = "hyperion-live-save-coordination";
+
+    public static final String HYPERION_GENERATION_JOBS_MAP = "hyperion-exercise-generation-jobs";
+
     // NOTE: those 4 values have to be the same as in app.constants.ts
     public static final int USERNAME_MIN_LENGTH = 4;
 
@@ -142,10 +146,10 @@ public final class Constants {
     public static final long MAX_NUMBER_OF_LOCKED_SUBMISSIONS_PER_TUTOR = 10;
 
     // Note: The values in input.constants.ts (client) need to be the same
-    public static final long MAX_FILE_SIZE_COMMUNICATION = 5 * 1024 * 1024; // 5 MB
+    public static final long MAX_FILE_SIZE_COMMUNICATION = 5L * 1024 * 1024; // 5 MB
 
     // Note: The values in input.constants.ts (client) need to be the same
-    public static final long MAX_SUBMISSION_FILE_SIZE = 150 * 1024 * 1024; // 8 MB
+    public static final long MAX_SUBMISSION_FILE_SIZE = 150L * 1024 * 1024; // 150 MB
 
     // Note: The values in input.constants.ts (client) need to be the same
     public static final int MAX_SUBMISSION_TEXT_LENGTH = 30_000; // 30.000 characters
@@ -166,6 +170,8 @@ public final class Constants {
     public static final long SYNTHETIC_FEEDBACK_ID_STRIDE = 2L;
 
     public static final int MAX_QUIZ_SHORT_ANSWER_TEXT_LENGTH = 255; // Must be consistent with database column definition
+
+    public static final int MAX_QUIZ_DRAG_ITEM_TEXT_LENGTH = 255; // Keep in sync with MAX_QUIZ_DRAG_ITEM_TEXT_LENGTH in input.constants.ts
 
     // Note: Must be consistent with EXAM_TEXT_MAX_LENGTH in input.constants.ts
     public static final int EXAM_TEXT_MAX_LENGTH = 10_000; // Applies to the exam start/end and confirmation start/end texts
@@ -387,6 +393,11 @@ public final class Constants {
      */
     public static final String PROFILE_BUILDAGENT = "buildagent";
 
+    /**
+     * The name of the Spring profile used to run isolated AI Worker jobs.
+     */
+    public static final String PROFILE_AIWORKER = "aiworker";
+
     public static final String PROFILE_TEST_BUILDAGENT = "buildagent-test";
 
     /**
@@ -472,6 +483,11 @@ public final class Constants {
     public static final String MODULE_FEATURE_HYPERION = "hyperion";
 
     /**
+     * The name of the module feature used for whole-exercise generation.
+     */
+    public static final String MODULE_FEATURE_HYPERION_EXERCISE_GENERATION = "hyperion-exercise-generation";
+
+    /**
      * The name of the module feature used for Deimos malicious participation analysis functionality.
      */
     public static final String MODULE_FEATURE_DEIMOS = "deimos";
@@ -547,6 +563,12 @@ public final class Constants {
     public static final String MODULE_FEATURE_SAML2 = "saml2";
 
     /**
+     * The name of the module feature used for the global search (Weaviate) integration. It is published to the client
+     * when {@link #WEAVIATE_ENABLED_PROPERTY_NAME} is enabled, so the client can gate global-search admin surfaces.
+     */
+    public static final String MODULE_FEATURE_GLOBAL_SEARCH = "globalsearch";
+
+    /**
      * The YAML property prefix consumed by {@code SAML2Properties} when SAML2 is enabled.
      */
     public static final String SAML2_PROPERTIES_PREFIX = "saml2";
@@ -572,6 +594,11 @@ public final class Constants {
      * The name of the property used to enable or disable Hyperion functionality.
      */
     public static final String HYPERION_ENABLED_PROPERTY_NAME = "artemis.hyperion.enabled";
+
+    /**
+     * The name of the property used to enable or disable whole-exercise generation.
+     */
+    public static final String HYPERION_EXERCISE_GENERATION_ENABLED_PROPERTY_NAME = "artemis.hyperion.exercise-generation.enabled";
 
     /**
      * The name of the property used to enable or disable Iris / Pyris functionality.
@@ -738,7 +765,7 @@ public final class Constants {
 
     public static final String ASSIGNMENT_REPO_PLACEHOLDER_NO_SLASH = "${studentWorkingDirectoryNoSlash}";
 
-    public static final Pattern ALLOWED_CHECKOUT_DIRECTORY = Pattern.compile("[\\w-]+(/[\\w-]+)*$");
+    public static final Pattern ALLOWED_CHECKOUT_DIRECTORY = Pattern.compile("[\\w-]++(?:/[\\w-]++)*+$");
 
     public static final String JWT_COOKIE_NAME = "jwt";
 

@@ -7,15 +7,27 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>${exerciseNamePomXml}-Tests</artifactId>
-    <!-- The compiler, the Ares weaving and agent, and the reserved-package check are inherited from the parent pom -->
     <build>
         <sourceDirectory>${project.basedir}/..${studentWorkingDirectory}</sourceDirectory>
+        <!-- Ares looks for the compiled student code in the target directory of its working directory, which is the test repository
+             root (see the surefire configuration below). Without this, it finds no classes and silently skips its static analysis. -->
+        <outputDirectory>${project.basedir}/../target/classes</outputDirectory>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.16.0</version>
                 <configuration>
-                    <!-- Ares resolves SecurityPolicy.yaml against the working directory, and the policy lies in the repository root -->
+                    <release>25</release>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <!-- Ares requires the student code to be located within its working directory. The test repository
+                         (containing the security policy) is the parent of the build stage directories. -->
                     <workingDirectory>${project.basedir}/..</workingDirectory>
                 </configuration>
             </plugin>

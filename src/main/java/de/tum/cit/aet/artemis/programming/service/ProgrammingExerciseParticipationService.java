@@ -372,6 +372,9 @@ public class ProgrammingExerciseParticipationService {
     @Nullable
     public ProgrammingExerciseParticipation getParticipationWithResults(String planKey) {
         // we have to support template, solution and student build plans here
+        if (planKey == null) {
+            return null;
+        }
         if (planKey.endsWith("-" + BuildPlanType.TEMPLATE.getName())) {
             return templateParticipationRepository.findByBuildPlanIdWithResults(planKey).orElse(null);
         }

@@ -436,7 +436,7 @@ describe('ExerciseHeadersInformationComponent', () => {
             // The title bar renders this component as well, where the box would repeat what the panel below states.
             ['the title bar of a started user story', { type: ExerciseType.USER_STORY, exerciseVariantGroup: milestoneGroup }, { placement: 'titleBar' }],
         ])('is not shown for %s', (_label, exercise, options) => {
-            render(exercise as Partial<Exercise>, options);
+            render(exercise as Partial<Exercise>, options as { participation?: boolean; interactive?: boolean; placement?: InformationPlacement });
             expect(component.showMilestoneDod()).toBe(false);
         });
     });

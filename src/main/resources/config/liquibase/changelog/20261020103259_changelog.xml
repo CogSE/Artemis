@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+    Every programming exercise owns a permanent build configuration row. The backfill in 20261004204445-05 only selects
+    plain programming exercises (discriminator 'P'), but milestone ('MS') and user story ('US') exercises are programming
+    exercises too and read their build configuration the same way. They normally receive a copy of their milestone's
+    configuration on creation; this gives the defaults to any that are still without one. A repeated run inserts nothing.
+    -->
+    <changeSet id="20261020103259-01-backfill-milestone-and-user-story-build-config" author="nschmitz">
+        <comment>Give milestone and user story exercises without a build configuration the default one.</comment>
+        <sql>INSERT INTO programming_exercise_build_config (exercise_id, timeout_seconds, allow_branching, branch_regex, checkout_solution_repository)
+            SELECT exercise.id, 0, FALSE, '.*', FALSE FROM exercise WHERE exercise.discriminator IN ('MS', 'US')
+            AND NOT EXISTS (SELECT 1 FROM programming_exercise_build_config config WHERE config.exercise_id = exercise.id);</sql>
+        <rollback><comment>Keep the rows: the exercises cannot work without a build configuration, and deleting them could discard settings modified since.</comment></rollback>
+    </changeSet>
+</databaseChangeLog>

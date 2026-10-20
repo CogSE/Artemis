@@ -27,7 +27,7 @@ export class SidebarCardMediumComponent {
     readonly pageChange = output<string | number>();
     /** Key used for grouping or categorizing sidebar items */
     readonly groupKey = input<string>();
-    /** Id of the entity the detail route currently shows, set by {@link SidebarCardDirective}. */
+    /** Id of the entity the detail route currently shows, set by {@link SidebarCardComponent}. */
     readonly activeItemId = input<number>();
 
     /**
@@ -73,6 +73,10 @@ export class SidebarCardMediumComponent {
      */
     protected readonly isItemActive = computed<boolean>(() => {
         const item = this.sidebarItem();
+        if (item.routerLink) {
+            // An explicit link is matched exactly by routerLinkActive itself.
+            return false;
+        }
         if (this.matchesRoute(item.targetComponentSubRoute, item.id)) {
             return true;
         }
@@ -92,6 +96,10 @@ export class SidebarCardMediumComponent {
     }
 
     onNonExamCardClicked(event?: MouseEvent) {
+        // Explicit links own their navigation; do not trigger the legacy refresh/event path.
+        if (this.sidebarItem().routerLink) {
+            return;
+        }
         // Leave modified clicks to the native link (for example, opening a card in a new tab).
         if (event && (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)) {
             return;

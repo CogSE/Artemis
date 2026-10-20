@@ -930,8 +930,10 @@ class LocalCIIntegrationTest extends AbstractProgrammingIntegrationLocalCILocalV
         userStory.setProgrammingLanguage(ProgrammingLanguage.JAVA);
         userStory.setCourse(course);
         userStory.setMaxPoints(1.0);
-        userStory.setExerciseVariantGroup(group);
         userStory.generateAndSetProjectKey();
+        programmingExerciseRepository.save(userStory);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        userStory.setExerciseVariantGroup(group);
         userStory = (UserStoryExercise) programmingExerciseRepository.save(userStory);
 
         ProgrammingExerciseStudentParticipation milestoneParticipation = participationUtilService.addStudentParticipationForProgrammingExercise(milestoneExercise,

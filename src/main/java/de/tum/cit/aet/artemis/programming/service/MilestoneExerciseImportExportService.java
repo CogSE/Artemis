@@ -197,8 +197,7 @@ public class MilestoneExerciseImportExportService {
         MilestoneExerciseGroup group = milestoneExerciseGroupRepository.findByIdAndCourseIdElseThrow(groupId, courseId);
         long milestoneExerciseId = milestoneExerciseGroupRepository.findMilestoneExerciseIdByGroupId(groupId)
                 .orElseThrow(() -> new BadRequestAlertException("The milestone group has no anchor milestone exercise", ENTITY_NAME, "milestoneExerciseMissing"));
-        ProgrammingExercise milestoneExercise = programmingExerciseRepository
-                .findByIdWithPlagiarismDetectionConfigTeamConfigGradingCriteriaAndCategoriesElseThrow(milestoneExerciseId);
+        ProgrammingExercise milestoneExercise = programmingExerciseRepository.findByIdWithGradingCriteriaAndCategoriesElseThrow(milestoneExerciseId);
 
         Path exportDir = fileService.createTemporaryDirectory(repoDownloadClonePath, "milestone-export-", TEMPORARY_DIRECTORY_LIFETIME_MINUTES);
         List<Path> pathsToBeZipped = new ArrayList<>();
@@ -220,8 +219,7 @@ public class MilestoneExerciseImportExportService {
         List<MilestoneMemberExportDTO> otherMemberDetails = new ArrayList<>();
         for (Exercise member : members) {
             if (member instanceof UserStoryExercise) {
-                if (programmingExerciseRepository
-                        .findByIdWithPlagiarismDetectionConfigTeamConfigGradingCriteriaAndCategoriesElseThrow(member.getId()) instanceof UserStoryExercise userStory) {
+                if (programmingExerciseRepository.findByIdWithGradingCriteriaAndCategoriesElseThrow(member.getId()) instanceof UserStoryExercise userStory) {
                     // The ids a problem statement refers to its tests by mean nothing in another course, the names do.
                     programmingExerciseTaskService.replaceTestIdsWithNames(userStory);
                     copyEmbeddedFiles(userStory.getProblemStatement(), embeddedFilesDir);

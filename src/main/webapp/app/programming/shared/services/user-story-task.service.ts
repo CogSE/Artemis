@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, WritableSignal, inject, signal } from '@angular/core';
+import { Service, WritableSignal, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { UserStoryTask } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
 
@@ -10,7 +10,7 @@ import { UserStoryTask } from 'app/exercise/shared/entities/participation/progra
  * Every endpoint acts on the caller's own participation, or a task on it - there is nothing here for reading or
  * writing someone else's board.
  */
-@Injectable({ providedIn: 'root' })
+@Service()
 export class UserStoryTaskService {
     private readonly http = inject(HttpClient);
 

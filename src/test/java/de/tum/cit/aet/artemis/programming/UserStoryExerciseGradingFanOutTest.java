@@ -162,8 +162,10 @@ class UserStoryExerciseGradingFanOutTest extends AbstractProgrammingIntegrationI
         exercise.setProgrammingLanguage(ProgrammingLanguage.JAVA);
         exercise.setCourse(course);
         exercise.setMaxPoints(2.0);
-        exercise.setExerciseVariantGroup(group);
         exercise.generateAndSetProjectKey();
+        programmingExerciseRepository.save(exercise);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        exercise.setExerciseVariantGroup(group);
         return (UserStoryExercise) programmingExerciseRepository.save(exercise);
     }
 

@@ -32,6 +32,7 @@ import de.tum.cit.aet.artemis.exercise.domain.ExerciseType;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.dto.TeamAssignmentConfigDTO;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseRepository;
+import de.tum.cit.aet.artemis.exercise.repository.TeamAssignmentConfigRepository;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseDeletionService;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseVariantGroupService;
 import de.tum.cit.aet.artemis.fileupload.api.FileUploadImportApi;
@@ -90,10 +91,13 @@ public class MilestoneMemberImportExportService {
 
     private final ExerciseDeletionService exerciseDeletionService;
 
+    private final TeamAssignmentConfigRepository teamAssignmentConfigRepository;
+
     public MilestoneMemberImportExportService(ExerciseRepository exerciseRepository, GradingCriterionRepository gradingCriterionRepository,
             QuizExerciseRepository quizExerciseRepository, QuizExerciseService quizExerciseService, Optional<TextExerciseImportApi> textExerciseImportApi,
             Optional<ModelingExerciseImportApi> modelingExerciseImportApi, Optional<FileUploadImportApi> fileUploadImportApi,
-            ExerciseVariantGroupService exerciseVariantGroupService, ExerciseDeletionService exerciseDeletionService) {
+            ExerciseVariantGroupService exerciseVariantGroupService, ExerciseDeletionService exerciseDeletionService,
+            TeamAssignmentConfigRepository teamAssignmentConfigRepository) {
         this.exerciseRepository = exerciseRepository;
         this.gradingCriterionRepository = gradingCriterionRepository;
         this.quizExerciseRepository = quizExerciseRepository;
@@ -103,6 +107,7 @@ public class MilestoneMemberImportExportService {
         this.fileUploadImportApi = fileUploadImportApi;
         this.exerciseVariantGroupService = exerciseVariantGroupService;
         this.exerciseDeletionService = exerciseDeletionService;
+        this.teamAssignmentConfigRepository = teamAssignmentConfigRepository;
     }
 
     /**
@@ -134,7 +139,9 @@ public class MilestoneMemberImportExportService {
         if (member.getExerciseType() == ExerciseType.QUIZ) {
             return exportQuiz(member.getId(), exportDir);
         }
-        Exercise exercise = exerciseRepository.findByIdWithCategoriesAndTeamAssignmentConfigElseThrow(member.getId());
+        Exercise exercise = exerciseRepository.findByIdWithCategoriesElseThrow(member.getId());
+        // A loaded exercise does not carry its team settings, they are read explicitly.
+        teamAssignmentConfigRepository.attachTo(exercise);
         List<GradingCriterionDTO> criteria = gradingCriterionRepository.findByExerciseIdWithEagerGradingCriteria(exercise.getId()).stream().map(GradingCriterionDTO::of)
                 .map(GradingCriterionDTO::withoutIds).toList();
         TeamAssignmentConfigDTO teamConfig = exercise.getMode() == ExerciseMode.TEAM && exercise.getTeamAssignmentConfig() != null

@@ -1,11 +1,17 @@
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.process.CommandLineArgumentProvider
+
 plugins {
     // %static-code-analysis-start%
     id 'checkstyle'
     id 'pmd'
     id 'com.github.spotbugs' version '6.5.13'
     // %static-code-analysis-stop%
-    id 'com.teamscale' version '34.2.1'
+    id 'com.teamscale' version '39.0.0'
     id 'java'
+    id 'io.freefair.aspectj.post-compile-weaving' version '9.8.0'
 }
 
 java {
@@ -20,7 +26,7 @@ compileTestJava.options.encoding = 'UTF-8'
 repositories {
     // %maven-central-mirror-start%
     maven {
-        name = 'artemisMavenCentralMirror'
+        name 'artemisMavenCentralMirror'
         url = '${mavenCentralMirrorUrl}'
     }
     // %maven-central-mirror-stop%
@@ -28,25 +34,80 @@ repositories {
     mavenLocal()
 }
 
-def aresVersion = '2.2.1'
+ext {
+    aresVersion = '2.2.1'
+    aspectjVersion = '1.9.25.1'
+}
 
 configurations {
-    // The Ares agent jar, resolved on its own so that it can be passed to the test JVM as -javaagent
+    // transitive = false: each configuration resolves to exactly one JAR, which is used by its file path below
     aresAgent {
         canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+    aresAspectjRuntime {
+        canBeConsumed = false
+        canBeResolved = true
         transitive = false
     }
 }
 
 dependencies {
-    // Ares 2 comes with JUnit 5 and AssertJ. It runs in instrumentation mode here (see SecurityPolicy.yaml), so the
-    // agent is all it needs at runtime and the student code is not woven at compile time.
+    // Ares 2 comes with JUnit 5 and AssertJ
     testImplementation "de.tum.cit.ase:ares:${aresVersion}"
+    // Puts Ares on the aspect path of the AspectJ compiler, otherwise nothing is woven into the student code
+    aspect "de.tum.cit.ase:ares:${aresVersion}"
+    implementation "org.aspectj:aspectjrt:${aspectjVersion}"
     aresAgent "de.tum.cit.ase:ares:${aresVersion}:agent"
-    implementation 'org.apache.commons:commons-lang3:3.18.0'
+    aresAspectjRuntime "org.aspectj:aspectjrt:${aspectjVersion}"
+    implementation 'org.apache.commons:commons-lang3:3.21.0'
 
     // testImplementation(':${exerciseNamePomXml}')
     // testImplementation(':${exerciseNamePomXml}-Solution')
+}
+
+abstract class AresJvmArguments implements CommandLineArgumentProvider {
+    @InputFiles
+    @PathSensitive(PathSensitivity.NONE)
+    abstract ConfigurableFileCollection getAgentJar()
+
+    @InputFiles
+    @PathSensitive(PathSensitivity.NONE)
+    abstract ConfigurableFileCollection getAspectjRuntimeJar()
+
+    @Override
+    Iterable<String> asArguments() {
+        [
+                "-javaagent:${agentJar.singleFile.absolutePath}".toString(),
+                "-Xbootclasspath/a:${aspectjRuntimeJar.singleFile.absolutePath}".toString(),
+                '--add-exports', 'java.base/java.lang=ALL-UNNAMED',
+                '--add-exports', 'java.base/jdk.internal.misc=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.io=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.net=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.nio=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.nio.channels=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.util.concurrent=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.util.concurrent.atomic=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.util.concurrent.locks=ALL-UNNAMED',
+                '--add-opens', 'java.base/jdk.internal.misc=ALL-UNNAMED',
+                '--add-opens', 'java.base/sun.net.www.protocol.http=ALL-UNNAMED',
+                '--add-opens', 'java.base/sun.net.www.protocol.https=ALL-UNNAMED',
+                '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
+                '--add-opens', 'jdk.unsupported/sun.misc=ALL-UNNAMED'
+        ]
+    }
+}
+
+def aresJvmArguments = objects.newInstance(AresJvmArguments)
+aresJvmArguments.agentJar.from(configurations.aresAgent)
+aresJvmArguments.aspectjRuntimeJar.from(configurations.aresAspectjRuntime)
+
+tasks.withType(Test).configureEach {
+    jvmArgumentProviders.add(aresJvmArguments)
 }
 
 def assignmentSrcDir = "${studentWorkingDirectoryNoSlash}"
@@ -100,77 +161,6 @@ sourceSets {
     }
 }
 
-// Ares reserved-package build boundary, version 2 (shipped with Ares as GradleReservedPackages.gradle): student code must
-// not shadow trusted packages. Student classes in these packages would replace the real ones, e.g. an Assertions class
-// that never fails, and forge the grading. Every Test task depends on this check, not only `check`.
-def aresReservedPackagePatterns = [
-        // The JDK
-        'java/**', 'javax/**', 'jdk/**', 'sun/**', 'com/sun/**',
-        // Ares and the libraries it brings to the test runtime
-        'anonymous/toolclasses/**', 'ch/qos/logback/**', 'com/fasterxml/**', 'com/github/javaparser/**', 'com/google/**',
-        'com/ibm/wala/**', 'com/intellij/**', 'com/opencsv/**', 'com/tngtech/archunit/**', 'de/tum/cit/ase/ares/**',
-        'javassist/**', 'junit/**', 'metatest/**', 'net/bytebuddy/**', 'net/jqwik/**', 'org/apache/**', 'org/apfloat/**',
-        'org/apiguardian/**', 'org/aspectj/**', 'org/assertj/**', 'org/checkerframework/**', 'org/eclipse/**',
-        'org/gradle/**', 'org/hamcrest/**', 'org/jacoco/**', 'org/jgrapht/**', 'org/jheaps/**', 'org/json/**',
-        'org/jspecify/**', 'org/junit/**', 'org/mockito/**', 'org/objenesis/**', 'org/opentest4j/**', 'org/slf4j/**',
-        'org/yaml/**', 'worker/org/gradle/**'
-]
-
-tasks.register('verifyAresReservedPackagesV2') {
-    dependsOn tasks.named('classes')
-    def studentClassesDirs = sourceSets.main.output.classesDirs
-    def reservedPrefixes = aresReservedPackagePatterns.collect { it.substring(0, it.length() - 2) }
-    inputs.files(studentClassesDirs).withPropertyName('studentClasses')
-    doLast {
-        def forbidden = []
-        studentClassesDirs.files.each { root ->
-            if (!root.isDirectory()) {
-                return
-            }
-            def rootPath = root.toPath()
-            root.eachFileRecurse { candidate ->
-                if (!candidate.isFile()) {
-                    return
-                }
-                def relative = rootPath.relativize(candidate.toPath()).toString().replace(File.separator, '/')
-                if (reservedPrefixes.any { relative.startsWith(it) }) {
-                    forbidden << relative
-                }
-            }
-        }
-        if (!forbidden.isEmpty()) {
-            throw new GradleException("Ares reserved-package validation 2 rejected student output: ${forbidden.sort()}. No bypass flag is supported.")
-        }
-    }
-}
-tasks.named('check') { dependsOn tasks.named('verifyAresReservedPackagesV2') }
-
-tasks.withType(Test).configureEach {
-    dependsOn tasks.named('verifyAresReservedPackagesV2')
-    def aresAgentJar = configurations.aresAgent
-    inputs.files(aresAgentJar).withPropertyName('aresAgent')
-    jvmArgumentProviders.add({
-        ["-javaagent:${aresAgentJar.singleFile.absolutePath}",
-         '--add-exports', 'java.base/java.lang=ALL-UNNAMED',
-         '--add-exports', 'java.base/jdk.internal.misc=ALL-UNNAMED',
-         '--add-opens', 'java.base/java.io=ALL-UNNAMED',
-         '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
-         '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
-         '--add-opens', 'java.base/java.net=ALL-UNNAMED',
-         '--add-opens', 'java.base/java.nio=ALL-UNNAMED',
-         '--add-opens', 'java.base/java.nio.channels=ALL-UNNAMED',
-         '--add-opens', 'java.base/java.util=ALL-UNNAMED',
-         '--add-opens', 'java.base/java.util.concurrent=ALL-UNNAMED',
-         '--add-opens', 'java.base/java.util.concurrent.atomic=ALL-UNNAMED',
-         '--add-opens', 'java.base/java.util.concurrent.locks=ALL-UNNAMED',
-         '--add-opens', 'java.base/jdk.internal.misc=ALL-UNNAMED',
-         '--add-opens', 'java.base/sun.net.www.protocol.http=ALL-UNNAMED',
-         '--add-opens', 'java.base/sun.net.www.protocol.https=ALL-UNNAMED',
-         '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
-         '--add-opens', 'jdk.unsupported/sun.misc=ALL-UNNAMED']
-    } as CommandLineArgumentProvider)
-}
-
 test {
     defaultCharacterEncoding = 'UTF-8'
     testLogging.showStandardStreams = true
@@ -212,7 +202,6 @@ checkstyle {
 }
 
 spotbugs {
-    toolVersion = '4.10.5'
     excludeFilter = file("$scaConfigDirectory/spotbugs-exclusions.xml")
     ignoreFailures = true
     // exclude the test files
@@ -238,3 +227,6 @@ pmd {
     }
 }
 // %static-code-analysis-stop%
+
+// Ares reserved-package build boundary, version 2: student code must not shadow trusted packages
+apply from: 'gradle/AresReservedPackages.gradle'

@@ -1,5 +1,5 @@
 import { HttpClient, HttpHeaders, HttpParams, HttpResponse } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ExerciseVariantGroupDTO } from 'app/course/manage/exercises/exercise-variant-group.service';
 
@@ -35,7 +35,7 @@ export interface MilestoneExportDetails {
  * Exports a milestone exercise group (its milestone exercise with the shared repositories plus every exercise of the group) into
  * one archive, and imports such an archive into a course.
  */
-@Injectable({ providedIn: 'root' })
+@Service()
 export class MilestoneImportExportService {
     private readonly http = inject(HttpClient);
 

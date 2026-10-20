@@ -16,7 +16,7 @@ regardingTheSupervisedCode:
     regardingFileSystemInteractions: [ ]
     regardingNetworkConnections: [ ]
     regardingCommandExecutions: [ ]
-    # The template's Client creates random dates, either with ThreadLocalRandom or with Apache Commons Lang
+    # The sorting exercise uses ThreadLocalRandom to create random dates
     regardingThreadCreations:
       - createTheFollowingNumberOfThreads: 1
         ofThisClass: "java.util.concurrent.ThreadLocalRandom"

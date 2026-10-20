@@ -402,8 +402,10 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         member.setCourse(course);
         member.setMaxPoints(10.0);
         member.setReleaseDate(ZonedDateTime.now().minusDays(1).truncatedTo(ChronoUnit.MILLIS));
-        member.setExerciseVariantGroup(milestoneGroup);
         member.generateAndSetProjectKey();
+        programmingExerciseRepository.save(member);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        member.setExerciseVariantGroup(milestoneGroup);
         programmingExerciseRepository.save(member);
 
         var overview = request.get("/api/course/courses/" + course.getId() + "/exercises-for-overview", HttpStatus.OK, CourseExercisesForOverviewDTO.class);
@@ -502,6 +504,8 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         variantGroup.setDueDate(groupDueDate);
         variantGroup = exerciseVariantGroupRepository.save(variantGroup);
         Exercise member = TextExerciseFactory.generateTextExercise(null, null, null, course);
+        exerciseRepository.save(member);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
         member.setExerciseVariantGroup(variantGroup);
         member = exerciseRepository.save(member);
         member.setDueDate(null);
@@ -532,8 +536,10 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         member.setReleaseDate(ZonedDateTime.now().minusDays(1).truncatedTo(ChronoUnit.MILLIS));
         member.setAssessmentType(AssessmentType.SEMI_AUTOMATIC);
         member.setShowTestProgressAsScore(showTestProgressAsScore);
-        member.setExerciseVariantGroup(milestoneGroup);
         member.generateAndSetProjectKey();
+        programmingExerciseRepository.save(member);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        member.setExerciseVariantGroup(milestoneGroup);
         return (UserStoryExercise) programmingExerciseRepository.save(member);
     }
 
@@ -562,8 +568,10 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         member.setAssessmentType(AssessmentType.AUTOMATIC);
         member.setReleaseDate(milestoneExercise.getReleaseDate());
         member.setDueDate(milestoneExercise.getDueDate());
-        member.setExerciseVariantGroup(milestoneGroup);
         member.generateAndSetProjectKey();
+        programmingExerciseRepository.save(member);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        member.setExerciseVariantGroup(milestoneGroup);
         member = (UserStoryExercise) programmingExerciseRepository.save(member);
 
         // The story scored full marks while the anchor was aggregated down to 60% - exactly the divergence a static code
@@ -597,8 +605,10 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         member.setMaxPoints(10.0);
         member.setAssessmentType(AssessmentType.SEMI_AUTOMATIC);
         member.setReleaseDate(ZonedDateTime.now().minusDays(7).truncatedTo(ChronoUnit.MILLIS));
-        member.setExerciseVariantGroup(milestoneGroup);
         member.generateAndSetProjectKey();
+        programmingExerciseRepository.save(member);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        member.setExerciseVariantGroup(milestoneGroup);
         member = (UserStoryExercise) programmingExerciseRepository.save(member);
 
         Result automaticResult = addRatedResult(member, 100.0);
@@ -640,8 +650,10 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         member.setCourse(course);
         member.setMaxPoints(10.0);
         member.setReleaseDate(ZonedDateTime.now().minusDays(1).truncatedTo(ChronoUnit.MILLIS));
-        member.setExerciseVariantGroup(milestoneGroup);
         member.generateAndSetProjectKey();
+        programmingExerciseRepository.save(member);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        member.setExerciseVariantGroup(milestoneGroup);
         member = (UserStoryExercise) programmingExerciseRepository.save(member);
         long memberId = member.getId();
         Result memberResult = addRatedResult(member, 100.0);
@@ -709,8 +721,10 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         member.setProgrammingLanguage(ProgrammingLanguage.JAVA);
         member.setCourse(course);
         member.setMaxPoints(10.0);
-        member.setExerciseVariantGroup(milestoneGroup);
         member.generateAndSetProjectKey();
+        programmingExerciseRepository.save(member);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        member.setExerciseVariantGroup(milestoneGroup);
         programmingExerciseRepository.save(member);
         // The programming exercise endpoint answers with the build config, which is a row of its own.
         programmingExerciseBuildConfigRepository.saveForExercise(ProgrammingExerciseFactory.generateDefaultBuildConfig(), member);
@@ -752,8 +766,10 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         member.setMaxPoints(10.0);
         member.setReleaseDate(releaseDate);
         member.setProblemStatement(problemStatement);
-        member.setExerciseVariantGroup(milestoneGroup);
         member.generateAndSetProjectKey();
+        programmingExerciseRepository.save(member);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        member.setExerciseVariantGroup(milestoneGroup);
         return (UserStoryExercise) programmingExerciseRepository.save(member);
     }
 
@@ -935,6 +951,8 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
     /** Adds a non-programming exercise to the milestone group under the given title. */
     private Exercise addMember(Exercise exercise, String title) {
         exercise.setTitle(title);
+        exerciseRepository.save(exercise);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
         exercise.setExerciseVariantGroup(milestoneGroup);
         return exerciseRepository.save(exercise);
     }
