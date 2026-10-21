@@ -39,8 +39,6 @@ class BuildJobContainerServiceTest extends AbstractArtemisBuildAgentTest {
 
     private static final String IMAGE_NAME = "imageName";
 
-    private static final String BUILD_SCRIPT = "Hello_World();";
-
     private static final int MAX_XXX_VALUE = 2;
 
     private static final String DUMMY_CONTAINER_ID = "1234567890";
@@ -109,7 +107,7 @@ class BuildJobContainerServiceTest extends AbstractArtemisBuildAgentTest {
     @Test
     void testInvalidValuesReturnsDefaultConfig() {
         var runConfig = new DockerRunConfig(List.of(), "", 0, 0, 0);
-        buildJobContainerService.configureContainer(CONTAINER_NAME, IMAGE_NAME, BUILD_SCRIPT, runConfig);
+        buildJobContainerService.configureContainer(CONTAINER_NAME, IMAGE_NAME, runConfig);
 
         HostConfig hostConfig = captureHostConfig();
         assertThat(hostConfig).isEqualTo(buildAgentConfiguration.hostConfig());
@@ -118,7 +116,7 @@ class BuildJobContainerServiceTest extends AbstractArtemisBuildAgentTest {
     @Test
     void testClipToMaxValues() {
         var runConfig = new DockerRunConfig(List.of(), "", MAX_XXX_VALUE + 1, MAX_XXX_VALUE + 1, MAX_XXX_VALUE + 1);
-        buildJobContainerService.configureContainer(CONTAINER_NAME, IMAGE_NAME, BUILD_SCRIPT, runConfig);
+        buildJobContainerService.configureContainer(CONTAINER_NAME, IMAGE_NAME, runConfig);
 
         HostConfig hostConfig = captureHostConfig();
         assertThat(hostConfig).isNotNull();
@@ -130,7 +128,7 @@ class BuildJobContainerServiceTest extends AbstractArtemisBuildAgentTest {
     @Test
     void testNullNetworkIsIgnored() {
         var runConfig = new DockerRunConfig(List.of(), null, 1, 1, 1);
-        buildJobContainerService.configureContainer(CONTAINER_NAME, IMAGE_NAME, BUILD_SCRIPT, runConfig);
+        buildJobContainerService.configureContainer(CONTAINER_NAME, IMAGE_NAME, runConfig);
 
         HostConfig hostConfig = captureHostConfig();
         assertThat(hostConfig).isNotNull();
@@ -140,7 +138,7 @@ class BuildJobContainerServiceTest extends AbstractArtemisBuildAgentTest {
     @Test
     void testEmptyNetworkIsIgnored() {
         var runConfig = new DockerRunConfig(List.of(), "", 1, 1, 1);
-        buildJobContainerService.configureContainer(CONTAINER_NAME, IMAGE_NAME, BUILD_SCRIPT, runConfig);
+        buildJobContainerService.configureContainer(CONTAINER_NAME, IMAGE_NAME, runConfig);
 
         HostConfig hostConfig = captureHostConfig();
         assertThat(hostConfig).isNotNull();
@@ -150,7 +148,7 @@ class BuildJobContainerServiceTest extends AbstractArtemisBuildAgentTest {
     @Test
     void testNonEmptyNetworkIsTaken() {
         var runConfig = new DockerRunConfig(List.of(), "my-network-name", 1, 1, 1);
-        buildJobContainerService.configureContainer(CONTAINER_NAME, IMAGE_NAME, BUILD_SCRIPT, runConfig);
+        buildJobContainerService.configureContainer(CONTAINER_NAME, IMAGE_NAME, runConfig);
 
         HostConfig hostConfig = captureHostConfig();
         assertThat(hostConfig).isNotNull();

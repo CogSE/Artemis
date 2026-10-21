@@ -3,8 +3,6 @@ package de.tum.cit.aet.artemis.buildagent.service;
 import static de.tum.cit.aet.artemis.core.config.Constants.LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY;
 import static de.tum.cit.aet.artemis.core.config.Constants.PROFILE_BUILDAGENT;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -21,12 +19,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,8 +45,6 @@ import de.tum.cit.aet.artemis.buildagent.BuildAgentConfiguration;
 import de.tum.cit.aet.artemis.buildagent.dto.BuildLogDTO;
 import de.tum.cit.aet.artemis.buildagent.dto.DockerRunConfig;
 import de.tum.cit.aet.artemis.localci.exception.LocalCIException;
-import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
-import de.tum.cit.aet.artemis.programming.service.RepositoryCheckoutService.RepositoryCheckoutPath;
 
 /**
  * Service responsible for managing Docker container lifecycle and file operations during build job execution.
@@ -75,15 +67,15 @@ import de.tum.cit.aet.artemis.programming.service.RepositoryCheckoutService.Repo
  * <p>
  * <b>Container Lifecycle:</b>
  * <ol>
- * <li>{@link #configureContainer} - creates container with resource limits and build script</li>
+ * <li>{@link #configureContainer} - creates container with resource limits and environment variables</li>
  * <li>{@link #startContainer} - starts the container</li>
- * <li>{@link #populateBuildJobContainer} - copies repositories into container</li>
+ * <li>{@link #copyInputArchiveToContainer} - copies repositories and the build script into container</li>
  * <li>{@link #runScriptInContainer} - executes the build script</li>
  * <li>{@link #getArchiveFromContainer} - retrieves build results</li>
  * <li>{@link #stopContainer} or {@link #stopUnresponsiveContainer} - stops and removes container</li>
  * </ol>
  * <p>
- * <b>Retry Logic:</b> File operations (tar creation, archive retrieval) include retry logic with exponential
+ * <b>Retry Logic:</b> Archive operations (upload, retrieval) include retry logic with exponential
  * backoff to handle transient failures. See {@link #executeWithRetry} for details.
  *
  * @see BuildJobExecutionService
@@ -114,11 +106,6 @@ public class BuildJobContainerService {
      * mechanism fails.
      */
     private static final int DOCKER_BUILD_SCRIPT_TIMEOUT_MINUTES = 20;
-
-    /**
-     * Subdirectory within the container's working directory where repositories are placed during build setup.
-     */
-    private static final String TESTING_DIR = "testing-dir";
 
     /**
      * Maximum number of retry attempts for tar archive operations (creation and retrieval).
@@ -172,11 +159,10 @@ public class BuildJobContainerService {
      *
      * @param containerName the name of the container to be created
      * @param image         the Docker image to use for the container
-     * @param buildScript   the build script to be executed in the container
      * @param runConfig     the run config container the docker flags
      * @return {@link CreateContainerResponse} that can be used to start the container
      */
-    public CreateContainerResponse configureContainer(String containerName, String image, String buildScript, DockerRunConfig runConfig) {
+    public CreateContainerResponse configureContainer(String containerName, String image, DockerRunConfig runConfig) {
         if (!buildAgentConfiguration.isDockerAvailable()) {
             throw new LocalCIException("Docker is not available. Cannot configure container " + containerName);
         }
@@ -196,7 +182,6 @@ public class BuildJobContainerService {
             envVars.add("HTTPS_PROXY=" + httpsProxy);
             envVars.add("NO_PROXY=" + noProxy);
         }
-        envVars.add("SCRIPT=" + buildScript);
         if (exerciseEnvVars != null && !exerciseEnvVars.isEmpty()) {
             envVars.addAll(exerciseEnvVars);
         }
@@ -542,124 +527,6 @@ public class BuildJobContainerService {
     }
 
     /**
-     * Prepares a Docker container for a build job by setting up the required directories and repositories within the container.
-     * This includes setting up directories for assignment, tests, solutions, and any auxiliary repositories provided.
-     * Directories are created and permissions are set to ensure they are fully accessible.
-     * <p>
-     * Steps involved:
-     * 1. Ensures the existence of a working directory within the container.
-     * 2. Sets directory permissions to be fully accessible (chmod 777).
-     * 3. Adds and prepares directories for the test, assignment, and optionally the solution repositories based on their respective paths.
-     * 4. Processes auxiliary repositories, if any, by setting up their specified directories.
-     * 5. Converts DOS-style line endings to Unix style to ensure file compatibility within the container.
-     * 6. Creates a script file for further processing or setup within the container.
-     *
-     * @param buildJobContainerId                    The identifier for the Docker container being prepared.
-     * @param buildJobId                             The identifier for the build job, used for logging purposes.
-     * @param assignmentRepositoryPath               The filesystem path to the assignment repository.
-     * @param testRepositoryPath                     The filesystem path to the test repository.
-     * @param solutionRepositoryPath                 The optional filesystem path to the solution repository; can be null if not applicable.
-     * @param auxiliaryRepositoriesPaths             An array of paths for auxiliary repositories to be included in the build process.
-     * @param auxiliaryRepositoryCheckoutDirectories An array of directory names within the container where each auxiliary repository should be checked out.
-     * @param programmingLanguage                    The programming language of the repositories, which influences directory naming conventions.
-     * @param assignmentCheckoutPath                 The directory within the container where the assignment repository should be checked out; can be null if not applicable,
-     *                                                   default would be used.
-     * @param testCheckoutPath                       The directory within the container where the test repository should be checked out; can be null if not applicable, default
-     *                                                   would be used.
-     * @param solutionCheckoutPath                   The directory within the container where the solution repository should be checked out; can be null if not applicable, default
-     *                                                   would be used.
-     */
-    public void populateBuildJobContainer(String buildJobContainerId, String buildJobId, Path assignmentRepositoryPath, Path testRepositoryPath, Path solutionRepositoryPath,
-            Path[] auxiliaryRepositoriesPaths, String[] auxiliaryRepositoryCheckoutDirectories, ProgrammingLanguage programmingLanguage, String assignmentCheckoutPath,
-            String testCheckoutPath, String solutionCheckoutPath) {
-
-        log.debug("Populating build job container {} for build job {} with repositories: assignment={}, test={}, solution={}", buildJobContainerId, buildJobId,
-                assignmentRepositoryPath, testRepositoryPath, solutionRepositoryPath);
-
-        assignmentCheckoutPath = (!StringUtils.isBlank(assignmentCheckoutPath)) ? assignmentCheckoutPath
-                : RepositoryCheckoutPath.ASSIGNMENT.forProgrammingLanguage(programmingLanguage);
-
-        String defaultTestCheckoutPath = RepositoryCheckoutPath.TEST.forProgrammingLanguage(programmingLanguage);
-        testCheckoutPath = (!StringUtils.isBlank(testCheckoutPath)) ? testCheckoutPath : defaultTestCheckoutPath;
-
-        // Create the testing directory inside the container's working directory.
-        // This must always be created so that the subsequent chmod and repository copy operations have a valid target.
-        addDirectory(buildJobContainerId, LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/" + TESTING_DIR, true);
-        // Make sure the working directory and all subdirectories are accessible
-        executeDockerCommand(buildJobContainerId, null, true, "chmod", "-R", "777", LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/" + TESTING_DIR);
-
-        // Copy the test repository to the container and move it to the test checkout path (may be the working directory)
-        addAndPrepareDirectoryAndReplaceContent(buildJobContainerId, testRepositoryPath, LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/" + TESTING_DIR + "/" + testCheckoutPath,
-                buildJobId);
-        // Copy the assignment repository to the container and move it to the assignment checkout path
-        addAndPrepareDirectoryAndReplaceContent(buildJobContainerId, assignmentRepositoryPath,
-                LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/" + TESTING_DIR + "/" + assignmentCheckoutPath, buildJobId);
-        if (solutionRepositoryPath != null) {
-            solutionCheckoutPath = (!StringUtils.isBlank(solutionCheckoutPath)) ? solutionCheckoutPath
-                    : RepositoryCheckoutPath.SOLUTION.forProgrammingLanguage(programmingLanguage);
-            addAndPrepareDirectoryAndReplaceContent(buildJobContainerId, solutionRepositoryPath,
-                    LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/" + TESTING_DIR + "/" + solutionCheckoutPath, buildJobId);
-        }
-        for (int i = 0; i < auxiliaryRepositoriesPaths.length; i++) {
-            addAndPrepareDirectoryAndReplaceContent(buildJobContainerId, auxiliaryRepositoriesPaths[i],
-                    LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/" + TESTING_DIR + "/" + auxiliaryRepositoryCheckoutDirectories[i], buildJobId);
-        }
-
-        createScriptFile(buildJobContainerId);
-        log.debug("Successfully populated build job container {} for build job {}", buildJobContainerId, buildJobId);
-    }
-
-    private void createScriptFile(String buildJobContainerId) {
-        executeDockerCommand(buildJobContainerId, null, true, "bash", "-c", "echo \"$SCRIPT\" > " + LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/script.sh");
-        executeDockerCommand(buildJobContainerId, null, true, "bash", "-c", "chmod +x " + LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/script.sh");
-    }
-
-    /**
-     * Copies a repository into the container and moves its contents to the specified directory.
-     * <p>
-     * This method performs three steps:
-     * <ol>
-     * <li>Copies the repository as a tar archive to the container's working directory</li>
-     * <li>Creates the target directory structure</li>
-     * <li>Moves repository contents from the temporary location to the target directory</li>
-     * </ol>
-     *
-     * @param containerId      the Docker container ID
-     * @param repositoryPath   the local filesystem path to the repository to copy
-     * @param newDirectoryName the target directory path inside the container
-     * @param buildJobId       the build job ID for logging purposes
-     */
-    private void addAndPrepareDirectoryAndReplaceContent(String containerId, Path repositoryPath, String newDirectoryName, String buildJobId) {
-        copyToContainer(repositoryPath, containerId, buildJobId);
-        addDirectory(containerId, newDirectoryName, true);
-        insertRepositoryFiles(containerId, LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/" + repositoryPath.getFileName().toString(), newDirectoryName);
-    }
-
-    /**
-     * Copies all files from a source directory to a destination directory inside the container.
-     * Uses {@code cp -r source/. destination} to copy contents without creating a nested directory.
-     *
-     * @param containerId the Docker container ID
-     * @param oldName     the source directory path inside the container
-     * @param newName     the destination directory path inside the container
-     */
-    private void insertRepositoryFiles(String containerId, String oldName, String newName) {
-        executeDockerCommand(containerId, null, true, "cp", "-r", oldName + (oldName.endsWith("/") ? "." : "/."), newName);
-    }
-
-    /**
-     * Creates a directory inside the container.
-     *
-     * @param containerId              the Docker container ID
-     * @param directoryName            the path of the directory to create
-     * @param createParentsIfNecessary if true, creates parent directories as needed (mkdir -p); otherwise fails if parent doesn't exist
-     */
-    private void addDirectory(String containerId, String directoryName, boolean createParentsIfNecessary) {
-        String[] command = createParentsIfNecessary ? new String[] { "mkdir", "-p", directoryName } : new String[] { "mkdir", directoryName };
-        executeDockerCommand(containerId, null, true, command);
-    }
-
-    /**
      * Functional interface for operations that can throw IOException and need retry logic.
      *
      * @param <T> the return type of the operation
@@ -721,35 +588,28 @@ public class BuildJobContainerService {
     }
 
     /**
-     * Copies a local directory to the Docker container as a tar archive.
+     * Copies the build input archive into the container's working directory with a single upload.
      * <p>
-     * This method creates a tar archive of the source path and uploads it to the container's
-     * working directory. The operation includes retry logic to handle transient failures
-     * (e.g., file system race conditions, Docker connectivity issues).
-     * <p>
-     * <b>Important:</b> The source path should be a directory containing repository files.
-     * The entire directory is archived and uploaded, preserving the directory structure.
+     * The archive already contains every repository at its final checkout path and the executable build script
+     * (see {@link de.tum.cit.aet.artemis.buildagent.service.runner.BuildInputArchiveService}), so no setup command has to run inside the container.
+     * Each such command is a separate exec, which is expensive on Podman. The upload is retried to handle transient failures (e.g. Docker connectivity issues).
      *
-     * @param sourcePath  the local filesystem path to copy (typically a repository directory)
-     * @param containerId the Docker container ID to copy files into
-     * @param buildJobId  the build job ID for logging purposes (can be null)
+     * @param containerId  the Docker container ID to copy the archive into
+     * @param inputArchive the tar archive whose paths are relative to the container's working directory
+     * @param buildJobId   the build job ID for logging purposes
      * @throws LocalCIException if the copy operation fails after all retry attempts
      */
-    private void copyToContainer(Path sourcePath, String containerId, String buildJobId) {
-        log.debug("Copying source path {} to container {}", sourcePath.toAbsolutePath(), containerId);
+    public void copyInputArchiveToContainer(String containerId, Path inputArchive, String buildJobId) {
+        log.debug("Copying input archive {} to container {}", inputArchive, containerId);
 
         try {
-            // Use retry mechanism for the entire copy operation (tar creation + upload)
             executeWithRetry(() -> {
-                ByteArrayOutputStream tarArchive = createTarArchiveWithRetry(sourcePath);
-                int tarArchiveSize = tarArchive.size();
-                log.debug("Created tar archive of size {} bytes for source path {} to upload to container {}", tarArchiveSize, sourcePath.toAbsolutePath(), containerId);
-
-                try (final var uploadStream = new ByteArrayInputStream(tarArchive.toByteArray());
+                try (final var uploadStream = Files.newInputStream(inputArchive);
                         final var copyToContainerCommand = buildAgentConfiguration.getDockerClient().copyArchiveToContainerCmd(containerId)
                                 .withRemotePath(LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY).withTarInputStream(uploadStream)) {
+                    long uploadStart = System.nanoTime();
                     copyToContainerCommand.exec();
-                    log.debug("Successfully copied tar archive to container {}", containerId);
+                    log.debug("Successfully copied input archive to container {} in {} ms", containerId, elapsedMillis(uploadStart));
                 }
                 catch (RuntimeException e) {
                     // Wrap runtime exceptions (e.g., Docker connectivity issues) for retry handling
@@ -759,120 +619,16 @@ public class BuildJobContainerService {
             }, "Copy to container " + containerId, buildJobId);
         }
         catch (IOException e) {
-            String errorMessage = "Could not copy to container " + containerId + " from source path " + sourcePath.toAbsolutePath() + " after " + MAX_TAR_OPERATION_RETRIES
-                    + " attempts";
+            String errorMessage = "Could not copy input archive " + inputArchive + " to container " + containerId + " after " + MAX_TAR_OPERATION_RETRIES + " attempts";
             if (DockerUtil.isDockerNotAvailable(e)) {
                 log.warn("Docker is not available. {}: {}", errorMessage, e.getMessage());
             }
             else {
                 log.error(errorMessage, e);
             }
-            if (buildJobId != null) {
-                buildLogsMap.appendBuildLogEntry(buildJobId,
-                        "Failed to copy files to build container after multiple attempts. This is an infrastructure issue, not a problem with your code. Please try rerunning your build.");
-            }
+            buildLogsMap.appendBuildLogEntry(buildJobId,
+                    "Failed to copy files to build container after multiple attempts. This is an infrastructure issue, not a problem with your code. Please try rerunning your build.");
             throw new LocalCIException(errorMessage, e);
-        }
-    }
-
-    /**
-     * Creates a tar archive with retry-compatible exception handling.
-     * <p>
-     * This is a wrapper around {@link #createTarArchive} that converts {@link LocalCIException}
-     * to {@link IOException} to enable the retry mechanism in {@link #executeWithRetry}.
-     *
-     * @param sourcePath the path to archive
-     * @return a ByteArrayOutputStream containing the tar archive data
-     * @throws IOException if archive creation fails (enables retry handling)
-     */
-    private ByteArrayOutputStream createTarArchiveWithRetry(Path sourcePath) throws IOException {
-        try {
-            return createTarArchive(sourcePath);
-        }
-        catch (LocalCIException e) {
-            // Extract the underlying IOException for retry handling
-            if (e.getCause() instanceof IOException ioException) {
-                throw ioException;
-            }
-            throw new IOException(e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Creates an in-memory tar archive from a filesystem path.
-     * <p>
-     * The archive is created in memory (ByteArrayOutputStream) to allow for easy upload to Docker.
-     * Uses POSIX long file mode to support files with long names.
-     *
-     * @param sourcePath the path to archive (can be a file or directory)
-     * @return a ByteArrayOutputStream containing the complete tar archive
-     * @throws LocalCIException if any IO error occurs during archive creation
-     */
-    private ByteArrayOutputStream createTarArchive(Path sourcePath) {
-
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-
-        try (TarArchiveOutputStream tarArchiveOutputStream = new TarArchiveOutputStream(byteArrayOutputStream)) {
-            // Enable POSIX long file mode to support files with names > 100 characters
-            tarArchiveOutputStream.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
-
-            addFileToTar(tarArchiveOutputStream, sourcePath, "");
-            tarArchiveOutputStream.finish();
-        }
-        catch (IOException e) {
-            // Only log to application logs here - user-facing messages are logged by the caller after all retries fail
-            String errorMessage = "Could not create tar archive for source path: " + sourcePath.toAbsolutePath() + " (Exception: " + e.getClass().getSimpleName() + " - "
-                    + e.getMessage() + ")";
-            log.warn(errorMessage, e);
-            throw new LocalCIException(errorMessage, e);
-        }
-        return byteArrayOutputStream;
-    }
-
-    /**
-     * Recursively adds a file or directory to a tar archive.
-     * <p>
-     * For regular files: reads the file content and writes it to the archive.
-     * For directories: creates a directory entry and recursively processes all children.
-     * <p>
-     * <b>Note:</b> This method can fail with {@link java.nio.file.NoSuchFileException} if files
-     * are deleted during traversal (e.g., by concurrent cleanup operations). The caller should
-     * handle such failures with retry logic.
-     *
-     * @param tarArchiveOutputStream the tar output stream to write to
-     * @param path                   the file or directory to add
-     * @param parent                 the parent path prefix for the archive entry name
-     * @throws IOException if reading files or listing directories fails
-     */
-    private void addFileToTar(TarArchiveOutputStream tarArchiveOutputStream, Path path, String parent) throws IOException {
-        try {
-            TarArchiveEntry tarEntry = new TarArchiveEntry(path, parent + path.getFileName());
-            tarArchiveOutputStream.putArchiveEntry(tarEntry);
-
-            if (Files.isRegularFile(path)) {
-                // For regular files: read content and write to archive
-                try (InputStream is = Files.newInputStream(path)) {
-                    byte[] buffer = new byte[8192];
-                    int count;
-                    while ((count = is.read(buffer)) != -1) {
-                        tarArchiveOutputStream.write(buffer, 0, count);
-                    }
-                }
-                tarArchiveOutputStream.closeArchiveEntry();
-            }
-            else {
-                // For directories: close the directory entry and recursively process children
-                tarArchiveOutputStream.closeArchiveEntry();
-                try (Stream<Path> children = Files.list(path)) {
-                    for (Path child : children.toList()) {
-                        addFileToTar(tarArchiveOutputStream, child, parent + path.getFileName() + "/");
-                    }
-                }
-            }
-        }
-        catch (IOException e) {
-            String operation = Files.isRegularFile(path) ? "reading file" : "listing directory";
-            throw new IOException("Failed " + operation + " while adding to tar archive: " + path.toAbsolutePath(), e);
         }
     }
 
@@ -917,6 +673,7 @@ public class BuildJobContainerService {
 
     private int executeDockerCommand(String containerId, String buildJobId, boolean forceRoot, int timeoutMinutes, String... command) {
         DockerClient dockerClient = buildAgentConfiguration.getDockerClient();
+        long execStart = System.nanoTime();
         try (var execCreateCommandTemp = dockerClient.execCreateCmd(containerId).withAttachStdout(true).withAttachStderr(true).withCmd(command)) {
             final var execCreateCommand = forceRoot ? execCreateCommandTemp.withUser("root") : execCreateCommandTemp;
             ExecCreateCmdResponse execCreateCmdResponse = execCreateCommand.exec();
@@ -985,6 +742,7 @@ public class BuildJobContainerService {
             try (var inspectCmd = dockerClient.inspectExecCmd(execId)) {
                 InspectExecResponse inspectResponse = inspectCmd.exec();
                 Long exitCode = inspectResponse.getExitCodeLong();
+                log.debug("Docker command '{}' in container {} took {} ms", String.join(" ", command), containerId, elapsedMillis(execStart));
                 return (exitCode != null) ? exitCode.intValue() : -1;
             }
         }
@@ -1041,6 +799,10 @@ public class BuildJobContainerService {
             }
             return null;
         }
+    }
+
+    private static long elapsedMillis(long startNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
     }
 
     /**

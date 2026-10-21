@@ -36,7 +36,8 @@ class DockerBuildJobRunnerTest {
         buildJobContainerService = mock(BuildJobContainerService.class);
         buildAgentDockerService = mock(BuildAgentDockerService.class);
         buildLogsMap = mock(BuildLogsMap.class);
-        runner = new DockerBuildJobRunner(mock(BuildAgentConfiguration.class), buildJobContainerService, buildAgentDockerService, buildLogsMap, "local-ci-");
+        runner = new DockerBuildJobRunner(mock(BuildAgentConfiguration.class), buildJobContainerService, buildAgentDockerService, mock(BuildInputArchiveService.class),
+                buildLogsMap, "local-ci-");
     }
 
     @Test

@@ -72,7 +72,7 @@ class KubernetesBuildJobRunnerTest {
     @Test
     void executesBuildAndReleasesArchivesAndJob() throws Exception {
         KubernetesClient client = mock(KubernetesClient.class);
-        KubernetesBuildArchiveService archiveService = mock(KubernetesBuildArchiveService.class);
+        BuildInputArchiveService archiveService = mock(BuildInputArchiveService.class);
         BuildLogsMap buildLogsMap = mock(BuildLogsMap.class);
         TempFileUtilService tempFileUtilService = new TempFileUtilService(temporaryDirectory);
         BuildJobQueueItem buildJob = buildJob();
@@ -99,7 +99,7 @@ class KubernetesBuildJobRunnerTest {
     @Test
     void keepsCollectedResultWhenStoppingHelperFails() throws Exception {
         KubernetesClient client = mock(KubernetesClient.class);
-        KubernetesBuildArchiveService archiveService = mock(KubernetesBuildArchiveService.class);
+        BuildInputArchiveService archiveService = mock(BuildInputArchiveService.class);
         TempFileUtilService tempFileUtilService = new TempFileUtilService(temporaryDirectory);
         BuildJobQueueItem buildJob = buildJob();
         Path inputArchive = tempFileUtilService.createTempFile("input-", ".tar");
@@ -124,7 +124,7 @@ class KubernetesBuildJobRunnerTest {
         VersionInfo versionInfo = mock(VersionInfo.class);
         when(versionInfo.getGitVersion()).thenReturn("v1.34.0");
         when(client.getKubernetesVersion()).thenReturn(versionInfo);
-        KubernetesBuildJobRunner runner = runner(client, mock(KubernetesBuildArchiveService.class), mock(BuildLogsMap.class), new TempFileUtilService(temporaryDirectory));
+        KubernetesBuildJobRunner runner = runner(client, mock(BuildInputArchiveService.class), mock(BuildLogsMap.class), new TempFileUtilService(temporaryDirectory));
 
         assertThat(runner.type()).isEqualTo(BuildRunnerType.KUBERNETES);
         assertThat(runner.status()).isEqualTo(BuildRunnerStatus.available("v1.34.0"));
@@ -134,7 +134,7 @@ class KubernetesBuildJobRunnerTest {
     void reportsKubernetesApiFailures() {
         KubernetesClient client = mock(KubernetesClient.class);
         when(client.getKubernetesVersion()).thenThrow(new IllegalStateException("unreachable"));
-        KubernetesBuildJobRunner runner = runner(client, mock(KubernetesBuildArchiveService.class), mock(BuildLogsMap.class), new TempFileUtilService(temporaryDirectory));
+        KubernetesBuildJobRunner runner = runner(client, mock(BuildInputArchiveService.class), mock(BuildLogsMap.class), new TempFileUtilService(temporaryDirectory));
 
         assertThat(runner.status()).isEqualTo(BuildRunnerStatus.unavailable("unreachable"));
     }
@@ -155,7 +155,7 @@ class KubernetesBuildJobRunnerTest {
         GracePeriodConfigurable<?> ownJobDeletion = mock(GracePeriodConfigurable.class);
         when(api.jobs().withName("own-job")).thenReturn(ownJobResource);
         doReturn(ownJobDeletion).when(ownJobResource).withPropagationPolicy(io.fabric8.kubernetes.api.model.DeletionPropagation.FOREGROUND);
-        KubernetesBuildJobRunner runner = runner(client, mock(KubernetesBuildArchiveService.class), mock(BuildLogsMap.class), new TempFileUtilService(temporaryDirectory));
+        KubernetesBuildJobRunner runner = runner(client, mock(BuildInputArchiveService.class), mock(BuildLogsMap.class), new TempFileUtilService(temporaryDirectory));
 
         assertThat(runner.isActive("job-id")).isTrue();
         runner.cancel("job-id");
@@ -216,7 +216,7 @@ class KubernetesBuildJobRunnerTest {
 
     @Test
     void parsesCompletionDatesAndAppliesExecutionGracePeriod() {
-        KubernetesBuildJobRunner runner = runner(mock(KubernetesClient.class), mock(KubernetesBuildArchiveService.class), mock(BuildLogsMap.class),
+        KubernetesBuildJobRunner runner = runner(mock(KubernetesClient.class), mock(BuildInputArchiveService.class), mock(BuildLogsMap.class),
                 new TempFileUtilService(temporaryDirectory));
 
         ZonedDateTime completion = ReflectionTestUtils.invokeMethod(runner, "parseCompletionDate", "2026-08-01T12:00:00Z");
@@ -234,7 +234,7 @@ class KubernetesBuildJobRunnerTest {
         // than that would keep the runner blocked after Kubernetes already terminated the Job.
         KubernetesBuildJobFactory factory = mock(KubernetesBuildJobFactory.class);
         when(factory.effectiveBuildTimeout(any())).thenReturn(30);
-        var runner = new KubernetesBuildJobRunner(mock(KubernetesClient.class), properties(), factory, mock(KubernetesBuildArchiveService.class), mock(BuildLogsMap.class),
+        var runner = new KubernetesBuildJobRunner(mock(KubernetesClient.class), properties(), factory, mock(BuildInputArchiveService.class), mock(BuildLogsMap.class),
                 new TempFileUtilService(temporaryDirectory), 1024);
 
         Duration wait = ReflectionTestUtils.invokeMethod(runner, "effectiveExecutionWait", buildJob());
@@ -242,8 +242,7 @@ class KubernetesBuildJobRunnerTest {
         assertThat(wait).isEqualTo(Duration.ofSeconds(45));
     }
 
-    private KubernetesBuildJobRunner runner(KubernetesClient client, KubernetesBuildArchiveService archiveService, BuildLogsMap buildLogsMap,
-            TempFileUtilService tempFileUtilService) {
+    private KubernetesBuildJobRunner runner(KubernetesClient client, BuildInputArchiveService archiveService, BuildLogsMap buildLogsMap, TempFileUtilService tempFileUtilService) {
         KubernetesBuildJobFactory factory = mock(KubernetesBuildJobFactory.class);
         when(factory.createJob(any(), any(), any())).thenReturn(new JobBuilder().build());
         // The runner reuses the capping of the factory, which leaves the 60 seconds requested by the test build job untouched.

@@ -540,8 +540,7 @@ class BuildAgentIntegrationTest extends AbstractArtemisBuildAgentTest {
         doAnswer(invocation -> {
             int attempt = copyAttempts.incrementAndGet();
             // Fail on first 2 attempts (simulating transient I/O failure under load)
-            // Since there are multiple copy operations (test repo, assignment repo, etc.),
-            // we fail the first 2 calls to exec() across all copy operations
+            // All repositories and the build script are uploaded in a single copy operation, so the third attempt succeeds
             if (attempt <= 2) {
                 throw new RuntimeException("Simulated transient I/O failure: Could not create tar archive");
             }
@@ -558,9 +557,8 @@ class BuildAgentIntegrationTest extends AbstractArtemisBuildAgentTest {
                     && resultQueueItem.buildJobQueueItem().status() == BuildStatus.SUCCESSFUL;
         });
 
-        // Verify that retries occurred (more than the minimum required calls)
-        // Each repository copy requires one call, so if retries happened, we should have more calls
-        assertThat(copyAttempts.get()).isGreaterThan(2);
+        // Verify that the single upload was retried until it succeeded
+        assertThat(copyAttempts.get()).isEqualTo(3);
     }
 
     /**

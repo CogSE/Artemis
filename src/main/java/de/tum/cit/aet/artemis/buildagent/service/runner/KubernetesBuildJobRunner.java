@@ -106,7 +106,7 @@ public class KubernetesBuildJobRunner implements BuildJobRunner {
 
     private final KubernetesBuildJobFactory jobFactory;
 
-    private final KubernetesBuildArchiveService archiveService;
+    private final BuildInputArchiveService archiveService;
 
     private final BuildLogsMap buildLogsMap;
 
@@ -120,7 +120,7 @@ public class KubernetesBuildJobRunner implements BuildJobRunner {
     private String buildAgentName;
 
     public KubernetesBuildJobRunner(KubernetesClient kubernetesClient, KubernetesBuildRunnerProperties properties, KubernetesBuildJobFactory jobFactory,
-            KubernetesBuildArchiveService archiveService, BuildLogsMap buildLogsMap, TempFileUtilService tempFileUtilService,
+            BuildInputArchiveService archiveService, BuildLogsMap buildLogsMap, TempFileUtilService tempFileUtilService,
             @Value("${artemis.continuous-integration.build-logs.max-chars-per-line:1024}") int maxLogLineBytes) {
         this.kubernetesClient = kubernetesClient;
         this.properties = properties;
