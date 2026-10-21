@@ -78,14 +78,14 @@ class BuildJobContainerLifecycleTest {
     }
 
     @Test
-    void requestIncludesProxyScriptAndExerciseEnvironmentWithUncappedResources() {
+    void requestIncludesProxyAndExerciseEnvironmentWithUncappedResources() {
         ReflectionTestUtils.setField(service, "useSystemProxy", true);
         ReflectionTestUtils.setField(service, "httpProxy", "http://proxy");
         ReflectionTestUtils.setField(service, "httpsProxy", "https://proxy");
         ReflectionTestUtils.setField(service, "noProxy", "localhost");
         CreateContainerResponse response = mock(CreateContainerResponse.class);
         when(create.exec()).thenReturn(response);
-        assertThat(service.configureContainer("build", "image", "echo test", new DockerRunConfig(List.of("CUSTOM=value"), "network", 3, 10, 20))).isSameAs(response);
+        assertThat(service.configureContainer("build", "image", new DockerRunConfig(List.of("CUSTOM=value"), "network", 3, 10, 20))).isSameAs(response);
         var host = ArgumentCaptor.forClass(HostConfig.class);
         verify(create).withHostConfig(host.capture());
         assertThat(host.getValue().getCpuQuota()).isEqualTo(300000L);
@@ -95,17 +95,17 @@ class BuildJobContainerLifecycleTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<String>> environment = ArgumentCaptor.forClass(List.class);
         verify(create).withEnv(environment.capture());
-        assertThat(environment.getValue()).containsExactly("HTTP_PROXY=http://proxy", "HTTPS_PROXY=https://proxy", "NO_PROXY=localhost", "SCRIPT=echo test", "CUSTOM=value");
+        assertThat(environment.getValue()).containsExactly("HTTP_PROXY=http://proxy", "HTTPS_PROXY=https://proxy", "NO_PROXY=localhost", "CUSTOM=value");
     }
 
     @Test
     void defaultResourceRequestKeepsHostConfigurationAndHandlesMissingExerciseVariables() {
         HostConfig defaultHost = configuration.hostConfig();
-        service.configureContainer("build", "image", "script", new DockerRunConfig(null, null, 0, 0, 0));
+        service.configureContainer("build", "image", new DockerRunConfig(null, null, 0, 0, 0));
         verify(create).withHostConfig(defaultHost);
-        verify(create).withEnv(List.of("SCRIPT=script"));
+        verify(create).withEnv(List.of());
         when(configuration.isDockerAvailable()).thenReturn(false);
-        assertThatThrownBy(() -> service.configureContainer("build", "image", "script", new DockerRunConfig(null, null, 0, 0, 0))).isInstanceOf(LocalCIException.class)
+        assertThatThrownBy(() -> service.configureContainer("build", "image", new DockerRunConfig(null, null, 0, 0, 0))).isInstanceOf(LocalCIException.class)
                 .hasMessageContaining("Docker is not available");
         assertThatThrownBy(() -> service.startContainer("build")).isInstanceOf(LocalCIException.class).hasMessageContaining("Cannot start container build");
         assertThat(service.getIDOfRunningContainer("build")).isNull();

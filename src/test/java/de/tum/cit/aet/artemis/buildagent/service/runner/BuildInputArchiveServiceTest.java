@@ -31,19 +31,19 @@ import de.tum.cit.aet.artemis.localci.exception.LocalCIException;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.domain.RepositoryType;
 
-class KubernetesBuildArchiveServiceTest {
+class BuildInputArchiveServiceTest {
 
     @TempDir
     private Path temporaryDirectory;
 
     private Path archiveDirectory;
 
-    private KubernetesBuildArchiveService archiveService;
+    private BuildInputArchiveService archiveService;
 
     @BeforeEach
     void setUp() {
         archiveDirectory = temporaryDirectory.resolve("archives");
-        archiveService = new KubernetesBuildArchiveService(new TempFileUtilService(archiveDirectory));
+        archiveService = new BuildInputArchiveService(new TempFileUtilService(archiveDirectory));
     }
 
     @Test
@@ -66,9 +66,9 @@ class KubernetesBuildArchiveServiceTest {
 
     @Test
     void rejectsPathsThatCouldEscapeTheWorkspace() {
-        assertThatThrownBy(() -> KubernetesBuildArchiveService.validateRelativePath("../outside")).isInstanceOf(LocalCIException.class);
-        assertThatThrownBy(() -> KubernetesBuildArchiveService.validateRelativePath("/absolute")).isInstanceOf(LocalCIException.class);
-        assertThatThrownBy(() -> KubernetesBuildArchiveService.validateRelativePath("path with spaces")).isInstanceOf(LocalCIException.class);
+        assertThatThrownBy(() -> BuildInputArchiveService.validateRelativePath("../outside")).isInstanceOf(LocalCIException.class);
+        assertThatThrownBy(() -> BuildInputArchiveService.validateRelativePath("/absolute")).isInstanceOf(LocalCIException.class);
+        assertThatThrownBy(() -> BuildInputArchiveService.validateRelativePath("path with spaces")).isInstanceOf(LocalCIException.class);
     }
 
     @Test
@@ -96,6 +96,19 @@ class KubernetesBuildArchiveServiceTest {
 
         // The Haskell defaults are "assignment" and "solution", while the test repository has no default subdirectory and is checked out into the working directory itself.
         assertThat(entries).containsKeys("testing-dir/assignment/Main.hs", "testing-dir/Spec.hs", "testing-dir/solution/Solution.hs", "script.sh");
+        Files.delete(archive);
+    }
+
+    @Test
+    void addsWritableParentDirectoriesForNestedCheckoutPaths() throws Exception {
+        Path assignment = repository("assignment", "main.c", "main");
+        Path tests = repository("tests", "test.c", "test");
+
+        Path archive = archiveService.createInputArchive(buildJob("nested/student", "tests", null, new String[0]), new PreparedBuildJob(assignment, tests, null, List.of()));
+
+        // Without explicit entries, the extraction would create these parents with restrictive permissions that the unprivileged build user cannot write to.
+        Map<String, Integer> directoryModes = readDirectoryModes(archive);
+        assertThat(directoryModes).containsEntry("testing-dir/", 0777).containsEntry("testing-dir/nested/", 0777).containsEntry("testing-dir/nested/student/", 0777);
         Files.delete(archive);
     }
 
@@ -162,6 +175,19 @@ class KubernetesBuildArchiveServiceTest {
             }
         }
         return entries;
+    }
+
+    private static Map<String, Integer> readDirectoryModes(Path archive) throws Exception {
+        Map<String, Integer> modes = new HashMap<>();
+        try (InputStream input = Files.newInputStream(archive); TarArchiveInputStream tar = new TarArchiveInputStream(input)) {
+            TarArchiveEntry entry;
+            while ((entry = tar.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    modes.put(entry.getName(), entry.getMode() & 0777);
+                }
+            }
+        }
+        return modes;
     }
 
     private static BuildJobQueueItem buildJob(String assignmentPath, String testPath, String solutionPath, String[] auxiliaryPaths) {

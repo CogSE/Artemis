@@ -10,7 +10,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
@@ -20,7 +22,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -28,18 +29,21 @@ import org.springframework.stereotype.Service;
 import de.tum.cit.aet.artemis.buildagent.dto.BuildJobQueueItem;
 import de.tum.cit.aet.artemis.core.service.TempFileUtilService;
 import de.tum.cit.aet.artemis.localci.exception.LocalCIException;
+import de.tum.cit.aet.artemis.programming.domain.ProgrammingLanguage;
 import de.tum.cit.aet.artemis.programming.service.RepositoryCheckoutService.RepositoryCheckoutPath;
 
 /**
- * Creates the runner-neutral input archive consumed by the trusted Kubernetes helper container.
+ * Creates the runner-neutral input archive of a build job: all repositories at their final checkout paths plus the build script.
+ * <p>
+ * The Docker runner uploads it into the build container in a single call, and the Kubernetes runner hands it to its trusted helper container. Building one archive
+ * instead of copying and moving each repository inside the container avoids one container exec per setup step, which is expensive on Podman.
  */
 @Service
 @Lazy
 @Profile(PROFILE_BUILDAGENT)
-@ConditionalOnProperty(prefix = "artemis.continuous-integration", name = "build-runner", havingValue = "kubernetes")
-public class KubernetesBuildArchiveService {
+public class BuildInputArchiveService {
 
-    private static final Logger log = LoggerFactory.getLogger(KubernetesBuildArchiveService.class);
+    private static final Logger log = LoggerFactory.getLogger(BuildInputArchiveService.class);
 
     /** The characters a relative checkout path may consist of. */
     private static final Pattern SAFE_RELATIVE_PATH = Pattern.compile("[a-zA-Z0-9_./-]+");
@@ -57,12 +61,12 @@ public class KubernetesBuildArchiveService {
 
     private final TempFileUtilService tempFileUtilService;
 
-    public KubernetesBuildArchiveService(TempFileUtilService tempFileUtilService) {
+    public BuildInputArchiveService(TempFileUtilService tempFileUtilService) {
         this.tempFileUtilService = tempFileUtilService;
     }
 
     /**
-     * Creates a temporary tar archive whose paths are relative to the shared {@code /var/tmp} volume.
+     * Creates a temporary tar archive whose paths are relative to the container working directory {@code /var/tmp}.
      *
      * @param buildJob         build configuration and checkout paths
      * @param preparedBuildJob repositories cloned on the agent
@@ -75,18 +79,20 @@ public class KubernetesBuildArchiveService {
                 try (OutputStream output = Files.newOutputStream(archive); TarArchiveOutputStream tar = new TarArchiveOutputStream(output)) {
                     tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
                     tar.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_POSIX);
+                    // Directories the archive does not contain would be created by the extraction with restrictive permissions, so every parent of a checkout path is
+                    // added explicitly and stays writable for the unprivileged build user.
+                    Set<String> parentDirectories = new HashSet<>();
 
-                    String assignmentCheckoutPath = checkoutPath(buildJob.buildConfig().assignmentCheckoutPath(),
-                            RepositoryCheckoutPath.ASSIGNMENT.forProgrammingLanguage(buildJob.buildConfig().programmingLanguage()));
-                    String testCheckoutPath = checkoutPath(buildJob.buildConfig().testCheckoutPath(),
-                            RepositoryCheckoutPath.TEST.forProgrammingLanguage(buildJob.buildConfig().programmingLanguage()));
-                    addDirectory(tar, preparedBuildJob.testRepository(), targetDirectory(testCheckoutPath));
-                    addDirectory(tar, preparedBuildJob.assignmentRepository(), targetDirectory(assignmentCheckoutPath));
+                    String assignmentCheckoutPath = checkoutPath(buildJob.buildConfig().assignmentCheckoutPath(), RepositoryCheckoutPath.ASSIGNMENT,
+                            buildJob.buildConfig().programmingLanguage());
+                    String testCheckoutPath = checkoutPath(buildJob.buildConfig().testCheckoutPath(), RepositoryCheckoutPath.TEST, buildJob.buildConfig().programmingLanguage());
+                    addDirectory(tar, preparedBuildJob.testRepository(), targetDirectory(testCheckoutPath), parentDirectories);
+                    addDirectory(tar, preparedBuildJob.assignmentRepository(), targetDirectory(assignmentCheckoutPath), parentDirectories);
 
                     if (preparedBuildJob.solutionRepository() != null) {
-                        String solutionCheckoutPath = checkoutPath(buildJob.buildConfig().solutionCheckoutPath(),
-                                RepositoryCheckoutPath.SOLUTION.forProgrammingLanguage(buildJob.buildConfig().programmingLanguage()));
-                        addDirectory(tar, preparedBuildJob.solutionRepository(), targetDirectory(solutionCheckoutPath));
+                        String solutionCheckoutPath = checkoutPath(buildJob.buildConfig().solutionCheckoutPath(), RepositoryCheckoutPath.SOLUTION,
+                                buildJob.buildConfig().programmingLanguage());
+                        addDirectory(tar, preparedBuildJob.solutionRepository(), targetDirectory(solutionCheckoutPath), parentDirectories);
                     }
 
                     List<Path> auxiliaryRepositories = preparedBuildJob.auxiliaryRepositories();
@@ -95,7 +101,7 @@ public class KubernetesBuildArchiveService {
                         throw new LocalCIException("The number of auxiliary repositories does not match the number of checkout directories");
                     }
                     for (int i = 0; i < auxiliaryRepositories.size(); i++) {
-                        addDirectory(tar, auxiliaryRepositories.get(i), TESTING_DIRECTORY + "/" + validateRelativePath(auxiliaryCheckoutDirectories[i]));
+                        addDirectory(tar, auxiliaryRepositories.get(i), TESTING_DIRECTORY + "/" + validateRelativePath(auxiliaryCheckoutDirectories[i]), parentDirectories);
                     }
 
                     byte[] script = buildJob.buildConfig().buildScript().getBytes(StandardCharsets.UTF_8);
@@ -115,7 +121,7 @@ public class KubernetesBuildArchiveService {
             }
         }
         catch (IOException e) {
-            throw new LocalCIException("Could not create the Kubernetes build input archive", e);
+            throw new LocalCIException("Could not create the build input archive", e);
         }
     }
 
@@ -128,8 +134,23 @@ public class KubernetesBuildArchiveService {
         }
     }
 
-    private void addDirectory(TarArchiveOutputStream tar, Path sourceRoot, String targetRoot) throws IOException {
+    private void addParentDirectories(TarArchiveOutputStream tar, String target, Set<String> parentDirectories) throws IOException {
+        int separator = target.indexOf('/');
+        while (separator >= 0) {
+            String parent = target.substring(0, separator + 1);
+            if (parentDirectories.add(parent)) {
+                TarArchiveEntry entry = new TarArchiveEntry(parent);
+                entry.setMode(0777);
+                tar.putArchiveEntry(entry);
+                tar.closeArchiveEntry();
+            }
+            separator = target.indexOf('/', separator + 1);
+        }
+    }
+
+    private void addDirectory(TarArchiveOutputStream tar, Path sourceRoot, String targetRoot, Set<String> parentDirectories) throws IOException {
         String normalizedTarget = validateRelativePath(targetRoot);
+        addParentDirectories(tar, normalizedTarget, parentDirectories);
         Path normalizedSourceRoot = sourceRoot.toAbsolutePath().normalize();
         Files.walkFileTree(sourceRoot, new SimpleFileVisitor<>() {
 
@@ -195,12 +216,16 @@ public class KubernetesBuildArchiveService {
      * The language default is intentionally empty for several languages (for example the test repository of a Java exercise), which means that the repository is checked out
      * into the working directory itself rather than into a subdirectory.
      *
-     * @param configuredPath the checkout path configured on the exercise, may be blank
-     * @param defaultPath    the language default, may be empty
+     * The default is only looked up when needed, because some languages define none for a repository type and the lookup then throws, even though the exercise
+     * configures its own path.
+     *
+     * @param configuredPath      the checkout path configured on the exercise, may be blank
+     * @param repositoryType      the repository whose language default is used as fallback
+     * @param programmingLanguage the programming language of the exercise
      * @return the validated relative checkout path, or an empty string for the working directory itself
      */
-    private String checkoutPath(String configuredPath, String defaultPath) {
-        String path = StringUtils.isBlank(configuredPath) ? defaultPath : configuredPath;
+    private String checkoutPath(String configuredPath, RepositoryCheckoutPath repositoryType, ProgrammingLanguage programmingLanguage) {
+        String path = StringUtils.isBlank(configuredPath) ? repositoryType.forProgrammingLanguage(programmingLanguage) : configuredPath;
         return StringUtils.isBlank(path) ? "" : validateRelativePath(path);
     }
 
@@ -210,7 +235,7 @@ public class KubernetesBuildArchiveService {
 
     static String validateRelativePath(String path) {
         if (path == null || path.isBlank() || path.startsWith("/") || path.contains("..") || !SAFE_RELATIVE_PATH.matcher(path).matches()) {
-            throw new LocalCIException("Invalid checkout path for Kubernetes build execution: " + path);
+            throw new LocalCIException("Invalid checkout path for build execution: " + path);
         }
         return TRAILING_SLASH.matcher(LEADING_CURRENT_DIRECTORY.matcher(path).replaceAll("")).replaceAll("");
     }
