@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -20,6 +21,7 @@ import de.tum.cit.aet.artemis.exercise.domain.Exercise;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
+import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseBuildConfig;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseParticipation;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
@@ -244,6 +246,9 @@ public class UserStoryExerciseService {
             syncTestCasesFromMilestone(userStoryExercise, milestoneExercise, copyAllSettings);
             // the synced rows need a relevance decision, and the open problem statement editor the new test list
             updateRelevantTestCases(userStoryExercise);
+            // Both rewrote the stored problem statement's test references; the caller saves this instance afterwards, which
+            // would otherwise write the references it was loaded with back.
+            userStoryExercise.setProblemStatement(programmingExerciseRepository.findByIdElseThrow(userStoryExercise.getId()).getProblemStatement());
         }
     }
 
@@ -313,6 +318,10 @@ public class UserStoryExerciseService {
         Set<String> milestoneTestCaseNames = milestoneTestCases.stream().map(ProgrammingExerciseTestCase::getTestName).collect(Collectors.toSet());
         List<ProgrammingExerciseTestCase> toDelete = ownTestCases.stream().filter(testCase -> !milestoneTestCaseNames.contains(testCase.getTestName())).toList();
 
+        if (!toDelete.isEmpty()) {
+            // the problem statement must not keep referring to the deleted rows by id, see storeProblemStatementWithTestNames
+            storeProblemStatementWithTestNames(userStoryExercise.getId());
+        }
         programmingExerciseTestCaseRepository.deleteAll(toDelete);
         programmingExerciseTestCaseRepository.saveAll(toSave);
     }
@@ -411,7 +420,53 @@ public class UserStoryExerciseService {
             }
         }
         programmingExerciseTestCaseRepository.saveAll(changed);
+        storeProblemStatementWithTestIds(userStoryExercise.getId());
         broadcastTestCases(userStoryExercise);
+    }
+
+    /**
+     * Rewrites the test names in a user story's stored problem statement to test ids, now that its referenced test cases
+     * are active.
+     * <p>
+     * Saving a problem statement only converts the names of test cases that are active at that moment (see
+     * {@link ProgrammingExerciseTaskService#replaceTestNamesWithIds}), but a user story's test cases are only activated
+     * afterwards, by {@link #updateRelevantTestCases}, and a user story never builds, which is how other exercises get
+     * the remaining names converted later. Without this, every newly referenced test stays a name - and a student's
+     * client, which does not load the test cases, cannot match any result to such a task.
+     * <p>
+     * Works on a freshly loaded copy: callers hand in instances whose problem statement was already turned back into
+     * names for the editor's response, which must not change.
+     *
+     * @param userStoryExerciseId the user story whose problem statement to rewrite
+     */
+    private void storeProblemStatementWithTestIds(long userStoryExerciseId) {
+        rewriteStoredProblemStatement(userStoryExerciseId, programmingExerciseTaskService::replaceTestNamesWithIds);
+    }
+
+    /**
+     * Rewrites the test ids in a user story's stored problem statement back to test names, before test cases are deleted.
+     * <p>
+     * An id of a deleted test case resolves to nothing, not even when a test case of the same name is created again later
+     * (e.g. when the user story moves to another milestone and back). A name does, and {@link #updateRelevantTestCases}
+     * turns it into the id of whichever test case carries it once that one is active.
+     *
+     * @param userStoryExerciseId the user story whose problem statement to rewrite
+     */
+    private void storeProblemStatementWithTestNames(long userStoryExerciseId) {
+        rewriteStoredProblemStatement(userStoryExerciseId, programmingExerciseTaskService::replaceTestIdsWithNames);
+    }
+
+    /**
+     * Applies the given rewrite to a freshly loaded copy of the stored problem statement and writes the result back, only
+     * that column and only if it was not changed in the meantime.
+     */
+    private void rewriteStoredProblemStatement(long userStoryExerciseId, Consumer<ProgrammingExercise> rewrite) {
+        ProgrammingExercise storedExercise = programmingExerciseRepository.findByIdElseThrow(userStoryExerciseId);
+        String storedProblemStatement = storedExercise.getProblemStatement();
+        rewrite.accept(storedExercise);
+        if (storedProblemStatement != null && !storedProblemStatement.equals(storedExercise.getProblemStatement())) {
+            programmingExerciseRepository.updateProblemStatementIfUnchanged(userStoryExerciseId, storedProblemStatement, storedExercise.getProblemStatement());
+        }
     }
 
     /**

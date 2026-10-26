@@ -769,6 +769,15 @@ describe('ExerciseAssessmentDashboardComponent', () => {
         expect(exerciseDetailsLink).toEqual(['/course-management', 4, ExerciseType.MODELING + '-exercises', modelingExercise.id]);
     });
 
+    it('should link user story exercises to the programming exercise routes', () => {
+        comp.exercise.set(userStoryExercise);
+        comp.courseId.set(4);
+        comp.setupLinks();
+        expect(comp.exerciseDetailsLink()).toEqual(['/course-management', 4, 'programming-exercises', userStoryExercise.id]);
+        expect(comp.complaintsLink()).toEqual(['/course-management', 4, 'programming-exercises', userStoryExercise.id, 'complaints']);
+        expect(comp.moreFeedbackRequestsLink()).toEqual(['/course-management', 4, 'programming-exercises', userStoryExercise.id, 'more-feedback-requests']);
+    });
+
     it('should toggle second correction', () => {
         comp.exercise.set(exercise);
         comp.exercise().type = ExerciseType.TEXT;

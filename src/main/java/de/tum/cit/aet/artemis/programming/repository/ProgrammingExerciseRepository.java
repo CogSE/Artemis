@@ -181,6 +181,29 @@ public interface ProgrammingExerciseRepository extends DynamicSpecificationRepos
     @EntityGraph(type = LOAD, attributePaths = { "templateParticipation", "solutionParticipation", "categories", "auxiliaryRepositories", "submissionPolicy" })
     Optional<ProgrammingExercise> findWithTemplateAndSolutionParticipationCategoriesById(long exerciseId);
 
+    /**
+     * Replaces the problem statement of an exercise, but only if it still holds the expected value.
+     * <p>
+     * Deliberately a modifying query for the same reason as {@link #updateTestCasesChanged}: only one column changes, and
+     * merging back a whole exercise loaded for that purpose could overwrite fields an editor saved in the meantime. The
+     * guard on the expected value makes a concurrent edit of the problem statement itself win as well.
+     *
+     * @param exerciseId               the exercise whose problem statement should be replaced
+     * @param expectedProblemStatement the problem statement the exercise is expected to hold
+     * @param problemStatement         the new problem statement
+     * @return 1 if the problem statement was replaced, 0 if it no longer held the expected value or no such exercise exists
+     */
+    @Transactional // ok because of modifying query
+    @Modifying
+    @Query("""
+            UPDATE ProgrammingExercise exercise
+            SET exercise.problemStatement = :problemStatement
+            WHERE exercise.id = :exerciseId
+                AND exercise.problemStatement = :expectedProblemStatement
+            """)
+    int updateProblemStatementIfUnchanged(@Param("exerciseId") long exerciseId, @Param("expectedProblemStatement") String expectedProblemStatement,
+            @Param("problemStatement") String problemStatement);
+
     @EntityGraph(type = LOAD, attributePaths = { "templateParticipation", "solutionParticipation", "categories", "competencyLinks.competency", "auxiliaryRepositories",
             "submissionPolicy" })
     Optional<ProgrammingExercise> findWithTemplateAndSolutionParticipationCategoriesAndCompetenciesById(long exerciseId);

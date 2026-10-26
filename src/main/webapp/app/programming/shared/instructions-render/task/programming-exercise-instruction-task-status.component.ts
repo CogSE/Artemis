@@ -69,14 +69,19 @@ export class ProgrammingExerciseInstructionTaskStatusComponent {
         const taskName = this.taskName();
         this.dialogService.open(FeedbackComponent, {
             header: this.translateService.instant('artemisApp.result.detail.feedbackForTask', { taskName: safeUnescape(taskName) ?? taskName }),
-            width: '50rem',
+            width: '80rem',
             breakpoints: {
-                '850px': '95vw',
+                '1400px': '75vw',
+                '1200px': '85vw',
+                '992px': '95vw',
             },
             modal: true,
             closable: true,
             closeOnEscape: true,
             dismissableMask: true,
+            // Don't auto-focus the first focusable element on show: in a long feedback list it is often
+            // a link below the fold, which the browser scrolls into view and makes the modal open scrolled down.
+            focusOnShow: false,
             inputValues: {
                 exercise: this.exercise(),
                 result: latestResult,
