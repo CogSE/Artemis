@@ -1,12 +1,6 @@
 package de.tum.cit.aet.artemis.exercise.domain;
 
-import static de.tum.cit.aet.artemis.core.util.DateUtil.validateStrictDateSequence;
-
-import java.time.ZonedDateTime;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import jakarta.persistence.Column;
@@ -33,7 +27,6 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
-import de.tum.cit.aet.artemis.core.domain.DomainObject;
 import de.tum.cit.aet.artemis.core.domain.Parent;
 import de.tum.cit.aet.artemis.core.exception.BadRequestAlertException;
 import de.tum.cit.aet.artemis.course.domain.Course;
@@ -64,7 +57,7 @@ import de.tum.cit.aet.artemis.course.domain.Course;
 @JsonTypeName("variant")
 @JsonSubTypes({ @JsonSubTypes.Type(value = MilestoneExerciseGroup.class, name = "milestone") })
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public class ExerciseVariantGroup extends DomainObject {
+public class ExerciseVariantGroup extends ExerciseTimeline {
 
     @Column(name = "title", nullable = false)
     private String title;
@@ -86,26 +79,6 @@ public class ExerciseVariantGroup extends DomainObject {
     @Nullable
     @Column(name = "description_body")
     private String descriptionBody;
-
-    @Nullable
-    @Column(name = "release_date")
-    private ZonedDateTime releaseDate;
-
-    @Nullable
-    @Column(name = "start_date")
-    private ZonedDateTime startDate;
-
-    @Nullable
-    @Column(name = "due_date")
-    private ZonedDateTime dueDate;
-
-    @Nullable
-    @Column(name = "assessment_due_date")
-    private ZonedDateTime assessmentDueDate;
-
-    @Nullable
-    @Column(name = "example_solution_publication_date")
-    private ZonedDateTime exampleSolutionPublicationDate;
 
     /**
      * The course the group belongs to. The key lives here rather than on the course so that a group cannot exist
@@ -172,51 +145,6 @@ public class ExerciseVariantGroup extends DomainObject {
         return value == null || value.isBlank() ? null : value.strip();
     }
 
-    @Nullable
-    public ZonedDateTime getReleaseDate() {
-        return releaseDate;
-    }
-
-    public void setReleaseDate(@Nullable ZonedDateTime releaseDate) {
-        this.releaseDate = releaseDate;
-    }
-
-    @Nullable
-    public ZonedDateTime getStartDate() {
-        return startDate;
-    }
-
-    public void setStartDate(@Nullable ZonedDateTime startDate) {
-        this.startDate = startDate;
-    }
-
-    @Nullable
-    public ZonedDateTime getDueDate() {
-        return dueDate;
-    }
-
-    public void setDueDate(@Nullable ZonedDateTime dueDate) {
-        this.dueDate = dueDate;
-    }
-
-    @Nullable
-    public ZonedDateTime getAssessmentDueDate() {
-        return assessmentDueDate;
-    }
-
-    public void setAssessmentDueDate(@Nullable ZonedDateTime assessmentDueDate) {
-        this.assessmentDueDate = assessmentDueDate;
-    }
-
-    @Nullable
-    public ZonedDateTime getExampleSolutionPublicationDate() {
-        return exampleSolutionPublicationDate;
-    }
-
-    public void setExampleSolutionPublicationDate(@Nullable ZonedDateTime exampleSolutionPublicationDate) {
-        this.exampleSolutionPublicationDate = exampleSolutionPublicationDate;
-    }
-
     public Set<Exercise> getExercises() {
         return exercises;
     }
@@ -243,31 +171,7 @@ public class ExerciseVariantGroup extends DomainObject {
      * @return {@code true} if the set dates do not contradict each other
      */
     public boolean areDatesValid() {
-        // Read through the getters (not the raw fields) so a subclass that overrides them to delegate elsewhere
-        // (e.g. MilestoneExerciseGroup, whose dates live on its MilestoneExercise) is validated correctly.
-        ZonedDateTime release = getReleaseDate();
-        ZonedDateTime start = getStartDate();
-        ZonedDateTime due = getDueDate();
-        ZonedDateTime assessmentDue = getAssessmentDueDate();
-        ZonedDateTime exampleSolutionPublication = getExampleSolutionPublicationDate();
-        boolean releaseDateValid = validateStrictDateSequence(List.of(), release, Arrays.asList(start, due, assessmentDue, exampleSolutionPublication));
-        boolean startDateValid = validateStrictDateSequence(Collections.singletonList(release), start, Arrays.asList(due, assessmentDue, exampleSolutionPublication));
-        boolean dueDateValid = validateStrictDateSequence(Arrays.asList(release, start), due, Arrays.asList(assessmentDue, exampleSolutionPublication));
-        boolean assessmentDueDateValid = validateAssessmentDueDate(release, start, due, assessmentDue, exampleSolutionPublication);
-        boolean exampleSolutionPublicationDateValid = validateStrictDateSequence(Arrays.asList(release, start, due, assessmentDue), exampleSolutionPublication, List.of());
-
-        return releaseDateValid && startDateValid && dueDateValid && assessmentDueDateValid && exampleSolutionPublicationDateValid;
-    }
-
-    private static boolean validateAssessmentDueDate(ZonedDateTime release, ZonedDateTime start, ZonedDateTime due, ZonedDateTime assessmentDue,
-            ZonedDateTime exampleSolutionPublication) {
-        if (assessmentDue == null) {
-            return true;
-        }
-        if (due == null) {
-            return false;
-        }
-        return validateStrictDateSequence(Arrays.asList(release, start, due), assessmentDue, Collections.singletonList(exampleSolutionPublication));
+        return hasValidTimelineDates();
     }
 
     /** Like {@link #areDatesValid()}, but throws so create/update callers reject an inconsistent timeline instead of saving it. */

@@ -7,7 +7,6 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -28,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 import de.tum.cit.aet.artemis.account.repository.UserRepository;
 import de.tum.cit.aet.artemis.assessment.domain.AssessmentType;
 import de.tum.cit.aet.artemis.assessment.domain.GradingCriterion;
+import de.tum.cit.aet.artemis.assessment.service.GradingCriteriaMapper;
 import de.tum.cit.aet.artemis.core.exception.BadRequestAlertException;
 import de.tum.cit.aet.artemis.core.exception.ConflictException;
 import de.tum.cit.aet.artemis.core.security.Role;
@@ -40,6 +40,7 @@ import de.tum.cit.aet.artemis.core.service.featureusage.FeatureUsage;
 import de.tum.cit.aet.artemis.core.service.featureusage.UserFeature;
 import de.tum.cit.aet.artemis.course.domain.Course;
 import de.tum.cit.aet.artemis.course.service.CourseService;
+import de.tum.cit.aet.artemis.exercise.domain.IncludedInOverallScore;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseVariantGroupRepository;
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
 import de.tum.cit.aet.artemis.exercise.repository.ParticipationRepository;
@@ -414,41 +415,27 @@ public class ProgrammingExerciseUpdateResource {
             exercise.setProblemStatement(dto.problemStatement());
         }
 
-        exercise.setChannelName(dto.channelName());
-        exercise.setCategories(dto.categories());
-        exercise.setDifficulty(dto.difficulty());
-
+        // Read before applying the metadata, so the user story and milestone values below can be kept.
+        Double storedMaxPoints = exercise.getMaxPoints();
+        IncludedInOverallScore storedIncludedInOverallScore = exercise.getIncludedInOverallScore();
+        dto.applyMetadataTo(exercise);
         // A milestone is worth exactly what its user stories are worth together, which MilestoneExercisePointsService derives
         // and stores; the form has no points field and merely echoes back whatever it loaded. Taking that echo here pinned
         // the milestone at a stale total whenever a story was added after the form was opened - and since a student's
         // milestone score is a percentage of this number, their group points were then capped at that old total.
-        if (!(exercise instanceof MilestoneExercise)) {
-            exercise.setMaxPoints(dto.maxPoints());
+        if (exercise instanceof MilestoneExercise) {
+            exercise.setMaxPoints(storedMaxPoints);
         }
-        exercise.setBonusPoints(dto.bonusPoints());
         // A user story is always INCLUDED_COMPLETELY (its points count through its group, see UserStoryExercise); the
         // form does not offer the field, so an incoming value can only be stale or hand-crafted.
-        if (!(exercise instanceof UserStoryExercise)) {
-            exercise.setIncludedInOverallScore(dto.includedInOverallScore());
+        if (exercise instanceof UserStoryExercise) {
+            exercise.setIncludedInOverallScore(storedIncludedInOverallScore);
         }
-
-        exercise.setReleaseDate(dto.releaseDate());
-        exercise.setStartDate(dto.startDate());
-        exercise.setDueDate(dto.dueDate());
-        exercise.setAssessmentDueDate(dto.assessmentDueDate());
         exercise.setAssessmentType(dto.assessmentType());
         exercise.setExampleSolutionPublicationDate(dto.exampleSolutionPublicationDate());
 
         // Only set boolean values if they are explicitly provided (not null)
-        if (dto.allowComplaintsForAutomaticAssessments() != null) {
-            exercise.setAllowComplaintsForAutomaticAssessments(dto.allowComplaintsForAutomaticAssessments());
-        }
-        if (dto.presentationScoreEnabled() != null) {
-            exercise.setPresentationScoreEnabled(dto.presentationScoreEnabled());
-        }
-        if (dto.secondCorrectionEnabled() != null) {
-            exercise.setSecondCorrectionEnabled(dto.secondCorrectionEnabled());
-        }
+        dto.applyAssessmentFlagsTo(exercise);
         if (exercise instanceof UserStoryExercise userStory) {
             boolean showTestProgressAsScore = dto.showTestProgressAsScore() != null ? dto.showTestProgressAsScore() : userStory.isShowTestProgressAsScore();
             // Only manual assessment leaves the score at 0% until a tutor has assessed the story, so only it may show test
@@ -541,6 +528,7 @@ public class ProgrammingExerciseUpdateResource {
         buildConfig.setTimeoutSeconds(dto.timeoutSeconds());
         buildConfig.setDockerFlags(dto.dockerFlags());
         buildConfig.setTheiaImage(dto.theiaImage());
+        buildConfig.setOnlineIdeExperienceLevel(dto.onlineIdeExperienceLevel());
         buildConfig.setAllowBranching(dto.allowBranching());
         buildConfig.setBranchRegex(dto.branchRegex());
     }
@@ -558,26 +546,7 @@ public class ProgrammingExerciseUpdateResource {
             return;
         }
 
-        Set<GradingCriterion> managedCriteria = exercise.ensureGradingCriteriaSet();
-
-        // Preserve existing criteria by matching on ID to avoid dangling Feedback.gradingInstruction references
-        Map<Long, GradingCriterion> existingById = managedCriteria.stream().filter(gc -> gc.getId() != null)
-                .collect(Collectors.toMap(GradingCriterion::getId, gc -> gc, (a, b) -> a));
-
-        Set<GradingCriterion> updated = dto.gradingCriteria().stream().map(gcDto -> {
-            GradingCriterion criterion = (gcDto.id() != null) ? existingById.get(gcDto.id()) : null;
-            if (criterion == null) {
-                criterion = gcDto.toEntity();
-                criterion.setExercise(exercise);
-            }
-            else {
-                gcDto.applyTo(criterion);
-            }
-            return criterion;
-        }).collect(Collectors.toSet());
-
-        managedCriteria.clear();
-        managedCriteria.addAll(updated);
+        GradingCriteriaMapper.replace(dto.gradingCriteria(), exercise);
     }
 
     /**

@@ -32,6 +32,7 @@ import de.tum.cit.aet.artemis.exercise.domain.InitializationState;
 import de.tum.cit.aet.artemis.exercise.domain.SubmissionType;
 import de.tum.cit.aet.artemis.exercise.domain.participation.Participation;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationService;
+import de.tum.cit.aet.artemis.localci.service.ci.BulkTriggerThrottle;
 import de.tum.cit.aet.artemis.localci.service.ci.ContinuousIntegrationTriggerService;
 import de.tum.cit.aet.artemis.localci.service.ci.SharedBuildTriggerData;
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
@@ -89,6 +90,8 @@ public class ProgrammingTriggerService {
 
     private final UserStoryExerciseService userStoryExerciseService;
 
+    private final SelectedBuildRunStatusService selectedBuildRunStatusService;
+
     public ProgrammingTriggerService(ProgrammingSubmissionRepository programmingSubmissionRepository, ProgrammingExerciseRepository programmingExerciseRepository,
             Optional<ContinuousIntegrationTriggerService> continuousIntegrationTriggerService, ParticipationService participationService,
             ProgrammingExerciseParticipationService programmingExerciseParticipationService, AuditEventRepository auditEventRepository,
@@ -96,7 +99,7 @@ public class ProgrammingTriggerService {
             TemplateProgrammingExerciseParticipationRepository templateProgrammingExerciseParticipationRepository,
             SolutionProgrammingExerciseParticipationRepository solutionProgrammingExerciseParticipationRepository,
             ProgrammingExerciseTestCaseChangedService programmingExerciseTestCaseChangedService, ProgrammingSubmissionMessagingService programmingSubmissionMessagingService,
-            UserStoryExerciseService userStoryExerciseService) {
+            UserStoryExerciseService userStoryExerciseService, SelectedBuildRunStatusService selectedBuildRunStatusService) {
         this.participationService = participationService;
         this.programmingSubmissionRepository = programmingSubmissionRepository;
         this.templateProgrammingExerciseParticipationRepository = templateProgrammingExerciseParticipationRepository;
@@ -110,6 +113,7 @@ public class ProgrammingTriggerService {
         this.programmingExerciseTestCaseChangedService = programmingExerciseTestCaseChangedService;
         this.programmingSubmissionMessagingService = programmingSubmissionMessagingService;
         this.userStoryExerciseService = userStoryExerciseService;
+        this.selectedBuildRunStatusService = selectedBuildRunStatusService;
     }
 
     /**
@@ -121,7 +125,7 @@ public class ProgrammingTriggerService {
      * @param exerciseId to identify the programming exercise.
      * @throws EntityNotFoundException if there is no programming exercise for the given exercise id.
      */
-    @Async
+    @Async("bulkBuildTriggerExecutor")
     public void triggerInstructorBuildForExercise(long exerciseId) throws EntityNotFoundException {
         // The caller's context reaches this thread when there is one; this stands in for the paths that have none.
         // Security checks still belong before this point, since the stand-in is not a user.
@@ -145,52 +149,105 @@ public class ProgrammingTriggerService {
     }
 
     /**
-     * Triggers a build for the given participations of an exercise, as an instructor's "build selected" does.
-     *
-     * @param exercise         the exercise, loaded with its build config and auxiliary repositories
-     * @param participationIds the participations to build; ids that do not belong to the exercise are ignored
-     */
-    public void triggerInstructorBuildForParticipations(ProgrammingExercise exercise, Collection<Long> participationIds) {
-        triggerBuildForExerciseOrItsMilestone(exercise, participationIds);
-    }
-
-    /**
      * Triggers the builds of an exercise's participations, all of them or only the given ones.
-     * <p>
-     * A user story has no build of its own: its participations share the milestone's repositories, and the builds run
-     * on the milestone's participations, whose results are fanned out to every user story of the group. Building the
-     * user story participations themselves would set up build plans of their own and grade them past the fan-out, so
-     * the milestone participations behind them are built instead.
      *
      * @param exercise         the exercise, loaded with its build config and auxiliary repositories
      * @param participationIds the participations to build, or null for all of them
      */
     private void triggerBuildForExerciseOrItsMilestone(ProgrammingExercise exercise, @Nullable Collection<Long> participationIds) {
+        triggerBuildForParticipationData(findInstructorBuildTriggerData(exercise, participationIds), findBuildExercise(exercise));
+    }
+
+    /**
+     * Reads what the builds of an exercise's participations need, all of them or only the given ones.
+     * <p>
+     * A user story has no build of its own: its participations share the milestone's repositories, and the builds run
+     * on the milestone's participations, whose results are fanned out to every user story of the group. Building the
+     * user story participations themselves would set up build plans of their own and grade them past the fan-out, so
+     * the milestone participations behind them are read instead. They are built with {@link #findBuildExercise}.
+     *
+     * @param exercise         the exercise the participations belong to
+     * @param participationIds the participations to build, or null for all of them; ids that do not belong to the exercise are ignored
+     * @return the trigger data of the participations to build
+     */
+    public List<ParticipationBuildTriggerDTO> findInstructorBuildTriggerData(ProgrammingExercise exercise, @Nullable Collection<Long> participationIds) {
         if (!(exercise instanceof UserStoryExercise)) {
-            var triggerData = participationIds == null ? programmingExerciseStudentParticipationRepository.findBuildTriggerDataByExerciseId(exercise.getId())
+            return participationIds == null ? programmingExerciseStudentParticipationRepository.findBuildTriggerDataByExerciseId(exercise.getId())
                     : programmingExerciseStudentParticipationRepository.findBuildTriggerDataByExerciseIdAndParticipationIds(exercise.getId(), participationIds);
-            triggerBuildForParticipationData(triggerData, exercise);
-            return;
         }
-        long milestoneExerciseId = userStoryExerciseService.findMilestoneExerciseId(exercise.getId())
-                .orElseThrow(() -> new EntityNotFoundException("No milestone exercise for user story exercise " + exercise.getId()));
-        var milestoneExercise = programmingExerciseRepository.findWithAuxiliaryRepositoriesById(milestoneExerciseId)
-                .orElseThrow(() -> new EntityNotFoundException("ProgrammingExercise", milestoneExerciseId));
-        var triggerData = participationIds == null
-                ? programmingExerciseStudentParticipationRepository.findMilestoneBuildTriggerDataForUserStory(milestoneExerciseId, exercise.getId())
+        long milestoneExerciseId = findMilestoneExerciseId(exercise);
+        return participationIds == null ? programmingExerciseStudentParticipationRepository.findMilestoneBuildTriggerDataForUserStory(milestoneExerciseId, exercise.getId())
                 : programmingExerciseStudentParticipationRepository.findMilestoneBuildTriggerDataForUserStoryParticipations(milestoneExerciseId, exercise.getId(),
                         participationIds);
-        triggerBuildForParticipationData(triggerData, milestoneExercise);
+    }
+
+    /**
+     * The exercise whose builds run for the given one: the exercise itself, or for a user story the milestone of its group.
+     *
+     * @param exercise the exercise, loaded with its build config and auxiliary repositories
+     * @return the exercise to build, loaded with its build config and auxiliary repositories
+     */
+    private ProgrammingExercise findBuildExercise(ProgrammingExercise exercise) {
+        if (!(exercise instanceof UserStoryExercise)) {
+            return exercise;
+        }
+        long milestoneExerciseId = findMilestoneExerciseId(exercise);
+        return programmingExerciseRepository.findWithAuxiliaryRepositoriesById(milestoneExerciseId)
+                .orElseThrow(() -> new EntityNotFoundException("ProgrammingExercise", milestoneExerciseId));
+    }
+
+    private long findMilestoneExerciseId(ProgrammingExercise userStoryExercise) {
+        return userStoryExerciseService.findMilestoneExerciseId(userStoryExercise.getId())
+                .orElseThrow(() -> new EntityNotFoundException("No milestone exercise for user story exercise " + userStoryExercise.getId()));
+    }
+
+    /**
+     * Triggers a build for every given participation of the exercise, such as the ones whose build failed, on another
+     * thread.
+     * <p>
+     * The method is async because the run waits for room in the build queue, which can take as long as the builds
+     * queued before it, far longer than a request may stay open. It runs on its own executor, because a run that
+     * waits keeps its thread for as long as that takes.
+     * <p>
+     * The clients learn that the run is done through a message that names it, also if it fails, so that their retry action can stay
+     * busy until then without mistaking the end of another run of the exercise for it. The run is also recorded while it goes on, see
+     * {@link SelectedBuildRunStatusService}, for a client that was disconnected when the message was sent.
+     *
+     * @param triggerData what a trigger reads off each participation that is to be built, newest submission included, see
+     *                        {@link #findInstructorBuildTriggerData}
+     * @param exercise    the exercise the builds were requested for, loaded with its build config and auxiliary
+     *                        repositories
+     * @param runId       names this run in the message that reports its end
+     */
+    @Async("bulkBuildTriggerExecutor")
+    public void triggerInstructorBuildForParticipations(List<ParticipationBuildTriggerDTO> triggerData, ProgrammingExercise exercise, String runId) {
+        // The caller's context reaches this thread when there is one; this stands in for the paths that have none.
+        // Security checks still belong before this point, since the stand-in is not a user.
+        SecurityUtils.setAuthorizationObject();
+        try {
+            // A user story's trigger data names its milestone's participations, which build with the milestone.
+            triggerBuildForParticipationData(triggerData, findBuildExercise(exercise));
+        }
+        finally {
+            // The status first: a client that gets the message and asks for the status must find the run ended. The status service does not throw,
+            // so the message is sent even if the store cannot be written.
+            selectedBuildRunStatusService.markEnded(runId);
+            programmingMessagingService.notifyAboutCompletedSelectedBuildRun(exercise, runId);
+        }
     }
 
     /**
      * Triggers a build for every given participation of one exercise, pacing the batch the same way as the entity based
-     * path above.
+     * path above and, when the CI system has a build queue, holding the run back while that queue is longer than the
+     * build agents can work off.
      * <p>
      * This is the path an instructor's "build all" and the build-and-test-after-due-date schedule take. Its input is a
      * projection rather than participation entities, so an exercise with a thousand participations costs one query for
      * the trigger inputs instead of a thousand and two, and the database ships roughly a third of the bytes. See
      * {@link ParticipationBuildTriggerDTO}.
+     * <p>
+     * The call can take a long time, so a caller on a request thread uses
+     * {@link #triggerInstructorBuildForParticipations(List, ProgrammingExercise, String)} instead.
      *
      * @param triggerData what a trigger reads off each participation of the exercise, newest submission included
      * @param exercise    the exercise those participations belong to, loaded with its build config and auxiliary
@@ -204,6 +261,10 @@ public class ProgrammingTriggerService {
         // the build config, the auxiliary repositories, the build statistics and the head commit of the test
         // repository are the same for every participation.
         SharedBuildTriggerData sharedData = prepareSharedTriggerDataOrNone(exercise);
+        // Only this path waits for room in the build queue. It serves the instructor's "build all" and the rebuild of
+        // selected participations, both of which are bulk runs that have no deadline. The entity based path below also
+        // serves the builds at the start and end of a student exam, which have to be queued at once.
+        BulkTriggerThrottle throttle = continuousIntegrationTriggerService.map(ContinuousIntegrationTriggerService::createBulkTriggerThrottle).orElse(BulkTriggerThrottle.NONE);
         int index = 0;
         for (var participationData : triggerData) {
             var participation = participationFor(participationData, exercise);
@@ -211,6 +272,10 @@ public class ProgrammingTriggerService {
                 continue;
             }
             pauseBetweenBatches(index, participationData.participationId());
+            // A participation without a submission is not built, so it must not wait for room in the queue either.
+            if (participation.findLatestSubmission().isPresent()) {
+                throttle.awaitCapacity();
+            }
             triggerBuild(participation, sharedData);
             index++;
         }
