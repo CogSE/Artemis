@@ -34,7 +34,7 @@ import { ProgrammingExercise } from 'app/programming/shared/entities/programming
 import { RepositoryType } from 'app/programming/shared/code-editor/model/code-editor.model';
 import { ProgrammingSubmissionService } from 'app/programming/shared/services/programming-submission.service';
 import { AccountService } from 'app/core/auth/account.service';
-import { Exercise, ExerciseType, baseExerciseType, getCourseFromExercise } from 'app/exercise/shared/entities/exercise/exercise.model';
+import { Exercise, ExerciseType, baseExerciseType, getCourseFromExercise, getExerciseUrlSegment } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { TutorParticipation, TutorParticipationDTO, TutorParticipationStatus } from 'app/exercise/shared/entities/participation/tutor-participation.model';
 import { ExerciseService } from 'app/exercise/services/exercise.service';
 import { DueDateStat } from 'app/assessment/shared/assessment-dashboard/due-date-stat.model';
@@ -373,8 +373,8 @@ export class ExerciseAssessmentDashboardComponent implements OnInit, OnDestroy {
     }
 
     setupLinks() {
-        this.complaintsLink.set(['/course-management', this.courseId(), this.exercise().type! + '-exercises', this.exercise().id!, 'complaints']);
-        this.moreFeedbackRequestsLink.set(['/course-management', this.courseId(), this.exercise().type! + '-exercises', this.exercise().id!, 'more-feedback-requests']);
+        this.complaintsLink.set(['/course-management', this.courseId(), getExerciseUrlSegment(this.exercise().type), this.exercise().id!, 'complaints']);
+        this.moreFeedbackRequestsLink.set(['/course-management', this.courseId(), getExerciseUrlSegment(this.exercise().type), this.exercise().id!, 'more-feedback-requests']);
     }
 
     /**
@@ -825,7 +825,7 @@ export class ExerciseAssessmentDashboardComponent implements OnInit, OnDestroy {
         if (!this.exercise()?.type || !submissionId) {
             return;
         }
-        const route = `/course-management/${this.courseId()}/${this.exercise().type}-exercises/${this.exercise().id}/example-submissions/${submissionId}`;
+        const route = `/course-management/${this.courseId()}/${getExerciseUrlSegment(this.exercise().type)}/${this.exercise().id}/example-submissions/${submissionId}`;
         // TODO CZ: add both flags and check for value in example submission components
         const queryParams: ExampleSubmissionQueryParams = {};
         if (readOnly) {
@@ -977,5 +977,5 @@ export class ExerciseAssessmentDashboardComponent implements OnInit, OnDestroy {
      * `[routerLink]="exerciseDetailsLink()"` is evaluated on every change-detection pass and a fresh array each pass
      * makes RouterLink re-process the link every time.
      */
-    readonly exerciseDetailsLink = computed(() => ['/course-management', this.courseId(), this.exercise().type! + '-exercises', this.exercise().id!]);
+    readonly exerciseDetailsLink = computed(() => ['/course-management', this.courseId(), getExerciseUrlSegment(this.exercise().type), this.exercise().id!]);
 }
