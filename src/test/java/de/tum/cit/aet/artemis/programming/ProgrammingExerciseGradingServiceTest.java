@@ -1125,6 +1125,26 @@ abstract class ProgrammingExerciseGradingServiceTest extends AbstractProgramming
 
         assertThat(updatedResult.getFeedbacks()).hasSize(1);
         assertThat(updatedResult.getScaFeedbacks()).isEmpty();
+        assertThat(updatedResult.getCodeIssueCount()).isZero();
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void shouldCountOnlyVisibleCodeIssuesWithoutTestCaseFeedback() {
+        var participation = participationUtilService.addStudentParticipationForProgrammingExercise(programmingExerciseSCAEnabled, TEST_PREFIX + "student1");
+        if (programmingExerciseSCAEnabled.isExamExercise()) {
+            createStudentExam(programmingExerciseSCAEnabled, student1);
+        }
+        var submission = participationUtilService.addSubmission(participation, new ProgrammingSubmission());
+        var result = participationUtilService.addResultToSubmission(AssessmentType.AUTOMATIC, null, submission);
+        // No test case feedback, as for an exercise without tests; the CI result service counted the raw issues
+        addScaFeedback(result, StaticCodeAnalysisTool.CHECKSTYLE, "miscellaneous");
+        result.setCodeIssueCount(1);
+
+        Result updatedResult = gradingService.calculateScoreForResult(result, programmingExerciseSCAEnabled, true);
+
+        assertThat(updatedResult.getScaFeedbacks()).isEmpty();
+        assertThat(updatedResult.getCodeIssueCount()).isZero();
     }
 
     @Test

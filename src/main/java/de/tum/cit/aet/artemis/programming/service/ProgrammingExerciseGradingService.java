@@ -1021,6 +1021,8 @@ public class ProgrammingExerciseGradingService {
 
         // Remove feedback that is in an invisible SCA category, resolve the Artemis category and penalty
         feedbackCreationService.categorizeScaFeedback(result, staticCodeAnalysisFeedback, exercise);
+        // The CI result service counted the raw tool issues; only the categorized ones are shown as feedback
+        result.setCodeIssueCount(staticCodeAnalysisFeedback.size());
 
         if (applySubmissionPolicy) {
             // Only the policy's own values are read. Loading the exercise again to reach them, which is what this used
@@ -1047,7 +1049,6 @@ public class ProgrammingExerciseGradingService {
 
             result.setTestCaseCount(relevantTestCases.size());
             result.setPassedTestCaseCount(successfulTestCases.size());
-            result.setCodeIssueCount(staticCodeAnalysisFeedback.size());
 
             if (result.isManual()) {
                 result.setScore(result.calculateTotalPointsForProgrammingExercises(calculateTestCasePoints(scoreCalculationData)), exercise.getMaxPoints(),
