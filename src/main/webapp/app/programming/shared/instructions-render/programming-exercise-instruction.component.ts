@@ -79,6 +79,7 @@ export class ProgrammingExerciseInstructionComponent implements OnInit, OnDestro
     readonly participation = input<Participation | undefined>(undefined);
     readonly generateHtmlEvents = input<Observable<void>>();
     readonly personalParticipation = input.required<boolean>();
+    readonly showStepWizard = input(true);
 
     readonly onNoInstructionsAvailable = output();
 

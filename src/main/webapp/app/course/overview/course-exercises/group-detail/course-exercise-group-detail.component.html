@@ -163,7 +163,12 @@
                     @if (milestoneExercise()?.problemStatement) {
                         <!-- Rendered the same way before and after the start; the participation, once there is one, only adds
                              each task's test outcome. -->
-                        <jhi-programming-exercise-instructions [exercise]="milestoneExercise()" [participation]="milestoneParticipation()" [personalParticipation]="true" />
+                        <jhi-programming-exercise-instructions
+                            [exercise]="milestoneExercise()"
+                            [participation]="milestoneParticipation()"
+                            [personalParticipation]="true"
+                            [showStepWizard]="false"
+                        />
                         @if (capReducesMaxPoints()) {
                             <p class="mb-0 text-body-secondary">
                                 <span jhiTranslate="artemisApp.exerciseVariantGroup.detail.callout.cappedScore" [translateValues]="{ maxPoints: group.maxPoints }"></span>

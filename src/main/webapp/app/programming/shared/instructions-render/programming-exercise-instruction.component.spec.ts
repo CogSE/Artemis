@@ -239,6 +239,22 @@ describe('ProgrammingExerciseInstructionComponent', () => {
         expect(debugElement.query(By.css('#programming-exercise-instructions-content'))).not.toBeNull();
     });
 
+    it.each([
+        { showStepWizard: undefined, rendered: true },
+        { showStepWizard: false, rendered: false },
+    ])('should render the step wizard only if it is not disabled (showStepWizard: $showStepWizard)', ({ showStepWizard, rendered }) => {
+        vi.spyOn(comp, 'loadInitialResult').mockReturnValue(of(undefined));
+        fixture.componentRef.setInput('exercise', { id: 3, course: { id: 4 } } as ProgrammingExercise);
+        if (showStepWizard !== undefined) {
+            fixture.componentRef.setInput('showStepWizard', showStepWizard);
+        }
+        internals(comp).isLoading.set(false);
+
+        fixture.detectChanges();
+
+        expect(!!debugElement.query(By.css('jhi-programming-exercise-instructions-step-wizard'))).toBe(rendered);
+    });
+
     it('should NOT update markdown if the problemStatement is changed', async () => {
         // Fake timers up front so the 150 ms debounce can be advanced deterministically.
         vi.useFakeTimers();
