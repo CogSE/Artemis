@@ -23,9 +23,9 @@
                     "title": "Codequalität",
                     "capped": "Der Abzug ist auf {{ cap }} Punkte begrenzt.",
                     "sharedCodebaseHint": "Alle Elemente dieser Gruppe teilen sich ein Repository. Diese Probleme werden daher einmal für die gesamte Gruppe gezählt und nicht pro Element.",
-                    "noIssues": "Im gemeinsamen Repository der Gruppe wurden keine Codeprobleme gefunden.",
+                    "noIssues": "Im Meilenstein-Repository der Gruppe wurden keine Codeprobleme gefunden.",
                     "boxDeduction": "(-{{ penalty }} Pkt.)",
-                    "boxTooltip": "Statische Code-Analyse des gemeinsamen Repositorys der Gruppe. Klicke, um alle Probleme zu sehen.",
+                    "boxTooltip": "Statische Code-Analyse deines Meilenstein-Repositorys. Klicke, um alle Probleme zu sehen.",
                     "building": "Wird gebaut…",
                     "queued": "In Warteschlange…",
                     "column": {
@@ -38,7 +38,7 @@
                     "title": "DoD",
                     "tooltip": {
                         "noResult": "Definition of Done des Meilensteins: Es gibt noch kein Build-Ergebnis. Pushe deinen Code in das Meilenstein-Repository und schau dir die Meilenstein-Übersicht an.",
-                        "failing": "Tests der Definition of Done des Meilensteins schlagen fehl, daher werden seine User Stories mit 0 Punkten bewertet, bis sie bestehen. Andere Aufgaben des Meilensteins zählen weiterhin. Die fehlschlagenden Aufgaben findest du in der Meilenstein-Übersicht.",
+                        "failing": "Tests der Definition of Done des Meilensteins schlagen fehl, daher werden die im Backlog enthaltenen Programmier- und User-Story-Aufgaben mit 0 Punkten bewertet. Die fehlschlagenden Tests findest du in der Meilenstein-Übersicht.",
                         "deducting": "Alle Tests der Definition of Done des Meilensteins sind erfolgreich, es wurden aber Code-Qualitätsprobleme gefunden, daher kann es zu Punktabzügen kommen. Details findest du in der Meilenstein-Übersicht.",
                         "met": "Alle Tests der Definition of Done des Meilensteins sind erfolgreich und es wurden keine Punktabzüge wegen Code-Qualität gefunden."
                     }
