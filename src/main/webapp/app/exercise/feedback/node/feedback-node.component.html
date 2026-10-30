@@ -53,7 +53,7 @@
             <div class="flex items-center">
                 <fa-icon class="me-2" [icon]="isGroupExpanded() ? faAngleUp : faAngleDown" />
                 <h4 class="feedback-item__category m-0! text-base! font-semibold!">
-                    {{ 'artemisApp.feedback.group.' + feedbackItemGroup()!.name | artemisTranslate }} ({{ feedbackItemGroup()!.members.length }})
+                    {{ feedbackItemGroup()!.label ?? ('artemisApp.feedback.group.' + feedbackItemGroup()!.name | artemisTranslate) }} ({{ feedbackItemGroup()!.members.length }})
                 </h4>
             </div>
             @if (feedbackItemGroup()!.credits !== 0) {

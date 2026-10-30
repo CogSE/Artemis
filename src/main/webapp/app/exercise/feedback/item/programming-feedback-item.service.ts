@@ -9,6 +9,7 @@ import {
 } from 'app/assessment/shared/entities/feedback.model';
 import { TranslateService } from '@ngx-translate/core';
 import { StaticCodeAnalysisIssue } from 'app/programming/shared/entities/static-code-analysis-issue.model';
+import { parseScaIssue } from 'app/programming/shared/milestone-code-quality/milestone-code-quality.util';
 import { getAllFeedbackGroups } from 'app/exercise/feedback/group/programming-feedback-groups';
 import { FeedbackItem, type FeedbackItemCodeReference } from 'app/exercise/feedback/item/feedback-item';
 import { Exercise } from 'app/exercise/shared/entities/exercise/exercise.model';
@@ -84,12 +85,16 @@ export class ProgrammingFeedbackItemService implements FeedbackItemService {
      */
     private createScaFeedbackItem(feedback: Feedback, showTestDetails: boolean): FeedbackItem {
         const scaCategory = feedback.text!.substring(STATIC_CODE_ANALYSIS_FEEDBACK_IDENTIFIER.length);
-        const scaIssue = StaticCodeAnalysisIssue.fromFeedback(feedback);
+        const scaIssue = parseScaIssue(feedback);
+        const name = this.translateService.instant('artemisApp.result.detail.codeIssue.name');
+        if (!scaIssue) {
+            return { type: 'Static Code Analysis', name, title: scaCategory, text: feedback.detailText, positive: false, credits: feedback.credits, feedbackReference: feedback };
+        }
         const text = showTestDetails ? `${scaIssue.rule}: ${scaIssue.message}` : scaIssue.message;
 
         return {
             type: 'Static Code Analysis',
-            name: this.translateService.instant('artemisApp.result.detail.codeIssue.name'),
+            name,
             title: this.translateService.instant('artemisApp.result.detail.codeIssue.title', {
                 scaCategory,
                 location: this.getIssueLocation(scaIssue),

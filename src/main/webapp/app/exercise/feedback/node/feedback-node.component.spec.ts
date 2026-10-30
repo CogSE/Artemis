@@ -33,6 +33,15 @@ describe('FeedbackNodeComponent', () => {
         expect(component.feedbackItemGroup()).toBeDefined();
     });
 
+    it('should show the label of a group whose name is data instead of translating its name', () => {
+        fixture.componentRef.setInput('feedbackItemNode', { name: 'Bad Practice', label: 'Bad Practice', members: [], credits: 0 } as unknown as FeedbackGroup);
+        fixture.detectChanges();
+
+        const heading = fixture.nativeElement.querySelector('.feedback-item__category').textContent;
+        expect(heading).toContain('Bad Practice (0)');
+        expect(heading).not.toContain('artemisApp.feedback.group');
+    });
+
     it('should expand a group only when it is open', () => {
         fixture.componentRef.setInput('feedbackItemNode', { members: [], credits: 0, open: false } as unknown as FeedbackGroup);
         fixture.detectChanges();

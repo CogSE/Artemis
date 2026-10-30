@@ -81,6 +81,22 @@ describe('ProgrammingFeedbackItemService', () => {
         expect(service.create([feedback], true)).toEqual([expected]);
     });
 
+    it('should keep the plain text of an SCA feedback whose issue cannot be parsed', () => {
+        const feedback = { id: 1, type: FeedbackType.AUTOMATIC, text: STATIC_CODE_ANALYSIS_FEEDBACK_IDENTIFIER + 'Style', detailText: 'not json', credits: -1 };
+
+        const expected = {
+            credits: -1,
+            name: 'artemisApp.result.detail.codeIssue.name',
+            positive: false,
+            text: 'not json',
+            title: 'Style',
+            type: 'Static Code Analysis',
+            feedbackReference: feedback,
+        };
+
+        expect(service.create([feedback], true)).toEqual([expected]);
+    });
+
     it('should create automatic feedback item', () => {
         const feedback = {
             id: 1,

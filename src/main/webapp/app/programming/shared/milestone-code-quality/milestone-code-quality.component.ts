@@ -1,35 +1,19 @@
-import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { faCircleCheck, faCircleNotch, faCircleXmark, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
-import { Feedback, STATIC_CODE_ANALYSIS_FEEDBACK_IDENTIFIER } from 'app/assessment/shared/entities/feedback.model';
+import { Feedback } from 'app/assessment/shared/entities/feedback.model';
+import { Course } from 'app/course/shared/entities/course.model';
+import { FeedbackItem } from 'app/exercise/feedback/item/feedback-item';
+import { ProgrammingFeedbackItemService } from 'app/exercise/feedback/item/programming-feedback-item.service';
+import { FeedbackNodeComponent } from 'app/exercise/feedback/node/feedback-node.component';
 import { Result } from 'app/exercise/shared/entities/result/result.model';
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
-import { StaticCodeAnalysisIssue } from 'app/programming/shared/entities/static-code-analysis-issue.model';
 import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pipe';
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
 import { InformationBox, InformationBoxComponent } from 'app/shared-ui/information-box/information-box.component';
-import { TumAetUiDialogComponent, TumAetUiTableDirective } from '@tumaet/ui-angular';
-import { parseScaIssue, scaFeedbackPenalty } from './milestone-code-quality.util';
-
-/** One static code analysis issue of the milestone's build, flattened for display. */
-interface CodeQualityIssue {
-    /** The Artemis category the issue was mapped to, which is what carries the penalty. */
-    category: string;
-    /** `path/to/File.java:42` or `path/to/File.java:42-47`, or just the path when the tool reported no line. */
-    location: string;
-    rule?: string;
-    message?: string;
-    /** Points this issue costs, as a non-negative number. */
-    penalty: number;
-}
-
-/** The issues of one Artemis category, with the points that category costs in total. */
-interface CodeQualityCategory {
-    category: string;
-    penalty: number;
-    issues: CodeQualityIssue[];
-}
+import { TumAetUiDialogComponent } from '@tumaet/ui-angular';
+import { MilestoneCodeQualityGroup, groupByScaCategory, milestoneScaPenalty } from './milestone-code-quality.util';
 
 /**
  * How the group's code quality reads at a glance, in the order the box escalates through them.
@@ -53,22 +37,26 @@ type CodeQualityStatus = 'building' | 'clean' | 'informational' | 'deducting';
  * never rendered as an exercise (`MilestoneExercise.isVisibleToStudents()` is always false), so without this box the
  * student sees the points the penalty cost them but never which issues caused it.
  * <p>
- * The feedback is parsed exactly the way `ProgrammingFeedbackItemService.createScaFeedbackItem` parses it for the
- * ordinary result dialog, so both surfaces read the same wire format.
+ * The issues go through the `ProgrammingFeedbackItemService` and `jhi-feedback-node` of the ordinary result dialog, so
+ * both surfaces read the same wire format and show an issue the same way.
  */
 @Component({
     selector: 'jhi-milestone-code-quality',
     templateUrl: './milestone-code-quality.component.html',
     styleUrl: './milestone-code-quality.component.scss',
-    imports: [FaIconComponent, DecimalPipe, NgTemplateOutlet, ArtemisTranslatePipe, TranslateDirective, InformationBoxComponent, TumAetUiDialogComponent, TumAetUiTableDirective],
+    imports: [FaIconComponent, DecimalPipe, NgTemplateOutlet, ArtemisTranslatePipe, TranslateDirective, InformationBoxComponent, TumAetUiDialogComponent, FeedbackNodeComponent],
     /* preserveWhitespaces: false is required here because the global tsconfig sets preserveWhitespaces: true,
      * which inserts whitespace text nodes that break [contentComponent] slot matching in jhi-information-box. */
     preserveWhitespaces: false,
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MilestoneCodeQualityComponent {
+    private readonly feedbackItemService = inject(ProgrammingFeedbackItemService);
+
     /** The group's anchor milestone exercise, which is where static code analysis is configured. */
     readonly exercise = input.required<ProgrammingExercise | undefined>();
+    /** The course, whose settings decide how the issues' points are rounded. */
+    readonly course = input<Course | undefined>(undefined);
     /** The latest result of the student's milestone participation, or undefined while it loads / before the first build. */
     readonly result = input<Result | undefined>(undefined);
     /** Whether a build for the milestone's shared repository is currently running. */
@@ -107,21 +95,25 @@ export class MilestoneCodeQualityComponent {
      */
     protected readonly isApplicable = computed<boolean>(() => this.exercise()?.staticCodeAnalysisEnabled === true && (this.result() !== undefined || this.isPending()));
 
-    protected readonly issues = computed<CodeQualityIssue[]>(() => {
+    /** The rule stays visible to students: on the milestone it is what tells them what to fix across the shared codebase. */
+    protected readonly issues = computed<FeedbackItem[]>(() => {
         const feedbacks = this.result()?.feedbacks ?? [];
-        return feedbacks.filter((feedback) => Feedback.isStaticCodeAnalysisFeedback(feedback)).map((feedback) => this.toIssue(feedback));
+        return this.feedbackItemService.create(
+            feedbacks.filter((feedback) => Feedback.isStaticCodeAnalysisFeedback(feedback)),
+            true,
+        );
     });
 
     protected readonly issueCount = computed<number>(() => this.issues().length);
 
     /** The points the group loses to static code analysis, as a non-negative number. */
-    protected readonly totalPenalty = computed<number>(() => this.issues().reduce((sum, issue) => sum + issue.penalty, 0));
+    protected readonly totalPenalty = computed<number>(() => milestoneScaPenalty(this.result()));
 
     protected readonly status = computed<CodeQualityStatus>(() => {
         if (this.isPending()) {
             return 'building';
         }
-        if (this.issues().some((issue) => issue.penalty > 0)) {
+        if (this.totalPenalty() > 0) {
             return 'deducting';
         }
         return this.issueCount() === 0 ? 'clean' : 'informational';
@@ -157,53 +149,9 @@ export class MilestoneCodeQualityComponent {
     });
 
     /** The issues grouped by Artemis category, most expensive category first, so the costly ones are read first. */
-    protected readonly categories = computed<CodeQualityCategory[]>(() => {
-        const byCategory = new Map<string, CodeQualityIssue[]>();
-        for (const issue of this.issues()) {
-            const existing = byCategory.get(issue.category);
-            if (existing) {
-                existing.push(issue);
-            } else {
-                byCategory.set(issue.category, [issue]);
-            }
-        }
-        return [...byCategory.entries()]
-            .map(([category, issues]) => ({
-                category,
-                issues: [...issues].sort((a, b) => b.penalty - a.penalty),
-                penalty: issues.reduce((sum, issue) => sum + issue.penalty, 0),
-            }))
-            .sort((a, b) => b.penalty - a.penalty || a.category.localeCompare(b.category));
-    });
+    protected readonly groups = computed<MilestoneCodeQualityGroup[]>(() => groupByScaCategory(this.issues()));
 
     protected openDetails(): void {
         this.detailsVisible.set(true);
-    }
-
-    /**
-     * Flattens one synthesized SCA feedback into a display row. An issue whose detail text cannot be parsed (see
-     * {@link parseScaIssue}) is shown with whatever the server did write.
-     */
-    private toIssue(feedback: Feedback): CodeQualityIssue {
-        const category = feedback.text!.substring(STATIC_CODE_ANALYSIS_FEEDBACK_IDENTIFIER.length);
-        const issue = parseScaIssue(feedback);
-        return {
-            category,
-            location: this.buildLocation(issue),
-            rule: issue?.rule,
-            message: issue?.message ?? feedback.detailText,
-            penalty: scaFeedbackPenalty(feedback, issue),
-        };
-    }
-
-    private buildLocation(issue: StaticCodeAnalysisIssue | undefined): string {
-        if (!issue?.filePath) {
-            return '';
-        }
-        if (!issue.startLine) {
-            return issue.filePath;
-        }
-        const lines = !issue.endLine || issue.endLine === issue.startLine ? `${issue.startLine}` : `${issue.startLine}-${issue.endLine}`;
-        return `${issue.filePath}:${lines}`;
     }
 }

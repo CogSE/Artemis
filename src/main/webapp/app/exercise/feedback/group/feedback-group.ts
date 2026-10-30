@@ -7,6 +7,10 @@ import { FeedbackColor, FeedbackNode } from 'app/exercise/feedback/node/feedback
  */
 export abstract class FeedbackGroup implements FeedbackNode {
     name!: string; // set in each concrete subclass constructor (e.g. FeedbackGroupWrong)
+    /**
+     * The heading of a group whose name is data rather than a translation key, already readable as it is
+     */
+    label?: string;
     members: FeedbackItem[] = [];
     credits = 0;
     maxCredits?: number;

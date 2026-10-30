@@ -51,16 +51,4 @@
             margin-top: 0.25rem;
         }
     }
-
-    // A file path has no spaces to wrap at, so it has to be allowed to break mid-word or it forces the
-    // table wider than the dialog on every deeply nested source file.
-    &__location {
-        overflow-wrap: anywhere;
-    }
-
-    // The issue table is the one part that can genuinely exceed the dialog; it scrolls on its own so the
-    // dialog never scrolls horizontally.
-    &__scroll {
-        overflow-x: auto;
-    }
 }

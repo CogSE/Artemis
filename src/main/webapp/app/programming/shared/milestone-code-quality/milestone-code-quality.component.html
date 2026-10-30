@@ -55,40 +55,11 @@
             <p class="code-quality__hint" jhiTranslate="artemisApp.exerciseVariantGroup.detail.codeQuality.capped" [translateValues]="{ cap: penaltyCap() | number: '1.0-2' }"></p>
         }
 
-        <div class="code-quality__scroll mt-2">
-            <table tumAetUiTable size="small">
-                <thead>
-                    <tr>
-                        <th jhiTranslate="artemisApp.exerciseVariantGroup.detail.codeQuality.column.location"></th>
-                        <th jhiTranslate="artemisApp.exerciseVariantGroup.detail.codeQuality.column.issue"></th>
-                        <th class="text-end" jhiTranslate="artemisApp.exerciseVariantGroup.detail.codeQuality.column.penalty"></th>
-                    </tr>
-                </thead>
-                @for (category of categories(); track category.category) {
-                    <tbody>
-                        <tr>
-                            <td class="font-semibold" colspan="2">{{ category.category }}</td>
-                            <td class="text-state-danger text-end font-semibold whitespace-nowrap">
-                                {{ category.penalty ? '-' + (category.penalty | number: '1.0-2') : '—' }}
-                            </td>
-                        </tr>
-                        @for (issue of category.issues; track $index) {
-                            <tr class="align-top">
-                                <td class="code-quality__location font-mono">{{ issue.location || '—' }}</td>
-                                <td>
-                                    @if (issue.rule) {
-                                        <span class="font-medium">{{ issue.rule }}</span>
-                                    }
-                                    @if (issue.message) {
-                                        <span class="code-quality__hint">{{ issue.rule ? ': ' : '' }}{{ issue.message }}</span>
-                                    }
-                                </td>
-                                <td class="text-end whitespace-nowrap">{{ issue.penalty ? '-' + (issue.penalty | number: '1.0-2') : '—' }}</td>
-                            </tr>
-                        }
-                    </tbody>
-                }
-            </table>
+        <div class="mt-2">
+            <!-- The node reads its input once, so tracking the group itself re-creates it for each new result. -->
+            @for (group of groups(); track group) {
+                <jhi-feedback-node [feedbackItemNode]="group" [course]="course()" />
+            }
         </div>
     } @else if (!isPending()) {
         <p class="code-quality__hint" jhiTranslate="artemisApp.exerciseVariantGroup.detail.codeQuality.noIssues"></p>

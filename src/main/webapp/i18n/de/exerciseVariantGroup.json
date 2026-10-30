@@ -22,17 +22,12 @@
                 "codeQuality": {
                     "title": "Codequalität",
                     "capped": "Der Abzug ist auf {{ cap }} Punkte begrenzt.",
-                    "sharedCodebaseHint": "Alle Elemente dieser Gruppe teilen sich ein Repository. Diese Probleme werden daher einmal für die gesamte Gruppe gezählt und nicht pro Element.",
-                    "noIssues": "Im Meilenstein-Repository der Gruppe wurden keine Codeprobleme gefunden.",
+                    "sharedCodebaseHint": "Die Codequalität deiner Abgabe wird auf Meilensteinebene bewertet. Folgende Probleme wurden bei deiner Abgabe gefunden:",
+                    "noIssues": "Im Meilenstein-Repository wurden keine Codeprobleme gefunden.",
                     "boxDeduction": "(-{{ penalty }} Pkt.)",
                     "boxTooltip": "Statische Code-Analyse deines Meilenstein-Repositorys. Klicke, um alle Probleme zu sehen.",
                     "building": "Wird gebaut…",
-                    "queued": "In Warteschlange…",
-                    "column": {
-                        "location": "Fundstelle",
-                        "issue": "Problem",
-                        "penalty": "Punkte"
-                    }
+                    "queued": "In Warteschlange…"
                 },
                 "dod": {
                     "title": "DoD",

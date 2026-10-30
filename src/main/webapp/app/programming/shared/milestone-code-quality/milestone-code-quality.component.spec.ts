@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateService } from '@ngx-translate/core';
 import { MockTranslateService } from 'test/helpers/mocks/service/mock-translate.service';
 import { MilestoneCodeQualityComponent } from 'app/programming/shared/milestone-code-quality/milestone-code-quality.component';
+import { MilestoneCodeQualityGroup } from 'app/programming/shared/milestone-code-quality/milestone-code-quality.util';
 import { Feedback, FeedbackType, STATIC_CODE_ANALYSIS_FEEDBACK_IDENTIFIER } from 'app/assessment/shared/entities/feedback.model';
 import { Result } from 'app/exercise/shared/entities/result/result.model';
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
@@ -58,7 +59,7 @@ describe('MilestoneCodeQualityComponent', () => {
         isPending: () => boolean;
         pendingLabel: () => string;
         detailsVisible: { (): boolean; set: (value: boolean) => void };
-        categories: () => { category: string; penalty: number; issues: { location: string; rule?: string; message?: string; penalty: number }[] }[];
+        groups: () => MilestoneCodeQualityGroup[];
         infoBoxData: () => { title: string };
     } {
         return component as never;
@@ -89,15 +90,17 @@ describe('MilestoneCodeQualityComponent', () => {
 
         expect(component.issueCount()).toBe(3);
         expect(component.totalPenalty()).toBe(1.75);
-        expect(component.categories().map((category) => category.category)).toEqual(['Bad Practice', 'Style']);
-        expect(component.categories()[1].penalty).toBe(0.75);
+        expect(component.groups().map((group) => group.label)).toEqual(['Bad Practice', 'Style']);
+        expect(component.groups()[1].credits).toBe(-0.75);
         // Within a category the costliest issue is listed first.
-        expect(component.categories()[1].issues.map((issue) => issue.location)).toEqual(['src/Main.java:42', 'src/Bar.java:3-5']);
+        expect(component.groups()[1].members.map((item) => item.text)).toEqual(['LineLength: line too long', 'Indentation: wrong indentation']);
 
-        // The rows actually reach the DOM in that order, so a broken template does not pass on the computeds alone.
+        // The items actually reach the DOM in that order, so a broken template does not pass on the computeds alone.
         openDetails();
-        const locations = [...document.body.querySelectorAll('.code-quality__location')].map((cell) => cell.textContent?.trim());
-        expect(locations).toEqual(['src/Foo.java:8', 'src/Main.java:42', 'src/Bar.java:3-5']);
+        const items = [...document.body.querySelectorAll('.feedback-item')].map((item) => item.textContent);
+        expect(items[0]).toContain('unused variable');
+        expect(items[1]).toContain('line too long');
+        expect(items[2]).toContain('wrong indentation');
     });
 
     it('falls back to the feedback credits when the issue carries no penalty of its own', async () => {
@@ -118,7 +121,7 @@ describe('MilestoneCodeQualityComponent', () => {
 
         expect(component.issueCount()).toBe(2);
         expect(component.totalPenalty()).toBe(1.5);
-        expect(component.categories()[0].issues.map((issue) => issue.message)).toContain('not json');
+        expect(component.groups()[0].members.map((item) => item.text)).toContain('not json');
     });
 
     it('ignores feedback that is not static code analysis feedback', async () => {
@@ -219,7 +222,7 @@ describe('MilestoneCodeQualityComponent', () => {
             expect(component.detailsVisible()).toBe(true);
             expect(document.body.querySelector('.tumaet-ui-dialog')).not.toBeNull();
             // With nothing to list the dialog still explains itself rather than opening empty.
-            expect(document.body.querySelector('table')).toBeNull();
+            expect(document.body.querySelector('jhi-feedback-node')).toBeNull();
         });
     });
 
@@ -239,7 +242,7 @@ describe('MilestoneCodeQualityComponent', () => {
     });
 
     describe('inline', () => {
-        it('renders the issue table straight away, with no trigger to click', async () => {
+        it('renders the issues straight away, with no trigger to click', async () => {
             const result = {
                 id: 1,
                 feedbacks: [scaFeedback('Bad Practice', { filePath: 'src/Main.java', startLine: 4, rule: 'DM_EXIT', message: 'Avoid System.exit' }, -2)],
@@ -249,16 +252,16 @@ describe('MilestoneCodeQualityComponent', () => {
 
             // No information box to open: the tutor page gives this a tab of its own, so a trigger would only be in the way.
             expect(fixture.nativeElement.querySelector('.code-quality__trigger')).toBeNull();
-            const table = fixture.nativeElement.querySelector('table');
-            expect(table).not.toBeNull();
-            expect(table.textContent).toContain('Bad Practice');
-            expect(table.textContent).toContain('src/Main.java:4');
+            const issues = fixture.nativeElement.querySelector('jhi-feedback-node');
+            expect(issues).not.toBeNull();
+            expect(issues.textContent).toContain('Bad Practice');
+            expect(issues.textContent).toContain('DM_EXIT: Avoid System.exit');
         });
 
         it('still explains itself when the codebase is clean', async () => {
             await setup(milestone(), { id: 1, feedbacks: [] } as unknown as Result, { inline: true });
 
-            expect(fixture.nativeElement.querySelector('table')).toBeNull();
+            expect(fixture.nativeElement.querySelector('jhi-feedback-node')).toBeNull();
             expect(fixture.nativeElement.textContent).toContain('artemisApp.exerciseVariantGroup.detail.codeQuality.noIssues');
         });
     });

@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { CourseStorageService } from 'app/course/manage/services/course-storage.service';
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
 import { hydrate } from 'app/foundation/util/deep-clone.util';
 import { ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
@@ -27,7 +28,12 @@ import { MilestoneAssessment } from './milestone-assessment.service';
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MilestoneAssessmentOverviewComponent {
+    private readonly courseStorageService = inject(CourseStorageService);
+
     readonly assessment = input.required<MilestoneAssessment>();
+
+    /** The course this page lives in, which the assessment itself does not carry. */
+    protected readonly course = this.courseStorageService.currentCourse;
 
     /**
      * The milestone rebuilt as an exercise, which is the shape both the instructions renderer and

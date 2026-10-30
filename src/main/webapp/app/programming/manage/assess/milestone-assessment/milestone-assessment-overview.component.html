@@ -11,7 +11,7 @@
     <section>
         <h4 jhiTranslate="artemisApp.milestoneAssessment.overview.codeQuality"></h4>
         @if (assessment().staticCodeAnalysisEnabled) {
-            <jhi-milestone-code-quality [exercise]="milestoneExercise()" [result]="assessment().milestoneResult" [inline]="true" />
+            <jhi-milestone-code-quality [exercise]="milestoneExercise()" [course]="course()" [result]="assessment().milestoneResult" [inline]="true" />
         } @else {
             <p class="milestone-overview__empty" jhiTranslate="artemisApp.milestoneAssessment.overview.codeQualityDisabled"></p>
         }

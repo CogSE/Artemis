@@ -22,17 +22,12 @@
                 "codeQuality": {
                     "title": "Code quality",
                     "capped": "The deduction is capped at {{ cap }} points.",
-                    "sharedCodebaseHint": "All items in this group share one repository, so these issues are counted once for the whole group rather than per item.",
+                    "sharedCodebaseHint": "The code quality of your submission is graded at milestone level. The following issues were found in your submission:",
                     "noIssues": "No code issues were found in the group's milestone repository.",
                     "boxDeduction": "(-{{ penalty }} pts)",
                     "boxTooltip": "Static code analysis of your milestone repository. Click to see every issue.",
                     "building": "Building…",
-                    "queued": "Queued…",
-                    "column": {
-                        "location": "Location",
-                        "issue": "Issue",
-                        "penalty": "Points"
-                    }
+                    "queued": "Queued…"
                 },
                 "dod": {
                     "title": "DoD",
