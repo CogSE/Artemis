@@ -202,11 +202,18 @@ public class ProgrammingExerciseDeletionService {
         // id is used to cancel the scheduling. No interaction with the database is required.
         cancelScheduledOperations(programmingExercise.getId());
 
+        // A user story shares the repositories of its milestone. They must only be deleted with the milestone.
+        boolean sharesRepositories = programmingExercise instanceof UserStoryExercise;
+
         if (deleteBaseReposBuildPlans) {
             deleteBuildPlans(programmingExercise);
-            programmingExerciseRepositoryService.deleteRepositories(programmingExercise);
+            if (!sharesRepositories) {
+                programmingExerciseRepositoryService.deleteRepositories(programmingExercise);
+            }
         }
-        programmingExerciseRepositoryService.deleteLocalRepoCopies(programmingExercise);
+        if (!sharesRepositories) {
+            programmingExerciseRepositoryService.deleteLocalRepoCopies(programmingExercise);
+        }
 
         // Note: we fetch the programming exercise again here with student participations to avoid Hibernate issues during the delete operation below
         var programmingExerciseWithStudentParticipations = programmingExerciseRepository.findByIdWithStudentParticipationsAndSubmissionsElseThrow(programmingExerciseId);
