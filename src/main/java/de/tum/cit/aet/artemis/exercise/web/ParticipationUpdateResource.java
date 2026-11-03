@@ -43,7 +43,10 @@ import de.tum.cit.aet.artemis.exercise.repository.ExerciseRepository;
 import de.tum.cit.aet.artemis.exercise.repository.StudentParticipationRepository;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseDateService;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationService;
+import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
+import de.tum.cit.aet.artemis.programming.service.UserStoryExerciseService;
 import de.tum.cit.aet.artemis.quiz.domain.QuizExercise;
 
 /**
@@ -79,9 +82,11 @@ public class ParticipationUpdateResource {
 
     private final StudentParticipationRepository studentParticipationRepository;
 
+    private final UserStoryExerciseService userStoryExerciseService;
+
     public ParticipationUpdateResource(ParticipationService participationService, ExerciseRepository exerciseRepository, AuthorizationCheckService authCheckService,
             UserRepository userRepository, StudentParticipationRepository studentParticipationRepository, ExerciseDateService exerciseDateService,
-            InstanceMessageSendService instanceMessageSendService, GradingScaleService gradingScaleService) {
+            InstanceMessageSendService instanceMessageSendService, GradingScaleService gradingScaleService, UserStoryExerciseService userStoryExerciseService) {
         this.participationService = participationService;
         this.exerciseRepository = exerciseRepository;
         this.authCheckService = authCheckService;
@@ -90,6 +95,7 @@ public class ParticipationUpdateResource {
         this.exerciseDateService = exerciseDateService;
         this.instanceMessageSendService = instanceMessageSendService;
         this.gradingScaleService = gradingScaleService;
+        this.userStoryExerciseService = userStoryExerciseService;
     }
 
     /**
@@ -205,9 +211,17 @@ public class ParticipationUpdateResource {
         if (exercise instanceof QuizExercise) {
             throw new BadRequestAlertException("Cannot set individual due dates for quiz exercises", ENTITY_NAME, "quizexercise");
         }
+        // A user story works in its milestone's repository, so its deadline is the milestone's: set there, it reaches every story.
+        if (exercise instanceof UserStoryExercise && userStoryExerciseService.findMilestoneExerciseId(exerciseId).isPresent()) {
+            throw new BadRequestAlertException("Set individual due dates on the milestone, which passes them on to its user stories", ENTITY_NAME, "userstoryduedate");
+        }
 
         final List<StudentParticipation> changedParticipations = participationService.updateIndividualDueDatesFromDTOs(exercise, dueDateUpdateDTOs);
         final List<StudentParticipation> updatedParticipations = studentParticipationRepository.saveAllAndFlush(changedParticipations);
+        if (exercise instanceof MilestoneExercise) {
+            // The stories judge lateness by their own participation's due date, so they take the milestone's.
+            userStoryExerciseService.syncIndividualDueDatesFromMilestone(exerciseId, updatedParticipations).forEach(instanceMessageSendService::sendProgrammingExerciseSchedule);
+        }
 
         if (!updatedParticipations.isEmpty() && exercise instanceof ProgrammingExercise programmingExercise) {
             log.info("Updating scheduling for exercise {} (id {}) due to changed individual due dates.", exercise.getTitle(), exercise.getId());

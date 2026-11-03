@@ -36,6 +36,7 @@ import de.tum.cit.aet.artemis.exercise.service.IExerciseScheduleService;
 import de.tum.cit.aet.artemis.programming.domain.ParticipationLifecycle;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseStudentParticipation;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseStudentParticipationRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseTestCaseRepository;
@@ -322,8 +323,10 @@ public class ProgrammingExerciseScheduleService implements IExerciseScheduleServ
         }
 
         // Build and test after individual due date:
-        // only special scheduling if the individual due date is after the build and test date
-        if (isBeforeDueDate && exercise.getBuildAndTestStudentSubmissionsAfterDueDate() != null
+        // only special scheduling if the individual due date is after the build and test date. A user story has no build
+        // of its own: the milestone participation sharing its repository carries the same individual due date and its
+        // rebuild reaches the story through the result fan-out.
+        if (isBeforeDueDate && !(exercise instanceof UserStoryExercise) && exercise.getBuildAndTestStudentSubmissionsAfterDueDate() != null
                 && individualDueDate.isAfter(exercise.getBuildAndTestStudentSubmissionsAfterDueDate())) {
             scheduleBuildAndTestAfterDueDateForParticipation(participation);
         }

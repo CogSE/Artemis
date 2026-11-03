@@ -48,6 +48,7 @@
             "initializationState": "Status",
             "initializationDate": "Start Date",
             "individualDueDate": "Individual Due Date",
+            "individualDueDateFromMilestone": "Set on the milestone, which passes it on to every user story.",
             "noIndividualDueDate": "No due date",
             "editIndividualDueDate": "Edit individual due date",
             "initializationNotYetStarted": "Not yet started",

@@ -10,7 +10,8 @@
             @if (exercise()!.isAtLeastInstructor && isProgrammingExercise()) {
                 <jhi-programming-exercise-instructor-submission-state [exercise]="exercise()!" [shouldToggle]="true" [toggleBreakpoint]="'md'" />
             }
-            @if (exercise()!.isAtLeastInstructor && !exercise()!.teamMode) {
+            <!-- A user story's participation comes from its milestone, which is where a student who never started is given one. -->
+            @if (exercise()!.isAtLeastInstructor && !exercise()!.teamMode && exercise()!.type !== ExerciseType.USER_STORY) {
                 <jhi-external-submission class="d-inline-block" [exercise]="exercise()!" />
             }
             @if (exercise()!.isAtLeastInstructor) {
@@ -296,7 +297,7 @@
             } @else {
                 <span class="text-secondary fst-italic" jhiTranslate="artemisApp.participation.noIndividualDueDate"></span>
             }
-            @if (exercise()!.isAtLeastInstructor) {
+            @if (exercise()!.isAtLeastInstructor && exercise()!.type !== ExerciseType.USER_STORY) {
                 <button
                     type="button"
                     class="btn btn-link btn-sm p-0"

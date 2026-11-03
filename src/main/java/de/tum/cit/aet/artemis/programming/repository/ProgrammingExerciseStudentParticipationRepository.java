@@ -190,6 +190,17 @@ public interface ProgrammingExerciseStudentParticipationRepository extends Artem
     @EntityGraph(type = LOAD, attributePaths = { "exercise", "exercise.course", "student" })
     Optional<ProgrammingExerciseStudentParticipation> findByExerciseIdAndRepositoryUri(long exerciseId, String repositoryUri);
 
+    /**
+     * The participations of an exercise that work in any of the given repositories. A user story participation shares
+     * its milestone participation's repository, so this finds every story participation of a set of milestone
+     * participations in one query per story.
+     *
+     * @param exerciseId     the id of the exercise the participations belong to
+     * @param repositoryUris the repository URIs to look up
+     * @return the matching participations, graded and practice alike
+     */
+    List<ProgrammingExerciseStudentParticipation> findAllByExerciseIdAndRepositoryUriIn(long exerciseId, Collection<String> repositoryUris);
+
     default ProgrammingExerciseStudentParticipation findByExerciseIdAndRepositoryUriElseThrow(long exerciseId, String repositoryUri) {
         return getValueElseThrow(findByExerciseIdAndRepositoryUri(exerciseId, repositoryUri));
     }

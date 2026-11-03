@@ -360,6 +360,8 @@ export class ParticipationComponent implements OnInit, OnDestroy {
         if (ex.type !== ExerciseType.QUIZ && ex.dueDate) {
             cols.push({
                 headerKey: 'artemisApp.participation.individualDueDate',
+                // A user story works in its milestone's repository and takes its individual due dates from there.
+                headerTooltip: ex.type === ExerciseType.USER_STORY ? 'artemisApp.participation.individualDueDateFromMilestone' : undefined,
                 field: 'individualDueDate',
                 width: '180px',
                 sort: true,

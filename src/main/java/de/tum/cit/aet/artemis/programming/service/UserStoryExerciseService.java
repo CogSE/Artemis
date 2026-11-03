@@ -3,7 +3,11 @@ package de.tum.cit.aet.artemis.programming.service;
 import static de.tum.cit.aet.artemis.core.config.Constants.PROFILE_CORE;
 import static de.tum.cit.aet.artemis.programming.web.ProgrammingWebsocketTopics.TEST_CASES;
 
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -12,6 +16,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -19,6 +24,7 @@ import org.springframework.stereotype.Service;
 import de.tum.cit.aet.artemis.communication.service.WebsocketMessagingService;
 import de.tum.cit.aet.artemis.exercise.domain.Exercise;
 import de.tum.cit.aet.artemis.exercise.domain.MilestoneExerciseGroup;
+import de.tum.cit.aet.artemis.exercise.domain.participation.Participation;
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
@@ -142,6 +148,74 @@ public class UserStoryExerciseService {
         }
         return milestoneExerciseGroupRepository.findMilestoneExerciseIdByUserStoryExerciseId(userStoryParticipation.getProgrammingExercise().getId())
                 .flatMap(milestoneExerciseId -> programmingExerciseStudentParticipationRepository.findByExerciseIdAndRepositoryUri(milestoneExerciseId, repositoryUri));
+    }
+
+    /**
+     * Copies the individual due date of each given milestone participation onto the student's participations in every
+     * user story of the group, clearing it there where the milestone participation has none.
+     * <p>
+     * The milestone participation is the single owner of a student's individual due date. The stories work in its
+     * repository, but each one still judges its own deadline - whether a story result is rated, whether the online
+     * editor still accepts commits, whether the task board is frozen - by its own participation's due date. Without
+     * this copy, an extension granted on the milestone would let the student push while every story treated them as
+     * late.
+     * <p>
+     * Practice participations are left alone: they have no individual due date. The caller reschedules every story
+     * returned, so a story participation's results are re-scored at its own individual due date, just like those of any
+     * other exercise. (Scheduling is not done here: the scheduler itself depends on this service.)
+     *
+     * @param milestoneExerciseId     the id of the group's milestone exercise
+     * @param milestoneParticipations the milestone participations whose individual due date the stories should take
+     * @return the ids of the user stories whose participations changed
+     */
+    public Set<Long> syncIndividualDueDatesFromMilestone(long milestoneExerciseId, Collection<? extends Participation> milestoneParticipations) {
+        Map<String, ZonedDateTime> dueDateByRepositoryUri = new HashMap<>();
+        for (Participation milestoneParticipation : milestoneParticipations) {
+            if (milestoneParticipation instanceof ProgrammingExerciseStudentParticipation programmingParticipation && !programmingParticipation.isPracticeMode()
+                    && programmingParticipation.getRepositoryUri() != null) {
+                // A HashMap rather than Collectors.toMap: the value is null wherever the milestone has no individual due date.
+                dueDateByRepositoryUri.put(programmingParticipation.getRepositoryUri(), programmingParticipation.getIndividualDueDate());
+            }
+        }
+        Set<Long> changedStoryIds = new HashSet<>();
+        if (dueDateByRepositoryUri.isEmpty()) {
+            return changedStoryIds;
+        }
+        milestoneExerciseGroupRepository.findByMilestoneExerciseIdWithExercises(milestoneExerciseId).ifPresent(group -> {
+            List<ProgrammingExerciseStudentParticipation> changed = new ArrayList<>();
+            for (Exercise member : group.getExercises()) {
+                if (!(member instanceof UserStoryExercise)) {
+                    continue;
+                }
+                for (var storyParticipation : programmingExerciseStudentParticipationRepository.findAllByExerciseIdAndRepositoryUriIn(member.getId(),
+                        dueDateByRepositoryUri.keySet())) {
+                    ZonedDateTime milestoneDueDate = dueDateByRepositoryUri.get(storyParticipation.getRepositoryUri());
+                    if (!storyParticipation.isPracticeMode() && !isSameInstant(storyParticipation.getIndividualDueDate(), milestoneDueDate)) {
+                        storyParticipation.setIndividualDueDate(milestoneDueDate);
+                        changed.add(storyParticipation);
+                        changedStoryIds.add(member.getId());
+                    }
+                }
+            }
+            programmingExerciseStudentParticipationRepository.saveAll(changed);
+        });
+        return changedStoryIds;
+    }
+
+    /**
+     * Re-copies the individual due date of every student's milestone participation onto their stories, for when the
+     * milestone's own dates changed and may have cleared individual due dates that fell before the new due date.
+     *
+     * @param milestoneExerciseId the id of the group's milestone exercise
+     * @return the ids of the user stories whose participations changed
+     */
+    public Set<Long> syncAllIndividualDueDatesFromMilestone(long milestoneExerciseId) {
+        return syncIndividualDueDatesFromMilestone(milestoneExerciseId,
+                programmingExerciseStudentParticipationRepository.findAllByExerciseIdAndRepositoryUriIsNotNullAndTestRunFalse(milestoneExerciseId));
+    }
+
+    private static boolean isSameInstant(@Nullable ZonedDateTime first, @Nullable ZonedDateTime second) {
+        return first == null ? second == null : second != null && first.isEqual(second);
     }
 
     /**

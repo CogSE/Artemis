@@ -170,6 +170,14 @@ describe('ParticipationComponent', () => {
             ]);
         });
 
+        it('should explain that a user story takes its individual due dates from the milestone and offer no editing', async () => {
+            const row = await render({ ...exercise, type: ExerciseType.USER_STORY, isAtLeastInstructor: true, dueDate: dayjs() }, sampleDto);
+
+            const dueDateColumn = component.columns().find((column) => column.headerKey === 'artemisApp.participation.individualDueDate');
+            expect(dueDateColumn?.headerTooltip).toBe('artemisApp.participation.individualDueDateFromMilestone');
+            expect(row.querySelector('.btn-link')).toBeNull();
+        });
+
         it('should list the team members below the team instead of in a column of their own', async () => {
             const row = await render(
                 { ...exercise, isAtLeastInstructor: true, teamMode: true },

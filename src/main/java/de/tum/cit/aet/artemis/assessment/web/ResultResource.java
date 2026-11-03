@@ -70,8 +70,10 @@ import de.tum.cit.aet.artemis.exercise.repository.ParticipationRepository;
 import de.tum.cit.aet.artemis.exercise.repository.StudentParticipationRepository;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationAuthorizationCheckService;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationService;
+import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExerciseParticipation;
+import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingFeedbackSynthesizerService;
 import de.tum.cit.aet.artemis.quiz.domain.QuizExercise;
@@ -312,6 +314,19 @@ public class ResultResource {
 
         // Check if a result exists already for this exercise and student. If so, do nothing and just inform the instructor.
         Optional<StudentParticipation> optionalParticipation = participationService.findOneByExerciseAndStudentAnyStateWithEagerResults(exercise, student.get());
+        // A user story works in its milestone's repository and is never started on its own, so a result for it would have
+        // no repository behind it; the milestone is where a student without a participation is given one.
+        if (exercise instanceof UserStoryExercise) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(applicationName, true, "result", "externalSubmissionForUserStory",
+                    "External submissions are not supported for user stories. Create one for the milestone instead.")).build();
+        }
+        // On a milestone, an external result exists only to give a student who never started it a participation - and with
+        // it the repository and user stories an individual due date can be set on. A started milestone is graded by its stories.
+        if (exercise instanceof MilestoneExercise && optionalParticipation.isPresent()) {
+            return ResponseEntity.badRequest().headers(
+                    HeaderUtil.createFailureAlert(applicationName, true, "result", "externalSubmissionForStartedMilestone", "The student has already started this milestone."))
+                    .build();
+        }
         if (optionalParticipation.isPresent() && optionalParticipation.get().getSubmissions().stream().anyMatch(submission -> !submission.getResults().isEmpty())) {
             return ResponseEntity.badRequest()
                     .headers(HeaderUtil.createFailureAlert(applicationName, true, "result", "resultAlreadyExists", "A result already exists for this student in this exercise."))

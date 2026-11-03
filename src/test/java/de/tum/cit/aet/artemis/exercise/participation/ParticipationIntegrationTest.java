@@ -48,6 +48,8 @@ import de.tum.cit.aet.artemis.account.domain.User;
 import de.tum.cit.aet.artemis.assessment.domain.AssessmentType;
 import de.tum.cit.aet.artemis.assessment.domain.GradingScale;
 import de.tum.cit.aet.artemis.assessment.domain.Result;
+import de.tum.cit.aet.artemis.assessment.dto.ExternalSubmissionResultDTO;
+import de.tum.cit.aet.artemis.assessment.dto.ResultDTO;
 import de.tum.cit.aet.artemis.assessment.dto.UserNameAndLoginDTO;
 import de.tum.cit.aet.artemis.assessment.service.GradingScaleService;
 import de.tum.cit.aet.artemis.assessment.util.GradingScaleUtilService;
@@ -684,6 +686,67 @@ class ParticipationIntegrationTest extends AbstractAthenaTest {
                 assertThat(userStoryPractice.getInitializationState()).isEqualTo(InitializationState.INITIALIZED);
             });
         }
+    }
+
+    private String externalSubmissionUrl(Exercise exercise, String studentLogin) {
+        return "/api/assessment/exercises/" + exercise.getId() + "/external-submission-results?studentLogin=" + studentLogin;
+    }
+
+    private ProgrammingExerciseStudentParticipation gradedParticipation(Exercise exercise, User user) {
+        return (ProgrammingExerciseStudentParticipation) participationRepo.findWithEagerSubmissionsByExerciseIdAndStudentIdAndTestRun(exercise.getId(), user.getId(), false)
+                .orElseThrow();
+    }
+
+    /**
+     * A student who never started a milestone has no participation to grant an extension on. An external result on the
+     * milestone gives them one as a regular start would - a repository with an access token, and user stories sharing it -
+     * so the individual due date set on it afterwards reaches every story.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void externalResultOnAMilestoneGivesAStudentWhoNeverStartedItAParticipationToExtend() throws Exception {
+        var group = createMilestoneGroupAfterDueDate();
+        User student = userUtilService.getUserByLogin(TEST_PREFIX + "student1");
+
+        request.postWithResponseBody(externalSubmissionUrl(group.milestone(), TEST_PREFIX + "student1"), new ExternalSubmissionResultDTO(0.0, true, null), ResultDTO.class,
+                HttpStatus.CREATED);
+
+        var milestoneParticipation = gradedParticipation(group.milestone(), student);
+        assertThat(milestoneParticipation.getRepositoryUri()).isNotBlank();
+        assertThat(participationVCSAccessTokenRepository.findByUserIdAndParticipationId(student.getId(), milestoneParticipation.getId())).isPresent();
+        for (var userStory : List.of(group.firstUserStory(), group.secondUserStory())) {
+            assertThat(gradedParticipation(userStory, student).getRepositoryUri()).isEqualTo(milestoneParticipation.getRepositoryUri());
+        }
+
+        ZonedDateTime extendedDueDate = ZonedDateTime.now().plusDays(3).truncatedTo(ChronoUnit.MILLIS);
+        request.put("/api/exercise/exercises/" + group.milestone().getId() + "/participations/update-individual-due-date",
+                List.of(new ParticipationDueDateUpdateDTO(milestoneParticipation.getId(), group.milestone().getId(), extendedDueDate)), HttpStatus.OK);
+
+        for (var userStory : List.of(group.firstUserStory(), group.secondUserStory())) {
+            assertThat(gradedParticipation(userStory, student).getIndividualDueDate()).isNotNull()
+                    .satisfies(dueDate -> assertThat(dueDate.toInstant()).isEqualTo(extendedDueDate.toInstant()));
+        }
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void externalResultIsRejectedForAMilestoneTheStudentAlreadyStarted() throws Exception {
+        var group = createMilestoneGroupAfterDueDate();
+        participationUtilService.addStudentParticipationForProgrammingExercise(group.milestone(), TEST_PREFIX + "student1");
+
+        request.postWithResponseBody(externalSubmissionUrl(group.milestone(), TEST_PREFIX + "student1"), new ExternalSubmissionResultDTO(0.0, true, null), ResultDTO.class,
+                HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void externalResultIsRejectedForAUserStory() throws Exception {
+        var group = createMilestoneGroupAfterDueDate();
+
+        request.postWithResponseBody(externalSubmissionUrl(group.firstUserStory(), TEST_PREFIX + "student1"), new ExternalSubmissionResultDTO(0.0, true, null), ResultDTO.class,
+                HttpStatus.BAD_REQUEST);
+        assertThat(participationRepo.findWithEagerSubmissionsByExerciseIdAndStudentIdAndTestRun(group.firstUserStory().getId(),
+                userUtilService.getUserByLogin(TEST_PREFIX + "student1").getId(), false)).isEmpty();
     }
 
     @Test

@@ -5,10 +5,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +49,7 @@ import de.tum.cit.aet.artemis.exercise.dto.MilestoneAssessmentExerciseDTO;
 import de.tum.cit.aet.artemis.exercise.dto.MilestoneAssessmentStudentDTO;
 import de.tum.cit.aet.artemis.exercise.dto.MilestoneExerciseGroupDTO;
 import de.tum.cit.aet.artemis.exercise.dto.MilestoneStatusDTO;
+import de.tum.cit.aet.artemis.exercise.dto.ParticipationDueDateUpdateDTO;
 import de.tum.cit.aet.artemis.exercise.dto.UpdateMilestoneExerciseGroupDTO;
 import de.tum.cit.aet.artemis.exercise.dto.UserStoryExerciseDTO;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseVariantGroupRepository;
@@ -962,5 +966,88 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
     void aStudentMayNotOpenTheMilestoneAssessment() throws Exception {
         request.getList(assessmentUrl(), HttpStatus.FORBIDDEN, MilestoneAssessmentStudentDTO.class);
         request.get(assessmentUrl() + "/" + TEST_PREFIX + "student1", HttpStatus.FORBIDDEN, MilestoneAssessmentDTO.class);
+    }
+
+    /**
+     * Gives {@code student1} a milestone participation and a participation in each given story, all working in the same
+     * repository as the real start does, each with one submission. Returns the milestone participation first.
+     */
+    private List<ProgrammingExerciseStudentParticipation> addSharedParticipations(UserStoryExercise... stories) {
+        String repositoryUri = "https://example.local/shared-" + milestoneExercise.getId() + ".git";
+        List<ProgrammingExerciseStudentParticipation> participations = new ArrayList<>();
+        for (ProgrammingExercise exercise : Stream.concat(Stream.of(milestoneExercise), Arrays.stream(stories)).toList()) {
+            ProgrammingExerciseStudentParticipation participation = participationUtilService.addStudentParticipationForProgrammingExercise(exercise, TEST_PREFIX + "student1");
+            participation.setRepositoryUri(repositoryUri);
+            participation = programmingExerciseStudentParticipationRepository.save(participation);
+            ProgrammingSubmission submission = new ProgrammingSubmission();
+            submission.setParticipation(participation);
+            submission.setCommitHash("shared-commit");
+            submission.setType(SubmissionType.MANUAL);
+            submission.setSubmissionDate(ZonedDateTime.now().minusHours(1).truncatedTo(ChronoUnit.MILLIS));
+            submission.setSubmitted(true);
+            programmingSubmissionRepository.save(submission);
+            participations.add(participation);
+        }
+        return participations;
+    }
+
+    private String individualDueDateUrl(long exerciseId) {
+        return "/api/exercise/exercises/" + exerciseId + "/participations/update-individual-due-date";
+    }
+
+    private @Nullable ZonedDateTime individualDueDateOf(ProgrammingExerciseStudentParticipation participation) {
+        return programmingExerciseStudentParticipationRepository.findByIdElseThrow(participation.getId()).getIndividualDueDate();
+    }
+
+    /**
+     * The stories work in the milestone's repository, but each judges lateness by its own participation's due date. An
+     * extension granted on the milestone therefore has to reach every story, or the student could push while every story
+     * treated them as late.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void anIndividualDueDateOnTheMilestoneReachesEveryUserStory() throws Exception {
+        var participations = addSharedParticipations(addUserStoryMember("first", null, null), addUserStoryMember("second", null, null));
+        ZonedDateTime extendedDueDate = milestoneExercise.getDueDate().plusDays(3);
+
+        request.put(individualDueDateUrl(milestoneExercise.getId()),
+                List.of(new ParticipationDueDateUpdateDTO(participations.getFirst().getId(), milestoneExercise.getId(), extendedDueDate)), HttpStatus.OK);
+
+        for (var participation : participations) {
+            assertThat(individualDueDateOf(participation)).isNotNull().satisfies(dueDate -> assertThat(dueDate.toInstant()).isEqualTo(extendedDueDate.toInstant()));
+        }
+
+        // Removing it on the milestone removes it on the stories as well.
+        request.put(individualDueDateUrl(milestoneExercise.getId()), List.of(new ParticipationDueDateUpdateDTO(participations.getFirst().getId(), milestoneExercise.getId(), null)),
+                HttpStatus.OK);
+
+        assertThat(participations).allSatisfy(participation -> assertThat(individualDueDateOf(participation)).isNull());
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void anIndividualDueDateCannotBeSetOnAUserStoryDirectly() throws Exception {
+        UserStoryExercise story = addUserStoryMember("first", null, null);
+        var participations = addSharedParticipations(story);
+
+        request.putAndExpectError(individualDueDateUrl(story.getId()),
+                List.of(new ParticipationDueDateUpdateDTO(participations.getLast().getId(), story.getId(), milestoneExercise.getDueDate().plusDays(3))), HttpStatus.BAD_REQUEST,
+                "userstoryduedate");
+    }
+
+    /** Moving the milestone's due date past an individual due date drops it, on the milestone and on its stories alike. */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "editor1", roles = "EDITOR")
+    void movingTheMilestoneDueDatePastAnIndividualDueDateClearsItOnTheStoriesToo() throws Exception {
+        var participations = addSharedParticipations(addUserStoryMember("first", null, null));
+        ZonedDateTime individualDueDate = milestoneExercise.getDueDate().plusDays(1);
+        participations.forEach(participation -> participation.setIndividualDueDate(individualDueDate));
+        programmingExerciseStudentParticipationRepository.saveAll(participations);
+
+        UpdateMilestoneExerciseGroupDTO updateDTO = new UpdateMilestoneExerciseGroupDTO(milestoneGroup.getId(), "Sprint 1", milestoneExercise.getReleaseDate(), null,
+                milestoneExercise.getDueDate().plusDays(5), null, null);
+        request.putWithResponseBody(milestoneGroupsUrl() + "/" + milestoneGroup.getId(), updateDTO, MilestoneExerciseGroupDTO.class, HttpStatus.OK);
+
+        assertThat(participations).allSatisfy(participation -> assertThat(individualDueDateOf(participation)).isNull());
     }
 }

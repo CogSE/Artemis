@@ -17,6 +17,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.hibernate.Hibernate;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -448,6 +449,9 @@ public class ParticipationService {
                 .orElseGet(() -> startMilestoneParticipationForSibling(milestoneExerciseId, user));
 
         participation.setRepositoryUri(milestoneParticipation.getRepositoryUri());
+        // The milestone participation owns the student's individual due date; a story takes it over (see
+        // UserStoryExerciseService.syncIndividualDueDatesFromMilestone).
+        participation.setIndividualDueDate(milestoneParticipation.getIndividualDueDate());
         // No buildPlanId is set: only the milestone's own build plan is ever triggered for this repository (see
         // the grading fan-out in ProgrammingExerciseGradingService that reevaluates every sibling's grade after that build).
         participation.setInitializationState(InitializationState.INITIALIZED);
@@ -530,7 +534,7 @@ public class ParticipationService {
             if (programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentId(userStoryExercise.getId(), user.getId()).isPresent()) {
                 continue;
             }
-            createSharedParticipation(userStoryExercise, user, repositoryUri, milestoneTokenValue, false);
+            createSharedParticipation(userStoryExercise, user, repositoryUri, milestoneTokenValue, false, milestoneParticipation.getIndividualDueDate());
         }
     }
 
@@ -546,15 +550,18 @@ public class ParticipationService {
      * @param repositoryUri     the shared repository URI to point the new participation at
      * @param tokenValue        the shared VCS access token value to copy onto the new participation
      * @param practiceMode      whether the participation is a practice participation, sharing the milestone's practice repository
+     * @param individualDueDate the individual due date of the milestone participation owning the repository, which the
+     *                              story takes over; {@code null} for none and for a practice participation
      * @return the newly created, already-shared participation
      */
     private ProgrammingExerciseStudentParticipation createSharedParticipation(UserStoryExercise userStoryExercise, User user, String repositoryUri, String tokenValue,
-            boolean practiceMode) {
+            boolean practiceMode, @Nullable ZonedDateTime individualDueDate) {
         ProgrammingExerciseStudentParticipation siblingParticipation = new ProgrammingExerciseStudentParticipation(defaultBranch);
         siblingParticipation.setInitializationState(InitializationState.UNINITIALIZED);
         siblingParticipation.setExercise(userStoryExercise);
         siblingParticipation.setParticipant(user);
         siblingParticipation.setPracticeMode(practiceMode);
+        siblingParticipation.setIndividualDueDate(individualDueDate);
         if (practiceMode) {
             // For practice mode 1 is always set, already on the first insert: it is part of the participation's unique key.
             siblingParticipation.setAttempt(1);
@@ -620,7 +627,8 @@ public class ParticipationService {
             if (tokenValue == null) {
                 continue;
             }
-            created.add(createSharedParticipation(userStoryExercise, user, milestoneParticipation.getRepositoryUri(), tokenValue, false));
+            created.add(createSharedParticipation(userStoryExercise, user, milestoneParticipation.getRepositoryUri(), tokenValue, false,
+                    milestoneParticipation.getIndividualDueDate()));
         }
         return created;
     }
@@ -907,7 +915,7 @@ public class ParticipationService {
             Optional<StudentParticipation> practiceParticipation = studentParticipationRepository
                     .findWithEagerSubmissionsByExerciseIdAndStudentIdAndTestRun(userStoryExercise.getId(), user.getId(), true);
             if (practiceParticipation.isEmpty()) {
-                createSharedParticipation(userStoryExercise, user, repositoryUri, milestoneTokenValue, true);
+                createSharedParticipation(userStoryExercise, user, repositoryUri, milestoneTokenValue, true, null);
             }
             else if (practiceParticipation.get() instanceof ProgrammingExerciseStudentParticipation userStoryPracticeParticipation
                     && userStoryPracticeParticipation.getRepositoryUri() == null) {
@@ -967,6 +975,15 @@ public class ParticipationService {
 
         participation.setInitializationState(InitializationState.FINISHED);
         participation = studentParticipationRepository.saveAndFlush(participation);
+
+        // A milestone participation created here, for a student who never started the milestone, needs what a regular start
+        // gives it: an access token for its repository, and the user story participations sharing that repository. Only
+        // then can an individual due date set on it reach the stories and the student resume work on them.
+        if (optionalStudentParticipation.isEmpty() && participation instanceof ProgrammingExerciseStudentParticipation milestoneParticipation
+                && exercise instanceof MilestoneExercise && participant instanceof User student) {
+            participationVCSAccessTokenService.createParticipationVCSAccessToken(student, milestoneParticipation);
+            provisionUserStoryParticipationsForGroup(milestoneParticipation, null);
+        }
 
         // Take the latest submission or initialize a new empty submission
         var studentParticipation = studentParticipationRepository.findByIdWithSubmissionsElseThrow(participation.getId());

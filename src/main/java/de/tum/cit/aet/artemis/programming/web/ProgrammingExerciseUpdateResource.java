@@ -335,6 +335,11 @@ public class ProgrammingExerciseUpdateResource {
                 exerciseService.updatePointsInRelatedParticipantScores(originalMaxPoints, originalBonusPoints, updatedProgrammingExercise);
             }
             participationRepository.removeIndividualDueDatesIfBeforeDueDate(savedProgrammingExercise, originalDueDate);
+            if (savedProgrammingExercise instanceof MilestoneExercise) {
+                // An individual due date that fell before the new due date was just cleared on the milestone; its stories follow.
+                // They need no rescheduling of their own here: the timeline push below reschedules every member.
+                userStoryExerciseService.syncAllIndividualDueDatesFromMilestone(savedProgrammingExercise.getId());
+            }
             slideApi.ifPresent(api -> api.handleDueDateChange(originalDueDate, updatedProgrammingExercise));
             if (lease.coordinated()) {
                 exerciseVersionService.createExerciseVersionSynchronously(savedProgrammingExercise, user);

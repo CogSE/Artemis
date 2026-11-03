@@ -48,6 +48,7 @@
             "initializationState": "Status",
             "initializationDate": "Teilnahme Start",
             "individualDueDate": "Einreichungsfrist",
+            "individualDueDateFromMilestone": "Wird am Meilenstein festgelegt und an alle User Stories weitergegeben.",
             "noIndividualDueDate": "Keine Einreichungsfrist",
             "editIndividualDueDate": "Einreichungsfrist bearbeiten",
             "initializationNotYetStarted": "Noch nicht gestartet",
