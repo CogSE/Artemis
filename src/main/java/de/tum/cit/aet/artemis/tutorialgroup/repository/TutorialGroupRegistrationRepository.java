@@ -20,6 +20,7 @@ import de.tum.cit.aet.artemis.tutorialgroup.config.TutorialGroupEnabled;
 import de.tum.cit.aet.artemis.tutorialgroup.domain.TutorialGroup;
 import de.tum.cit.aet.artemis.tutorialgroup.domain.TutorialGroupRegistration;
 import de.tum.cit.aet.artemis.tutorialgroup.domain.TutorialGroupRegistrationType;
+import de.tum.cit.aet.artemis.tutorialgroup.dto.StudentTutorialGroupDTO;
 import de.tum.cit.aet.artemis.tutorialgroup.dto.TutorialGroupStudentDTO;
 
 @Conditional(TutorialGroupEnabled.class)
@@ -54,6 +55,21 @@ public interface TutorialGroupRegistrationRepository extends ArtemisJpaRepositor
      * @return set of all registrations in the course
      */
     Set<TutorialGroupRegistration> findAllByTutorialGroupCourseId(long courseId);
+
+    /**
+     * Finds the tutorial group of every registered student in a course, as one row per registration.
+     *
+     * @param courseId the ID of the course
+     * @return the student id and tutorial group title of every registration in the course
+     */
+    @Query("""
+            SELECT new de.tum.cit.aet.artemis.tutorialgroup.dto.StudentTutorialGroupDTO(registration.student.id, tutorialGroup.title)
+            FROM TutorialGroupRegistration registration
+                JOIN registration.tutorialGroup tutorialGroup
+            WHERE tutorialGroup.course.id = :courseId
+            ORDER BY tutorialGroup.title
+            """)
+    List<StudentTutorialGroupDTO> findAllStudentTutorialGroupsByCourseId(@Param("courseId") long courseId);
 
     /**
      * Finds all tutorial group registrations for a given user for GDPR data export.

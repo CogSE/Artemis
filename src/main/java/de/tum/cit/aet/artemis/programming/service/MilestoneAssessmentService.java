@@ -3,6 +3,7 @@ package de.tum.cit.aet.artemis.programming.service;
 import static de.tum.cit.aet.artemis.core.config.Constants.PROFILE_CORE;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +39,7 @@ import de.tum.cit.aet.artemis.programming.dto.UserStoryTaskDTO;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseStudentParticipationRepository;
 import de.tum.cit.aet.artemis.programming.repository.UserStoryTaskRepository;
+import de.tum.cit.aet.artemis.tutorialgroup.api.TutorialGroupRegistrationApi;
 
 /**
  * Assembles the tutor-facing views of a {@code MilestoneExerciseGroup}: the dashboard a tutor picks a student from, and
@@ -75,10 +77,13 @@ public class MilestoneAssessmentService {
 
     private final UserStoryTaskRepository userStoryTaskRepository;
 
+    private final Optional<TutorialGroupRegistrationApi> tutorialGroupRegistrationApi;
+
     public MilestoneAssessmentService(MilestoneExerciseGroupRepository milestoneExerciseGroupRepository,
             ProgrammingExerciseStudentParticipationRepository programmingExerciseStudentParticipationRepository, StudentParticipationRepository studentParticipationRepository,
             ProgrammingExerciseRepository programmingExerciseRepository, ResultRepository resultRepository,
-            ProgrammingFeedbackSynthesizerService programmingFeedbackSynthesizerService, UserRepository userRepository, UserStoryTaskRepository userStoryTaskRepository) {
+            ProgrammingFeedbackSynthesizerService programmingFeedbackSynthesizerService, UserRepository userRepository, UserStoryTaskRepository userStoryTaskRepository,
+            Optional<TutorialGroupRegistrationApi> tutorialGroupRegistrationApi) {
         this.milestoneExerciseGroupRepository = milestoneExerciseGroupRepository;
         this.programmingExerciseStudentParticipationRepository = programmingExerciseStudentParticipationRepository;
         this.studentParticipationRepository = studentParticipationRepository;
@@ -87,6 +92,7 @@ public class MilestoneAssessmentService {
         this.programmingFeedbackSynthesizerService = programmingFeedbackSynthesizerService;
         this.userRepository = userRepository;
         this.userStoryTaskRepository = userStoryTaskRepository;
+        this.tutorialGroupRegistrationApi = tutorialGroupRegistrationApi;
     }
 
     /**
@@ -109,6 +115,8 @@ public class MilestoneAssessmentService {
         // has many students, so the per-student shape would be a query per cell of the table.
         Map<Long, Map<String, StudentParticipation>> participationsByExercise = exercises.stream().collect(Collectors.toMap(Exercise::getId,
                 exercise -> byStudentLogin(studentParticipationRepository.findAllWithEagerSubmissionsAndEagerResultsAndEagerAssessorByExerciseIdIgnoreTestRuns(exercise.getId()))));
+        // Tutors are usually assigned to a tutorial group and look for their own students first. One query for the course.
+        Map<Long, List<String>> tutorialGroupsByStudent = tutorialGroupRegistrationApi.map(api -> api.findTutorialGroupTitlesByStudentInCourse(courseId)).orElse(Map.of());
 
         return programmingExerciseStudentParticipationRepository.findAllByExerciseIdAndRepositoryUriIsNotNullAndTestRunFalse(milestoneExerciseId).stream()
                 .filter(participation -> participation.getStudent().isPresent()).sorted(Comparator.comparing(participation -> participation.getStudent().orElseThrow().getLogin()))
@@ -116,7 +124,8 @@ public class MilestoneAssessmentService {
                     var student = milestoneParticipation.getStudent().orElseThrow();
                     List<MilestoneAssessmentExerciseDTO> exerciseStates = exercises.stream()
                             .map(exercise -> toExerciseDTO(exercise, participationsByExercise.get(exercise.getId()).get(student.getLogin()), List.of())).toList();
-                    return new MilestoneAssessmentStudentDTO(student.getLogin(), student.getName(), milestoneParticipation.getId(), exerciseStates);
+                    return new MilestoneAssessmentStudentDTO(student.getLogin(), student.getName(), milestoneParticipation.getId(), exerciseStates,
+                            tutorialGroupsByStudent.getOrDefault(student.getId(), List.of()));
                 }).toList();
     }
 
@@ -170,7 +179,7 @@ public class MilestoneAssessmentService {
         }
         // The repository returns the tasks ordered by their board index, and groupingBy into lists keeps that order.
         return userStoryTaskRepository.findAllByParticipationIdInOrderByOrderIndexAsc(storyParticipationIds).stream()
-                .collect(Collectors.groupingBy(task -> task.getParticipation().getId(), Collectors.mapping(UserStoryTaskDTO::of, Collectors.toList())));
+                .collect(Collectors.groupingBy(task -> task.getParticipation().getId(), Collectors.mapping(UserStoryTaskDTO::of, Collectors.toCollection(ArrayList::new))));
     }
 
     /**
@@ -203,15 +212,14 @@ public class MilestoneAssessmentService {
     private MilestoneAssessmentExerciseDTO toExerciseDTO(Exercise exercise, @Nullable StudentParticipation participation, List<UserStoryTaskDTO> tasks) {
         boolean userStory = exercise instanceof UserStoryExercise;
         if (participation == null) {
-            return new MilestoneAssessmentExerciseDTO(exercise.getId(), exercise.getTitle(), exercise.getExerciseType(), userStory, exercise.getMaxPoints(), null, null, null, null,
+            return new MilestoneAssessmentExerciseDTO(exercise.getId(), exercise.getTitle(), exercise.getExerciseType(), userStory, exercise.getMaxPoints(), null, null, null,
                     false, List.of());
         }
         Submission latestSubmission = participation.findLatestSubmission().orElse(null);
         Result latestResult = latestSubmission == null ? null : latestSubmission.getLatestResult();
-        String assessorLogin = latestResult == null || latestResult.getAssessor() == null ? null : latestResult.getAssessor().getLogin();
         boolean assessed = latestResult != null && latestResult.isManual() && latestResult.getCompletionDate() != null;
         return new MilestoneAssessmentExerciseDTO(exercise.getId(), exercise.getTitle(), exercise.getExerciseType(), userStory, exercise.getMaxPoints(), participation.getId(),
-                latestSubmission == null ? null : latestSubmission.getId(), latestResult == null ? null : latestResult.getScore(), assessorLogin, assessed, tasks);
+                latestSubmission == null ? null : latestSubmission.getId(), latestResult == null ? null : latestResult.getScore(), assessed, tasks);
     }
 
     /**

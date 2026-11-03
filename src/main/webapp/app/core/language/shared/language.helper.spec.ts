@@ -5,7 +5,7 @@ import { SessionStorageService } from 'app/foundation/service/session-storage.se
 import { MockTranslateService } from 'test/helpers/mocks/service/mock-translate.service';
 import { MockRouter } from 'test/helpers/mocks/mock-router';
 import { TranslateService } from '@ngx-translate/core';
-import { Router } from '@angular/router';
+import { Router, RouterState } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { LocaleConversionService } from 'app/foundation/service/locale-conversion.service';
 import { MockProvider } from 'ng-mocks';
@@ -54,5 +54,20 @@ describe('Language Helper', () => {
         const languageChangeSpy = vi.spyOn(service, 'getNavigatorReference').mockReturnValue(navigator);
         expect(service.determinePreferredLanguage()).toBe('en');
         expect(languageChangeSpy).toHaveBeenCalledOnce();
+    }));
+
+    it('interpolates the parameters of the whole active route into the page title', inject([JhiLanguageHelper], (service: JhiLanguageHelper) => {
+        const child = { params: { courseId: '7', studentLogin: 'student1' }, data: { pageTitle: 'artemisApp.milestoneAssessment.pageTitle' }, firstChild: null };
+        const root = { params: { courseId: '1', other: 'x' }, data: {}, firstChild: child };
+        (TestBed.inject(Router) as unknown as MockRouter).setRouterState({ snapshot: { root } } as unknown as RouterState);
+        const translateService = TestBed.inject(TranslateService);
+        const getSpy = vi.spyOn(translateService, 'get');
+        const setTitleSpy = vi.spyOn(TestBed.inject(Title), 'setTitle');
+
+        service.updateTitle();
+
+        // The deepest route's parameter wins over its parent's of the same name.
+        expect(getSpy).toHaveBeenCalledWith('artemisApp.milestoneAssessment.pageTitle', { courseId: '7', other: 'x', studentLogin: 'student1' });
+        expect(setTitleSpy).toHaveBeenCalledOnce();
     }));
 });

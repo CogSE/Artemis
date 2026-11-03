@@ -1,4 +1,19 @@
 .milestone-dashboard {
+    &__filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    &__toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0;
+    }
+
     // A group can have many stories, so the table is the one part that can genuinely exceed the page; it scrolls on
     // its own so the page never scrolls horizontally.
     &__scroll {

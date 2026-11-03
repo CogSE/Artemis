@@ -16,4 +16,15 @@
             <p class="milestone-overview__empty" jhiTranslate="artemisApp.milestoneAssessment.overview.codeQualityDisabled"></p>
         }
     </section>
+
+    <!-- The group's stories all live in the milestone's repository, so its history is the student's whole history for the group. -->
+    <section>
+        <h4 jhiTranslate="artemisApp.milestoneAssessment.overview.commitHistory"></h4>
+        @if (assessment().milestoneParticipationId; as participationId) {
+            <!-- Not the repository view: that links each hash relative to the current route, which is not a repository page here. -->
+            <jhi-commits-info [participationId]="participationId" />
+        } @else {
+            <p class="milestone-overview__empty" jhiTranslate="artemisApp.milestoneAssessment.overview.noCommitHistory"></p>
+        }
+    </section>
 </div>

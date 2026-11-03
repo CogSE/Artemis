@@ -531,6 +531,20 @@ describe('NavbarComponent', () => {
         expect(component.gitUsername()).toBe('Max Musterman');
     });
 
+    it('should name the student in the tab title of the milestone assessment page', () => {
+        const titleService = TestBed.inject(Title);
+        router.setUrl('/course-management/1/milestone-exercise-groups/10/assessment/student1');
+        fixture.detectChanges();
+
+        expect(titleService.getTitle()).toBe('student1 | Test Course');
+        expect(component.breadcrumbs().at(-1)).toEqual(expect.objectContaining({ label: 'student1', translate: false }));
+
+        // Leaving the page drops the student from the title again.
+        router.setUrl('/course-management/1/lectures/2/edit');
+        fixture.detectChanges();
+        expect(titleService.getTitle()).not.toContain('student1');
+    });
+
     it('should leave the tab title to the route while there are no breadcrumbs', () => {
         router.setUrl('/courses/1/exercises');
         fixture.detectChanges();

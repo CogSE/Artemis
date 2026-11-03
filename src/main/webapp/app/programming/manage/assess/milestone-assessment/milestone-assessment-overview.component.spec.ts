@@ -11,6 +11,7 @@ import { MilestoneAssessmentOverviewComponent } from 'app/programming/manage/ass
 import { MilestoneAssessment } from 'app/programming/manage/assess/milestone-assessment/milestone-assessment.service';
 import { ProgrammingExerciseInstructionComponent } from 'app/programming/shared/instructions-render/programming-exercise-instruction.component';
 import { MilestoneCodeQualityComponent } from 'app/programming/shared/milestone-code-quality/milestone-code-quality.component';
+import { CommitsInfoComponent } from 'app/programming/shared/commits-info/commits-info.component';
 
 describe('MilestoneAssessmentOverviewComponent', () => {
     let fixture: ComponentFixture<MilestoneAssessmentOverviewComponent>;
@@ -35,8 +36,8 @@ describe('MilestoneAssessmentOverviewComponent', () => {
             providers: [{ provide: TranslateService, useClass: MockTranslateService }],
         })
             .overrideComponent(MilestoneAssessmentOverviewComponent, {
-                remove: { imports: [ProgrammingExerciseInstructionComponent, MilestoneCodeQualityComponent] },
-                add: { imports: [MockComponent(ProgrammingExerciseInstructionComponent), MockComponent(MilestoneCodeQualityComponent)] },
+                remove: { imports: [ProgrammingExerciseInstructionComponent, MilestoneCodeQualityComponent, CommitsInfoComponent] },
+                add: { imports: [MockComponent(ProgrammingExerciseInstructionComponent), MockComponent(MilestoneCodeQualityComponent), MockComponent(CommitsInfoComponent)] },
             })
             .compileComponents();
 
@@ -85,5 +86,19 @@ describe('MilestoneAssessmentOverviewComponent', () => {
 
         expect(renderer()).toBeUndefined();
         expect(fixture.debugElement.query(By.css('[jhiTranslate="artemisApp.milestoneAssessment.overview.noProblemStatement"]'))).not.toBeNull();
+    });
+
+    it('shows the commit history of the milestone repository, which every story of the group is written in', async () => {
+        await setup(assessment());
+
+        const commitsInfo: CommitsInfoComponent | undefined = fixture.debugElement.query(By.directive(CommitsInfoComponent))?.componentInstance;
+        expect(commitsInfo?.participationId()).toBe(555);
+    });
+
+    it('says so instead of loading a commit history for a student without a milestone repository', async () => {
+        await setup(assessment({ milestoneParticipationId: undefined, milestoneResult: undefined }));
+
+        expect(fixture.debugElement.query(By.directive(CommitsInfoComponent))).toBeNull();
+        expect(fixture.debugElement.query(By.css('[jhiTranslate="artemisApp.milestoneAssessment.overview.noCommitHistory"]'))).not.toBeNull();
     });
 });

@@ -1,7 +1,10 @@
 package de.tum.cit.aet.artemis.tutorialgroup.api;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Lazy;
@@ -11,6 +14,7 @@ import de.tum.cit.aet.artemis.tutorialgroup.config.TutorialGroupEnabled;
 import de.tum.cit.aet.artemis.tutorialgroup.domain.TutorialGroup;
 import de.tum.cit.aet.artemis.tutorialgroup.domain.TutorialGroupRegistration;
 import de.tum.cit.aet.artemis.tutorialgroup.domain.TutorialGroupRegistrationType;
+import de.tum.cit.aet.artemis.tutorialgroup.dto.StudentTutorialGroupDTO;
 import de.tum.cit.aet.artemis.tutorialgroup.repository.TutorialGroupRegistrationRepository;
 
 @Conditional(TutorialGroupEnabled.class)
@@ -36,5 +40,16 @@ public class TutorialGroupRegistrationApi extends AbstractTutorialGroupApi {
      */
     public List<TutorialGroupRegistration> findAllByStudentIdForExport(long userId) {
         return tutorialGroupRegistrationRepository.findAllByStudentIdWithTutorialGroupAndCourse(userId);
+    }
+
+    /**
+     * Finds the titles of the tutorial groups every registered student of a course belongs to, in one query.
+     *
+     * @param courseId the ID of the course
+     * @return the tutorial group titles keyed by student id, each list ordered by title; students without a registration are absent
+     */
+    public Map<Long, List<String>> findTutorialGroupTitlesByStudentInCourse(long courseId) {
+        return tutorialGroupRegistrationRepository.findAllStudentTutorialGroupsByCourseId(courseId).stream()
+                .collect(Collectors.groupingBy(StudentTutorialGroupDTO::studentId, Collectors.mapping(StudentTutorialGroupDTO::title, Collectors.toCollection(ArrayList::new))));
     }
 }

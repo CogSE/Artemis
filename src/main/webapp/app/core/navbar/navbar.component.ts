@@ -145,6 +145,8 @@ export class NavbarComponent implements OnInit, OnDestroy {
     exerciseTitle = signal<string | undefined>(undefined);
     lectureTitle = signal<string | undefined>(undefined);
     examTitle = signal<string | undefined>(undefined);
+    /** The student a page is about, such as the one whose milestone is being assessed; their login is no translated crumb. */
+    studentTitle = signal<string | undefined>(undefined);
 
     // Assigned lazily in ngOnInit()/route handlers (some only when a feature is active) and torn down defensively
     // in ngOnDestroy(), so they are genuinely optional rather than definitely assigned.
@@ -608,6 +610,12 @@ export class NavbarComponent implements OnInit, OnDestroy {
                 } else if (this.lastRouteUrlSegment === 'repository') {
                     this.addRepositoryViewBreadcrumb(currentPath, segment);
                     break;
+                } else if (this.lastRouteUrlSegment === 'assessment' && currentPath.includes('/milestone-exercise-groups/')) {
+                    // - The milestone assessment page is addressed by the student's login: show it as is, and name the
+                    //   student in the tab title, so a tutor with several students open can tell the tabs apart.
+                    this.addBreadcrumb(currentPath, segment, false);
+                    this.studentTitle.set(segment);
+                    break;
                 }
 
                 this.addTranslationAsCrumb(currentPath, segment);
@@ -978,7 +986,9 @@ export class NavbarComponent implements OnInit, OnDestroy {
         }
         const breadcrumbs = this.breadcrumbs();
         const generalTitle = mostSpecificCrumb.translate ? this.translateService.instant(mostSpecificCrumb.label) : undefined;
-        const titles = [generalTitle, this.exerciseTitle(), this.examTitle(), this.lectureTitle(), this.courseTitle()].filter((title) => title !== undefined).join(' | ');
+        const titles = [generalTitle, this.studentTitle(), this.exerciseTitle(), this.examTitle(), this.lectureTitle(), this.courseTitle()]
+            .filter((title) => title !== undefined)
+            .join(' | ');
         // No need have a dynamic title on the start page -> use the title defined in the Router modules.
         if (titles && breadcrumbs.length > 1) {
             this.titleService.setTitle(titles);
@@ -993,6 +1003,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
         this.exerciseTitle.set(undefined);
         this.lectureTitle.set(undefined);
         this.examTitle.set(undefined);
+        this.studentTitle.set(undefined);
     }
 
     /**

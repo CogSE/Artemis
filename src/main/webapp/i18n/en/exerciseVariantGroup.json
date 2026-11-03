@@ -60,6 +60,7 @@
         },
         "milestoneAssessment": {
             "title": "Milestone assessment",
+            "pageTitle": "{{ studentLogin }} – Milestone assessment",
             "assessingFor": "Assessing {{ student }}",
             "nextExercise": "Assess Next Exercise",
             "overviewTab": "Milestone",
@@ -71,7 +72,9 @@
                 "problemStatement": "Problem statement",
                 "noProblemStatement": "The milestone has no problem statement.",
                 "codeQuality": "Code quality",
-                "codeQualityDisabled": "Static code analysis is switched off for this milestone."
+                "codeQualityDisabled": "Static code analysis is switched off for this milestone.",
+                "commitHistory": "Commit history",
+                "noCommitHistory": "The student has no milestone repository yet, so there is no commit history."
             },
             "tasks": {
                 "title": "Student tasks ({{ count }})",
@@ -87,11 +90,20 @@
             "dashboard": {
                 "title": "Milestone assessment dashboard",
                 "student": "Student",
+                "tutorialGroup": "Tutorial group",
+                "noTutorialGroup": "None",
                 "progress": "Assessed",
                 "assess": "Assess",
-                "notStarted": "Not started",
-                "unassessed": "Not assessed",
-                "noStudents": "No student has started this milestone yet."
+                "noSubmission": "No submission",
+                "assessmentRequired": "Assessment required",
+                "assessed": "Assessed",
+                "noStudents": "No student has started this milestone yet.",
+                "search": "Search students",
+                "tutorialGroupFilter": "Filter by tutorial group",
+                "allTutorialGroups": "All tutorial groups",
+                "noTutorialGroupFilter": "No tutorial group",
+                "openOnly": "Only open assessments",
+                "noMatches": "No student matches the filters."
             }
         }
     }

@@ -20,7 +20,11 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  *                                     have started the milestone
  * @param exercises                the group's exercises for this student, in the same order the assessment page
  *                                     renders its tabs
+ * @param tutorialGroups           the titles of the course's tutorial groups the student is registered in, so a tutor can
+ *                                     find their own students; usually one, empty if the student is in none or tutorial
+ *                                     groups are disabled
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public record MilestoneAssessmentStudentDTO(String studentLogin, @Nullable String studentName, long milestoneParticipationId, List<MilestoneAssessmentExerciseDTO> exercises) {
+public record MilestoneAssessmentStudentDTO(String studentLogin, @Nullable String studentName, long milestoneParticipationId, List<MilestoneAssessmentExerciseDTO> exercises,
+        List<String> tutorialGroups) {
 }

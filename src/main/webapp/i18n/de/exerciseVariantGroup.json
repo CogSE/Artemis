@@ -60,6 +60,7 @@
         },
         "milestoneAssessment": {
             "title": "Meilenstein-Bewertung",
+            "pageTitle": "{{ studentLogin }} – Meilenstein-Bewertung",
             "assessingFor": "Bewertung von {{ student }}",
             "nextExercise": "Nächste Aufgabe bewerten",
             "overviewTab": "Meilenstein",
@@ -71,7 +72,9 @@
                 "problemStatement": "Aufgabenstellung",
                 "noProblemStatement": "Der Meilenstein hat keine Aufgabenstellung.",
                 "codeQuality": "Codequalität",
-                "codeQualityDisabled": "Die statische Code-Analyse ist für diesen Meilenstein deaktiviert."
+                "codeQualityDisabled": "Die statische Code-Analyse ist für diesen Meilenstein deaktiviert.",
+                "commitHistory": "Commit-Verlauf",
+                "noCommitHistory": "Der:die Studierende hat noch kein Meilenstein-Repository, daher gibt es keinen Commit-Verlauf."
             },
             "tasks": {
                 "title": "Selbst angelegte Tasks: ({{ count }})",
@@ -87,11 +90,20 @@
             "dashboard": {
                 "title": "Meilenstein-Bewertungsdashboard",
                 "student": "Studierende:r",
+                "tutorialGroup": "Übungsgruppe",
+                "noTutorialGroup": "Keine",
                 "progress": "Bewertet",
                 "assess": "Bewerten",
-                "notStarted": "Nicht begonnen",
-                "unassessed": "Nicht bewertet",
-                "noStudents": "Noch hat kein:e Studierende:r diesen Meilenstein begonnen."
+                "noSubmission": "Keine Abgabe",
+                "assessmentRequired": "Bewertung erforderlich",
+                "assessed": "Bewertet",
+                "noStudents": "Noch hat kein:e Studierende:r diesen Meilenstein begonnen.",
+                "search": "Studierende suchen",
+                "tutorialGroupFilter": "Nach Übungsgruppe filtern",
+                "allTutorialGroups": "Alle Übungsgruppen",
+                "noTutorialGroupFilter": "Ohne Übungsgruppe",
+                "openOnly": "Nur offene Bewertungen",
+                "noMatches": "Keine Studierenden entsprechen den Filtern."
             }
         }
     }

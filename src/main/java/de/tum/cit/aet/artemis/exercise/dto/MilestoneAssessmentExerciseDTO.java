@@ -28,7 +28,6 @@ import de.tum.cit.aet.artemis.programming.dto.UserStoryTaskDTO;
  * @param submissionId    the latest submission of that participation, or {@code null} if there is none yet - this is
  *                            what the assessment editor is opened on
  * @param latestScore     the score of the latest result, or {@code null} if the exercise has none yet
- * @param assessorLogin   the login of the tutor who assessed it, or {@code null} if nobody has
  * @param assessed        whether a manual assessment has been submitted for this exercise
  * @param tasks           the tasks the student (or their team) broke the user story down into, in their own board order,
  *                            so the tutor can see how the story was planned; empty for any other exercise, for a story
@@ -36,5 +35,5 @@ import de.tum.cit.aet.artemis.programming.dto.UserStoryTaskDTO;
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record MilestoneAssessmentExerciseDTO(long exerciseId, String title, ExerciseType exerciseType, boolean userStory, @Nullable Double maxPoints,
-        @Nullable Long participationId, @Nullable Long submissionId, @Nullable Double latestScore, @Nullable String assessorLogin, boolean assessed, List<UserStoryTaskDTO> tasks) {
+        @Nullable Long participationId, @Nullable Long submissionId, @Nullable Double latestScore, boolean assessed, List<UserStoryTaskDTO> tasks) {
 }

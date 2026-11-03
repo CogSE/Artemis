@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import tools.jackson.databind.JsonNode;
 
+import de.tum.cit.aet.artemis.account.domain.User;
 import de.tum.cit.aet.artemis.assessment.domain.AssessmentType;
 import de.tum.cit.aet.artemis.assessment.domain.Feedback;
 import de.tum.cit.aet.artemis.assessment.domain.Result;
@@ -77,6 +78,7 @@ import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseTaskService
 import de.tum.cit.aet.artemis.programming.util.ProgrammingExerciseFactory;
 import de.tum.cit.aet.artemis.text.domain.TextSubmission;
 import de.tum.cit.aet.artemis.text.util.TextExerciseFactory;
+import de.tum.cit.aet.artemis.tutorialgroup.util.TutorialGroupUtilService;
 
 /**
  * Covers {@link MilestoneExerciseGroup} and its dedicated repository/routes, alongside ordinary
@@ -113,6 +115,9 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
 
     @Autowired
     private ProgrammingExerciseTaskService programmingExerciseTaskService;
+
+    @Autowired
+    private TutorialGroupUtilService tutorialGroupUtilService;
 
     private Course course;
 
@@ -856,6 +861,27 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
             assertThat(row.exercises().getLast().participationId()).isNull();
             assertThat(row.exercises().getLast().submissionId()).isNull();
         });
+    }
+
+    /**
+     * Tutors are usually responsible for one tutorial group and look for their own students first, so every row names the
+     * tutorial groups its student is registered in - all of them, in title order.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "tutor1", roles = "TA")
+    void milestoneAssessmentDashboardNamesTheTutorialGroupsOfEveryStudent() throws Exception {
+        addUserStoryMember("first", null, "Implement the login form");
+        addStartedParticipationWithResult(milestoneExercise, 60.0);
+        User student = userUtilService.getUserByLogin(TEST_PREFIX + "student1");
+        User tutor = userUtilService.getUserByLogin(TEST_PREFIX + "tutor1");
+        tutorialGroupUtilService.createTutorialGroup(course.getId(), "Thursday 14:00", "", 10, false, "Garching", "English", tutor, Set.of(student));
+        tutorialGroupUtilService.createTutorialGroup(course.getId(), "Monday 10:00", "", 10, false, "Garching", "English", tutor, Set.of(student));
+        // A group the student is not in must not show up on their row.
+        tutorialGroupUtilService.createTutorialGroup(course.getId(), "Friday 08:00", "", 10, false, "Garching", "English", tutor, Set.of());
+
+        List<MilestoneAssessmentStudentDTO> dashboard = request.getList(assessmentUrl(), HttpStatus.OK, MilestoneAssessmentStudentDTO.class);
+
+        assertThat(dashboard).singleElement().satisfies(row -> assertThat(row.tutorialGroups()).containsExactly("Monday 10:00", "Thursday 14:00"));
     }
 
     /**

@@ -68,7 +68,8 @@ export const routes: Routes = [
         loadComponent: () => import('app/programming/manage/assess/milestone-assessment/milestone-assessment.component').then((m) => m.MilestoneAssessmentComponent),
         data: {
             authorities: IS_AT_LEAST_TUTOR,
-            pageTitle: 'artemisApp.milestoneAssessment.title',
+            // Names the student, so a tutor with several students open in tabs can tell them apart.
+            pageTitle: 'artemisApp.milestoneAssessment.pageTitle',
         },
         canActivate: [UserRouteAccessService],
     },

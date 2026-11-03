@@ -43,14 +43,17 @@ export class JhiLanguageHelper {
      * Update the window title using a value from the following order:
      * 1. The function's titleKey parameter
      * 2. The return value of {@link getPageTitle}, extracting it from the router state or a fallback value
+     * The current route's parameters are interpolated into the translation, so a title can name what the page is about,
+     * for example `{{ studentLogin }}`. A component setting the title itself would be overwritten on the next navigation.
      * If the translation doesn't exist, a Sentry exception is thrown.
      */
     updateTitle(titleKey?: string) {
+        const root = this.router.routerState?.snapshot.root;
         if (!titleKey) {
-            titleKey = this.getPageTitle(this.router.routerState.snapshot.root);
+            titleKey = this.getPageTitle(root);
         }
 
-        this.translateService.get(titleKey).subscribe((title) => {
+        this.translateService.get(titleKey, root ? this.getRouteParams(root) : {}).subscribe((title) => {
             if (title) {
                 this.titleService.setTitle(title);
             } else {
@@ -81,6 +84,23 @@ export class JhiLanguageHelper {
             title = this.getPageTitle(routeSnapshot.firstChild) || title;
         }
         return title;
+    }
+
+    /**
+     * Collects the parameters of every route from the given snapshot down to the deepest active child. A child's own
+     * parameter wins over a parent's of the same name.
+     * @param routeSnapshot The snapshot to start from
+     */
+    private getRouteParams(routeSnapshot: ActivatedRouteSnapshot): Record<string, string> {
+        const params: Record<string, string> = {};
+        let current: ActivatedRouteSnapshot | null = routeSnapshot;
+        while (current) {
+            for (const [key, value] of Object.entries(current.params ?? {})) {
+                params[key] = value;
+            }
+            current = current.firstChild;
+        }
+        return params;
     }
 
     public determinePreferredLanguage(): string {

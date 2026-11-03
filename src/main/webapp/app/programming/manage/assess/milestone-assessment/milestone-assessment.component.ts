@@ -17,7 +17,6 @@ import { getMilestoneAssessmentDashboardLink } from 'app/foundation/util/navigat
 import { MilestoneAssessment, MilestoneAssessmentExercise, MilestoneAssessmentService } from './milestone-assessment.service';
 import { MilestoneAssessmentOverviewComponent } from './milestone-assessment-overview.component';
 import { MilestoneAssessmentTasksComponent } from './milestone-assessment-tasks.component';
-import { Title } from '@angular/platform-browser';
 
 /** The tab value of the group-level first tab; every other tab is keyed by its exercise id. */
 const OVERVIEW_TAB = 'milestone';
@@ -65,7 +64,6 @@ export class MilestoneAssessmentComponent {
     private readonly milestoneAssessmentService = inject(MilestoneAssessmentService);
     private readonly alertService = inject(AlertService);
     private readonly translateService = inject(TranslateService);
-    private readonly titleService = inject(Title);
 
     protected readonly courseId = signal<number>(0);
     protected readonly groupId = signal<number>(0);
@@ -121,7 +119,6 @@ export class MilestoneAssessmentComponent {
             this.courseId.set(Number(params['courseId']));
             this.groupId.set(Number(params['groupId']));
             this.studentLogin.set(params['studentLogin']);
-            this.titleService.setTitle(this.studentLogin());
             this.load();
         });
     }

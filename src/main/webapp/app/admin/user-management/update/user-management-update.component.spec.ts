@@ -195,7 +195,7 @@ describe('UserManagementUpdateComponent', () => {
 
             expect(updateTitleSpy).toHaveBeenCalledOnce();
             expect(getTranslationSpy).toHaveBeenCalledOnce();
-            expect(getTranslationSpy).toHaveBeenCalledWith('global.title');
+            expect(getTranslationSpy).toHaveBeenCalledWith('global.title', {});
             expect(captureExceptionSpy).toHaveBeenCalledOnce();
             expect(captureExceptionSpy).toHaveBeenCalledWith(new Error("Translation key 'global.title' for page title not found"));
             expect(setTitleSpy).not.toHaveBeenCalled();

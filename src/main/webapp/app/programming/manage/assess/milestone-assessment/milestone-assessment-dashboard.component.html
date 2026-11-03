@@ -3,39 +3,87 @@
 </ng-template>
 
 @if (students().length) {
+    <div class="milestone-dashboard__filters">
+        <tumaet-ui-search-field
+            class="w-48 lg:w-64"
+            size="small"
+            placeholder="artemisApp.milestoneAssessment.dashboard.search"
+            data-testid="milestone-dashboard-search"
+            [value]="searchTerm()"
+            (valueChange)="searchTerm.set($event)"
+        />
+        <tumaet-ui-select
+            [options]="tutorialGroupOptions()"
+            [ngModel]="tutorialGroupFilter()"
+            (ngModelChange)="tutorialGroupFilter.set($event)"
+            optionLabel="label"
+            optionValue="value"
+            size="small"
+            [ariaLabel]="'artemisApp.milestoneAssessment.dashboard.tutorialGroupFilter' | artemisTranslate"
+            data-testid="milestone-dashboard-tutorial-group-filter"
+        />
+        <label class="milestone-dashboard__toggle">
+            <tumaet-ui-toggle-switch [ngModel]="openOnly()" (ngModelChange)="openOnly.set($event)" data-testid="milestone-dashboard-open-only" />
+            <span jhiTranslate="artemisApp.milestoneAssessment.dashboard.openOnly"></span>
+        </label>
+    </div>
     <div class="milestone-dashboard__scroll">
-        <table tumAetUiTable size="small">
+        <table tumAetUiTable size="small" [sortField]="sortField()" [sortOrder]="sortAscending() ? 1 : -1" (sortChange)="onSort($event)">
             <thead>
                 <tr>
-                    <th jhiTranslate="artemisApp.milestoneAssessment.dashboard.student"></th>
+                    <th scope="col" [tumAetUiSortableColumn]="'student'"><span jhiTranslate="artemisApp.milestoneAssessment.dashboard.student"></span></th>
+                    <th scope="col" [tumAetUiSortableColumn]="'tutorialGroup'"><span jhiTranslate="artemisApp.milestoneAssessment.dashboard.tutorialGroup"></span></th>
                     @for (exercise of exerciseColumns(); track exercise.exerciseId) {
-                        <th>{{ exercise.title }}</th>
+                        <th scope="col" class="text-center" [tumAetUiSortableColumn]="exerciseSortField(exercise)">{{ exercise.title }}</th>
                     }
-                    <th jhiTranslate="artemisApp.milestoneAssessment.dashboard.progress"></th>
-                    <th></th>
+                    <th scope="col" [tumAetUiSortableColumn]="'progress'"><span jhiTranslate="artemisApp.milestoneAssessment.dashboard.progress"></span></th>
+                    <th scope="col"></th>
                 </tr>
             </thead>
             <tbody>
-                @for (student of students(); track student.studentLogin) {
+                @for (student of visibleStudents(); track student.studentLogin) {
                     <tr>
                         <td>
                             <span class="font-semibold">{{ student.studentName || student.studentLogin }}</span>
                             <span class="milestone-dashboard__login">{{ student.studentLogin }}</span>
                         </td>
+                        <td>
+                            @if (student.tutorialGroups?.length) {
+                                {{ student.tutorialGroups!.join(', ') }}
+                            } @else {
+                                <span class="milestone-dashboard__muted" jhiTranslate="artemisApp.milestoneAssessment.dashboard.noTutorialGroup"></span>
+                            }
+                        </td>
                         @for (exercise of student.exercises; track exercise.exerciseId) {
-                            <td>
-                                @if (!exercise.submissionId) {
-                                    <span class="milestone-dashboard__muted" jhiTranslate="artemisApp.milestoneAssessment.dashboard.notStarted"></span>
-                                } @else if (exercise.exerciseType === QUIZ) {
-                                    <!-- Graded automatically, so there is no assessor and nothing left for a tutor to do. -->
-                                    @if (exercise.latestScore !== undefined) {
-                                        <span>{{ exercise.latestScore | number: '1.0-1' }}%</span>
+                            <td class="text-center">
+                                @switch (cellState(exercise)) {
+                                    @case ('assessed') {
+                                        <span
+                                            class="text-state-success"
+                                            role="img"
+                                            [attr.aria-label]="'artemisApp.milestoneAssessment.dashboard.assessed' | artemisTranslate"
+                                            [tumAetUiTooltip]="'artemisApp.milestoneAssessment.dashboard.assessed' | artemisTranslate"
+                                            ><fa-icon [icon]="faCheck"
+                                        /></span>
                                     }
-                                } @else if (exercise.assessed) {
-                                    <span class="text-state-success">{{ exercise.latestScore | number: '1.0-1' }}%</span>
-                                    <span class="milestone-dashboard__muted">{{ exercise.assessorLogin }}</span>
-                                } @else {
-                                    <span class="text-state-warning" jhiTranslate="artemisApp.milestoneAssessment.dashboard.unassessed"></span>
+                                    @case ('required') {
+                                        <span
+                                            class="text-state-warning"
+                                            role="img"
+                                            [attr.aria-label]="'artemisApp.milestoneAssessment.dashboard.assessmentRequired' | artemisTranslate"
+                                            [tumAetUiTooltip]="'artemisApp.milestoneAssessment.dashboard.assessmentRequired' | artemisTranslate"
+                                            ><fa-icon [icon]="faQuestion"
+                                        /></span>
+                                    }
+                                    @default {
+                                        <span
+                                            class="milestone-dashboard__muted"
+                                            role="img"
+                                            [attr.aria-label]="'artemisApp.milestoneAssessment.dashboard.noSubmission' | artemisTranslate"
+                                            [tumAetUiTooltip]="'artemisApp.milestoneAssessment.dashboard.noSubmission' | artemisTranslate"
+                                            ><fa-icon [icon]="faMinus"
+                                        /></span>
+                                    }
                                 }
                             </td>
                         }
@@ -43,6 +91,10 @@
                         <td>
                             <a tumAetUiButton size="small" [routerLink]="assessmentLink(student)" jhiTranslate="artemisApp.milestoneAssessment.dashboard.assess"></a>
                         </td>
+                    </tr>
+                } @empty {
+                    <tr>
+                        <td class="milestone-dashboard__muted" [attr.colspan]="exerciseColumns().length + 4" jhiTranslate="artemisApp.milestoneAssessment.dashboard.noMatches"></td>
                     </tr>
                 }
             </tbody>

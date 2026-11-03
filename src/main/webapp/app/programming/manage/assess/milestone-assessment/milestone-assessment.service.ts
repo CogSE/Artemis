@@ -24,7 +24,6 @@ export interface MilestoneAssessmentExercise {
     /** The submission the assessment editor is opened on; unset before the student's first build. */
     submissionId?: number;
     latestScore?: number;
-    assessorLogin?: string;
     /**
      * Whether a manual assessment has been submitted. Optional rather than required because the server serializes with
      * `NON_EMPTY`, which drops a `false` on the wire - so absent means "not assessed".
@@ -43,6 +42,8 @@ export interface MilestoneAssessmentStudent {
     studentName?: string;
     milestoneParticipationId: number;
     exercises: MilestoneAssessmentExercise[];
+    /** The titles of the tutorial groups the student is registered in, so a tutor can find their own students; dropped on the wire when empty. */
+    tutorialGroups?: string[];
 }
 
 /**

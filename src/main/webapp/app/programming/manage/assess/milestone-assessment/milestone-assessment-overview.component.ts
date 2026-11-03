@@ -7,6 +7,7 @@ import { ProgrammingExerciseStudentParticipation } from 'app/exercise/shared/ent
 import { ProgrammingExercise } from 'app/programming/shared/entities/programming-exercise.model';
 import { ProgrammingSubmission } from 'app/programming/shared/entities/programming-submission.model';
 import { ProgrammingExerciseInstructionComponent } from 'app/programming/shared/instructions-render/programming-exercise-instruction.component';
+import { CommitsInfoComponent } from 'app/programming/shared/commits-info/commits-info.component';
 import { MilestoneCodeQualityComponent } from 'app/programming/shared/milestone-code-quality/milestone-code-quality.component';
 import { MilestoneAssessment } from './milestone-assessment.service';
 
@@ -14,17 +15,18 @@ import { MilestoneAssessment } from './milestone-assessment.service';
  * The milestone assessment page's first tab: what a tutor needs to read the group's shared codebase before grading any
  * one story against it.
  * <p>
- * Both halves are group-level and exist nowhere else on the page. The problem statement is the brief the whole
+ * Everything here is group-level and exists nowhere else on the page. The problem statement is the brief the whole
  * repository was written against - the milestone itself is never rendered to anyone, so this is the only surface a
  * tutor can reach it from. It is rendered exactly as the student's group page renders it, so each task shows the
  * outcome of its tests in the student's latest milestone build. The static code analysis issues are charged once for
- * the entire group, so they belong here rather than on any single story's tab.
+ * the entire group, so they belong here rather than on any single story's tab. The commit history is that of the
+ * milestone's repository, which every story of the group is written in.
  */
 @Component({
     selector: 'jhi-milestone-assessment-overview',
     templateUrl: './milestone-assessment-overview.component.html',
     styleUrl: './milestone-assessment-overview.component.scss',
-    imports: [TranslateDirective, MilestoneCodeQualityComponent, ProgrammingExerciseInstructionComponent],
+    imports: [TranslateDirective, MilestoneCodeQualityComponent, ProgrammingExerciseInstructionComponent, CommitsInfoComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MilestoneAssessmentOverviewComponent {
