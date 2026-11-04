@@ -49,6 +49,8 @@ export interface ExerciseVariantGroupDTO {
 export interface MilestoneStatusDTO {
     /** The student's participation in the milestone; unset while they have not started it. */
     participationId?: number;
+    /** The student's practice participation in the milestone, started after the due date; unset while there is none. */
+    practiceParticipationId?: number;
     /** The milestone's problem statement, shown as the group's description. Unset when the instructor left it empty. */
     problemStatement?: string;
     /**

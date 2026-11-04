@@ -13,6 +13,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * clients already have it from the group reference ({@link ExerciseVariantGroupReferenceDTO#milestoneExerciseId()}).
  *
  * @param participationId             the id of the student's participation in the milestone, or {@code null} if not started yet
+ * @param practiceParticipationId     the id of the student's practice participation in the milestone, or {@code null} if they
+ *                                        have not started the practice mode
  * @param problemStatement            the milestone exercise's problem statement, which doubles as the group's description in the
  *                                        student group view; {@code null} when the instructor left it empty
  * @param definitionOfDoneTestCaseIds the ids of the tests the milestone's Definition of Done consists of: the active tests
@@ -20,5 +22,5 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  *                                        {@code ProgrammingExerciseTaskRepository.findDefinitionOfDoneTestCaseIdsByExerciseId})
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public record MilestoneStatusDTO(@Nullable Long participationId, @Nullable String problemStatement, Set<Long> definitionOfDoneTestCaseIds) {
+public record MilestoneStatusDTO(@Nullable Long participationId, @Nullable Long practiceParticipationId, @Nullable String problemStatement, Set<Long> definitionOfDoneTestCaseIds) {
 }

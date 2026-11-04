@@ -251,6 +251,18 @@ public class ProgrammingSubmissionService extends SubmissionService {
         return pendingSubmissions;
     }
 
+    /**
+     * The latest submission of a participation, whether it has a result or not. A rebuild of a commit reuses that
+     * commit's submission, so while it runs the latest submission already carries the result of the build before.
+     * The caller has checked the access to the participation.
+     *
+     * @param participationId the id of the participation
+     * @return the latest submission, if the participation has one
+     */
+    public Optional<ProgrammingSubmission> findLatestSubmission(long participationId) {
+        return programmingSubmissionRepository.findFirstByParticipationIdWithResultsOrderBySubmissionDateDesc(participationId);
+    }
+
     private Optional<ProgrammingSubmission> findLatestPendingSubmissionForParticipation(final long participationId, final boolean isGraded) {
         final var optionalSubmission = isGraded
                 ? programmingSubmissionRepository.findGradedByParticipationIdWithResultsOrderBySubmissionDateDesc(participationId, PageRequest.of(0, 1)).stream().findFirst()

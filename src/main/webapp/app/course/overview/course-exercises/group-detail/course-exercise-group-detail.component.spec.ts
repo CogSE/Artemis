@@ -434,6 +434,35 @@ describe('CourseExerciseGroupDetailComponent', () => {
             await setup(exercisesWithGroupDates({}));
             expect(comp().groupDateInfoBoxes()).toEqual([]);
         });
+
+        /** A milestone group with the given due date, whose started milestone participation has the given individual due date. */
+        async function setupMilestoneWithIndividualDueDate(groupDueDate: dayjs.Dayjs | undefined, individualDueDate: dayjs.Dayjs): Promise<void> {
+            const reference = { id: GROUP_ID, title: 'Sprint 1', type: 'milestone' as const, milestoneExerciseId: 99, dueDate: groupDueDate };
+            const member = { id: 1, type: ExerciseType.USER_STORY, maxPoints: 10, exerciseVariantGroup: reference, problemStatement: 'a' } as unknown as Exercise;
+            // Sent as the server sends it: the participation request does not convert dates.
+            const participation = { id: 555, individualDueDate: individualDueDate.toISOString() } as unknown as ProgrammingExerciseStudentParticipation;
+            await setup([member], {
+                getMilestoneStatus: () => of({ participationId: 555 } as MilestoneStatusDTO),
+                getStudentParticipationWithLatestResult: () => of(participation),
+            });
+            // The milestone status and then its participation are loaded by effects.
+            fixture.detectChanges();
+            await fixture.whenStable();
+        }
+
+        it('shows the individual due date of the milestone participation instead of the group due date', async () => {
+            const individualDueDate = dayjs().add(2, 'week');
+            await setupMilestoneWithIndividualDueDate(dayjs().subtract(1, 'day'), individualDueDate);
+
+            const box = comp().groupDateInfoBoxes()[0];
+            expect(box.title).toBe('artemisApp.courseOverview.exerciseDetails.submissionDue');
+            expect(dayjs(box.content.value as dayjs.Dayjs).isSame(individualDueDate, 'second')).toBe(true);
+        });
+
+        it('ignores an individual due date when the group has no due date', async () => {
+            await setupMilestoneWithIndividualDueDate(undefined, dayjs().add(2, 'week'));
+            expect(comp().groupDateInfoBoxes()).toEqual([]);
+        });
     });
 
     describe('helpers', () => {
@@ -522,7 +551,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
         /** Access to the protected milestone-participation state under test. */
         function milestone(): {
             milestoneExercise: () => ProgrammingExercise | undefined;
-            milestoneResult: () => Result | undefined;
+            displayedMilestoneResult: () => Result | undefined;
             milestoneParticipation: () => ProgrammingExerciseStudentParticipation | undefined;
         } {
             return fixture.componentInstance as never;
@@ -640,7 +669,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
 
             expect(participationSpy).toHaveBeenCalledWith(555);
             expect(milestone().milestoneExercise()?.id).toBe(99);
-            expect(milestone().milestoneResult()).toBe(result);
+            expect(milestone().displayedMilestoneResult()).toBe(result);
         });
 
         it('hands the milestone statement with its task test ids to the instructions renderer once the participation is loaded', async () => {
@@ -686,7 +715,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
             await fixture.whenStable();
 
             expect(participationSpy).not.toHaveBeenCalled();
-            expect(milestone().milestoneResult()).toBeUndefined();
+            expect(milestone().displayedMilestoneResult()).toBeUndefined();
         });
 
         it('leaves the panel unrendered and stays retryable when the participation request fails', async () => {
@@ -700,10 +729,194 @@ describe('CourseExerciseGroupDetailComponent', () => {
 
             expect(participationSpy).toHaveBeenCalledOnce();
             expect(milestone().milestoneParticipation()).toBeUndefined();
-            expect(milestone().milestoneResult()).toBeUndefined();
+            expect(milestone().displayedMilestoneResult()).toBeUndefined();
             expect(alertSpy).not.toHaveBeenCalled();
             const requested = (fixture.componentInstance as unknown as { requestedMilestoneParticipationIds: Set<number> })['requestedMilestoneParticipationIds'];
             expect(requested.has(555)).toBe(false);
+        });
+    });
+
+    describe('start and practice actions', () => {
+        /** Access to the protected action state under test. */
+        function actions(): {
+            canStartMilestone: () => boolean;
+            canPracticeMilestone: () => boolean;
+            milestonePracticeExercise: () => ProgrammingExercise | undefined;
+            milestoneCodeButtonParticipations: () => ProgrammingExerciseStudentParticipation[];
+            milestoneParticipationMode: WritableSignal<'practice' | 'graded'>;
+            displayedMilestoneResult: () => Result | undefined;
+            routerLinkForMilestoneRepository: () => (string | number)[];
+            startMilestone: () => void;
+            onMilestonePracticeStarted: (participation: StudentParticipation) => void;
+        } {
+            return fixture.componentInstance as never;
+        }
+
+        /** A member of a milestone group with the given due date. */
+        function memberWithDueDate(dueDate: dayjs.Dayjs | undefined): Exercise {
+            const reference = { id: GROUP_ID, title: 'Sprint 1', type: 'milestone' as const, milestoneExerciseId: 99, dueDate };
+            return { id: 1, type: ExerciseType.USER_STORY, maxPoints: 10, exerciseVariantGroup: reference, problemStatement: 'a' } as unknown as Exercise;
+        }
+
+        /** A milestone participation as the server sends it, with its dates still strings. */
+        function milestoneParticipation(id: number, options?: { individualDueDate?: dayjs.Dayjs; testRun?: boolean; result?: Result }): ProgrammingExerciseStudentParticipation {
+            return {
+                id,
+                testRun: options?.testRun ?? false,
+                individualDueDate: options?.individualDueDate?.toISOString(),
+                exercise: { id: 99, type: ExerciseType.MILESTONE, maxPoints: 10 },
+                submissions: options?.result ? [{ id: id * 10, results: [options.result] }] : [],
+            } as unknown as ProgrammingExerciseStudentParticipation;
+        }
+
+        async function setupActions(
+            dueDate: dayjs.Dayjs | undefined,
+            status: MilestoneStatusDTO,
+            participations: ProgrammingExerciseStudentParticipation[] = [],
+        ): Promise<ReturnType<typeof vi.fn>> {
+            const participationSpy = vi.fn((participationId: number) => of(participations.find((participation) => participation.id === participationId)!));
+            await setup([memberWithDueDate(dueDate)], { getMilestoneStatus: () => of(status), getStudentParticipationWithLatestResult: participationSpy as never });
+            fixture.detectChanges();
+            await fixture.whenStable();
+            return participationSpy;
+        }
+
+        it('offers the start and no practice before the due date', async () => {
+            await setupActions(dayjs().add(1, 'day'), {} as MilestoneStatusDTO);
+
+            expect(actions().canStartMilestone()).toBe(true);
+            expect(actions().canPracticeMilestone()).toBe(false);
+        });
+
+        it('offers the start without a due date', async () => {
+            await setupActions(undefined, {} as MilestoneStatusDTO);
+
+            expect(actions().canStartMilestone()).toBe(true);
+            expect(actions().canPracticeMilestone()).toBe(false);
+        });
+
+        it('offers the practice instead of the start after the due date and does not start the milestone', async () => {
+            await setupActions(dayjs().subtract(1, 'day'), {} as MilestoneStatusDTO);
+            const startSpy = vi.spyOn(TestBed.inject(CourseExerciseService), 'startExercise');
+
+            expect(actions().canStartMilestone()).toBe(false);
+            expect(actions().canPracticeMilestone()).toBe(true);
+            // Without a graded participation, the practice can only start from the template.
+            expect(actions().milestonePracticeExercise()?.studentParticipations).toEqual([]);
+
+            actions().startMilestone();
+            expect(startSpy).not.toHaveBeenCalled();
+        });
+
+        it('lets a student who started the milestone practice from their graded repository after the due date', async () => {
+            const graded = milestoneParticipation(555);
+            await setupActions(dayjs().subtract(1, 'day'), { participationId: 555 } as MilestoneStatusDTO, [graded]);
+
+            expect(actions().canPracticeMilestone()).toBe(true);
+            expect(
+                actions()
+                    .milestonePracticeExercise()
+                    ?.studentParticipations?.map((participation) => participation.id),
+            ).toEqual([555]);
+        });
+
+        it('offers no practice while the individual due date of the graded participation is still running', async () => {
+            const graded = milestoneParticipation(555, { individualDueDate: dayjs().add(1, 'day') });
+            await setupActions(dayjs().subtract(1, 'day'), { participationId: 555 } as MilestoneStatusDTO, [graded]);
+
+            expect(actions().canPracticeMilestone()).toBe(false);
+        });
+
+        it('offers the practice only once and shows the practice repository next to the graded one', async () => {
+            const graded = milestoneParticipation(555);
+            const practice = milestoneParticipation(556, { testRun: true });
+            await setupActions(dayjs().subtract(1, 'day'), { participationId: 555, practiceParticipationId: 556 } as MilestoneStatusDTO, [graded, practice]);
+
+            expect(actions().canPracticeMilestone()).toBe(false);
+            expect(
+                actions()
+                    .milestoneCodeButtonParticipations()
+                    .map((participation) => participation.id),
+            ).toEqual([555, 556]);
+            expect(actions().milestoneParticipationMode()).toBe('practice');
+            expect(actions().routerLinkForMilestoneRepository()).toEqual(['/courses', 1, 'exercises', 99, 'repository', 556]);
+        });
+
+        it('loads the practice participation once the practice mode was started', async () => {
+            const practice = milestoneParticipation(556, { testRun: true });
+            const participationSpy = await setupActions(dayjs().subtract(1, 'day'), {} as MilestoneStatusDTO, [practice]);
+
+            actions().onMilestonePracticeStarted(practice);
+            fixture.detectChanges();
+            await fixture.whenStable();
+
+            expect(participationSpy).toHaveBeenCalledWith(556);
+            expect(actions().canPracticeMilestone()).toBe(false);
+            expect(
+                actions()
+                    .milestoneCodeButtonParticipations()
+                    .map((participation) => participation.id),
+            ).toEqual([556]);
+            expect(actions().routerLinkForMilestoneRepository()).toEqual(['/courses', 1, 'exercises', 99, 'repository', 556]);
+        });
+
+        describe('with a graded and a practice participation', () => {
+            const gradedResult = { id: 801, score: 50 } as unknown as Result;
+            const practiceResult = { id: 802, score: 90 } as unknown as Result;
+
+            async function setupBoth(): Promise<void> {
+                await setupActions(dayjs().subtract(1, 'day'), { participationId: 555, practiceParticipationId: 556 } as MilestoneStatusDTO, [
+                    milestoneParticipation(555, { result: gradedResult }),
+                    milestoneParticipation(556, { testRun: true, result: practiceResult }),
+                ]);
+            }
+
+            it('shows and follows the practice participation by default', async () => {
+                await setupBoth();
+
+                expect(actions().milestoneParticipationMode()).toBe('practice');
+                expect(actions().displayedMilestoneResult()?.id).toBe(802);
+                expect(registeredParticipations.map((registration) => registration.participationId)).toContain(556);
+                expect(registeredParticipations.map((registration) => registration.participationId)).not.toContain(555);
+            });
+
+            it('shows and follows the graded participation while an individual due date is still running', async () => {
+                // The practice repository was started before the student's due date was extended.
+                await setupActions(dayjs().subtract(1, 'day'), { participationId: 555, practiceParticipationId: 556 } as MilestoneStatusDTO, [
+                    milestoneParticipation(555, { individualDueDate: dayjs().add(1, 'day'), result: gradedResult }),
+                    milestoneParticipation(556, { testRun: true, result: practiceResult }),
+                ]);
+
+                expect(actions().milestoneParticipationMode()).toBe('graded');
+                expect(actions().displayedMilestoneResult()?.id).toBe(801);
+                expect(registeredParticipations.map((registration) => registration.participationId)).toContain(555);
+                expect(registeredParticipations.map((registration) => registration.participationId)).not.toContain(556);
+            });
+
+            it('moves the build widgets and the live subscription to the graded participation when switched', async () => {
+                await setupBoth();
+
+                actions().milestoneParticipationMode.set('graded');
+                fixture.detectChanges();
+                await fixture.whenStable();
+
+                expect(actions().displayedMilestoneResult()?.id).toBe(801);
+                expect(registeredParticipations.map((registration) => registration.participationId)).toContain(555);
+                expect(releasedResultParticipationIds).toContain(556);
+                expect(actions().routerLinkForMilestoneRepository()).toEqual(['/courses', 1, 'exercises', 99, 'repository', 555]);
+            });
+
+            it('keeps the group points graded while a practice result is shown', async () => {
+                await setupBoth();
+                storedGroupPoints.set(GROUP_ID, 5);
+
+                // A live practice build: the practice participation is the one subscribed.
+                latestResultOf(556).next({ id: 803, score: 100 } as unknown as Result);
+                fixture.detectChanges();
+
+                expect(actions().displayedMilestoneResult()?.id).toBe(803);
+                expect(achievedGroupPoints()).toBe(5);
+            });
         });
     });
 
@@ -711,7 +924,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
         /** Access to the protected live state under test. */
         function live(): {
             milestoneExercise: () => ProgrammingExercise | undefined;
-            milestoneResult: () => Result | undefined;
+            displayedMilestoneResult: () => Result | undefined;
             isMilestoneBuilding: () => boolean;
             isMilestoneQueued: () => boolean;
             exerciseParticipation: (exercise: Exercise) => StudentParticipation | undefined;
@@ -748,11 +961,11 @@ describe('CourseExerciseGroupDetailComponent', () => {
 
         it('replaces the milestone result when a build finishes, keeping the exercise the REST snapshot brought along', async () => {
             await setupStartedMilestone();
-            expect(live().milestoneResult()?.id).toBe(888);
+            expect(live().displayedMilestoneResult()?.id).toBe(888);
 
             latestResultOf(555).next({ id: 999, score: 75, feedbacks: [] } as unknown as Result);
 
-            expect(live().milestoneResult()?.id).toBe(999);
+            expect(live().displayedMilestoneResult()?.id).toBe(999);
             // The websocket payload carries no exercise, so the only source of staticCodeAnalysisEnabled must survive it.
             expect(live().milestoneExercise()?.id).toBe(99);
             expect(live().milestoneExercise()?.staticCodeAnalysisEnabled).toBe(true);
@@ -763,7 +976,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
 
             latestResultOf(555).next({ id: 999, completionDate: '2026-09-10T10:00:00Z' } as unknown as Result);
 
-            expect(dayjs.isDayjs(live().milestoneResult()?.completionDate)).toBe(true);
+            expect(dayjs.isDayjs(live().displayedMilestoneResult()?.completionDate)).toBe(true);
         });
 
         it('subscribes for the milestone participation as a personal subscription of its own exercise', async () => {
@@ -902,7 +1115,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
             fixture.detectChanges();
             await fixture.whenStable();
 
-            expect(live().milestoneResult()?.id).toBe(888);
+            expect(live().displayedMilestoneResult()?.id).toBe(888);
         });
     });
 
@@ -933,7 +1146,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
         function state(): {
             milestoneStatus: () => MilestoneStatusDTO | undefined;
             milestoneParticipation: () => ProgrammingExerciseStudentParticipation | undefined;
-            milestoneResult: () => Result | undefined;
+            displayedMilestoneResult: () => Result | undefined;
         } {
             return fixture.componentInstance as never;
         }
@@ -966,7 +1179,7 @@ describe('CourseExerciseGroupDetailComponent', () => {
             // This is what stayed on group 20's description, task results and code quality before.
             expect(state().milestoneStatus()?.problemStatement).toBe('Description of group 10');
             expect(state().milestoneParticipation()?.id).toBe(1000);
-            expect(state().milestoneResult()?.id).toBe(1002);
+            expect(state().displayedMilestoneResult()?.id).toBe(1002);
             // Revisiting a group still does not re-fetch it.
             expect(getMilestoneStatus.mock.calls.filter(([, groupId]) => groupId === GROUP_ID)).toHaveLength(1);
         });
@@ -999,13 +1212,13 @@ describe('CourseExerciseGroupDetailComponent', () => {
         it("keeps each group's live milestone result to that group", async () => {
             await setupTwoGroups((_courseId, groupId) => of(statusOf(groupId)));
             latestResultOf(1000).next({ id: 901, score: 40 } as unknown as Result);
-            expect(state().milestoneResult()?.id).toBe(901);
+            expect(state().displayedMilestoneResult()?.id).toBe(901);
 
             await switchTo(OTHER_GROUP_ID);
-            expect(state().milestoneResult()?.id).toBe(2002);
+            expect(state().displayedMilestoneResult()?.id).toBe(2002);
 
             await switchTo(GROUP_ID);
-            expect(state().milestoneResult()?.id).toBe(901);
+            expect(state().displayedMilestoneResult()?.id).toBe(901);
         });
     });
 

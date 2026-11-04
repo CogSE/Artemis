@@ -12,6 +12,7 @@ import { Result } from 'app/exercise/shared/entities/result/result.model';
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
 import { ArtemisQuizService } from 'app/quiz/shared/service/quiz.service';
 import { getAllResultsOfAllSubmissions } from 'app/exercise/shared/entities/submission/submission.model';
+import { hasExerciseDueDatePassed } from 'app/exercise/util/exercise.utils';
 
 @Component({
     selector: 'jhi-submission-result-status',
@@ -50,10 +51,15 @@ export class SubmissionResultStatusComponent {
     readonly isPractice = input(false);
     readonly quizPracticeInProgress = input(false);
 
-    // Computed signal for whether due date has passed
+    /**
+     * Whether the student's due date has passed: their individual due date when they have one, the exercise's otherwise.
+     * A student whose deadline was extended can still push after the exercise's due date. The course overview only
+     * sends the latest submission, which has no result while it builds, so going by the exercise's due date would hide
+     * the live result for such a build and show "-" instead of "building".
+     */
     private readonly afterDueDate = computed(() => {
         const exercise = this.exercise();
-        return !!exercise?.dueDate && exercise.dueDate.isBefore(dayjs());
+        return !!exercise && hasExerciseDueDatePassed(exercise, this.studentParticipation());
     });
 
     readonly quizNotStarted = computed(() => {

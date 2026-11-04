@@ -486,9 +486,15 @@ export class ProgrammingSubmissionService implements IProgrammingSubmissionServi
         if (this.resultSubscriptions[participationId]) {
             return;
         }
-        const resultObservable = this.participationWebsocketService.subscribeForLatestResultOfParticipation(participationId, personal, exerciseId).pipe(
+        const latestResult = this.participationWebsocketService.subscribeForLatestResultOfParticipation(participationId, personal, exerciseId);
+        // The stream replays the last result it saw, which outlives a page that stopped following the participation. A
+        // rebuild of a commit reuses that commit's submission, so that old result belongs to the pending submission too
+        // and would end the rebuild the moment a reopened page subscribes. Only a result arriving after that counts.
+        const replayedResultId = latestResult.value?.id;
+        const resultObservable = latestResult.pipe(
             // Make sure that the incoming result belongs the latest submission!
             filter((result: Result | undefined) => this.isResultOfLatestSubmission(result, exerciseId, participationId)),
+            filter((result: Result) => replayedResultId === undefined || result.id !== replayedResultId),
             distinctUntilChanged(),
             tap(() => {
                 // This is the normal case - the last pending submission received a result, so we emit undefined as the message that there is not a pending submission anymore.

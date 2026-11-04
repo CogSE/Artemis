@@ -42,14 +42,14 @@
                         status, so the bar reads as one row of pills. Only a failed build has something to open - the
                         build log, which a student has no other way to read once the online editor is switched off.
                     -->
-                    @if (milestoneParticipation()) {
+                    @if (displayedMilestoneParticipation()) {
                         <jhi-information-box data-testid="milestone-build-status" [informationBoxData]="buildStatusInfoBoxData" layout="inline">
                             <span contentComponent class="d-flex align-items-center gap-1">
                                 <jhi-result
                                     class="text-truncate"
                                     [exercise]="milestoneExercise()"
-                                    [participation]="milestoneParticipation()"
-                                    [result]="milestoneResult()"
+                                    [participation]="displayedMilestoneParticipation()"
+                                    [result]="displayedMilestoneResult()"
                                     [isBuilding]="isMilestoneBuilding()"
                                     [isQueued]="isMilestoneQueued()"
                                     [allowOpeningDetails]="isMilestoneBuildFailed()"
@@ -63,7 +63,7 @@
                     <jhi-milestone-code-quality
                         [exercise]="milestoneExercise()"
                         [course]="course()"
-                        [result]="milestoneResult()"
+                        [result]="displayedMilestoneResult()"
                         [isBuilding]="isMilestoneBuilding()"
                         [isQueued]="isMilestoneQueued()"
                     />
@@ -121,15 +121,25 @@
                         </ng-template>
                     }
                     @if (milestoneStatus(); as status) {
-                        @if (status.participationId !== undefined) {
+                        @if (status.participationId !== undefined || status.practiceParticipationId !== undefined) {
+                            <!-- Only while the student has both a graded and a practice repository: with one, there is nothing to choose. -->
+                            @if (status.participationId !== undefined && status.practiceParticipationId !== undefined) {
+                                <jhi-participation-mode-toggle
+                                    [mode]="milestoneParticipationMode()"
+                                    (modeChange)="milestoneParticipationMode.set($event)"
+                                    [hasPractice]="true"
+                                    [hasGraded]="true"
+                                />
+                            }
                             <jhi-code-button
                                 [smallButtons]="false"
-                                [repositoryUri]="milestoneParticipation()?.repositoryUri ?? ''"
+                                [repositoryUri]="''"
+                                [isPractice]="milestoneParticipationMode() === 'practice'"
                                 [routerLinkForRepositoryView]="routerLinkForMilestoneRepository()"
                                 [participations]="milestoneCodeButtonParticipations()"
                                 [hideLabelMobile]="true"
                             />
-                        } @else {
+                        } @else if (canStartMilestone()) {
                             <button
                                 type="button"
                                 jhi-exercise-action-button
@@ -140,6 +150,15 @@
                                 [hideLabelMobile]="false"
                                 (click)="startMilestone()"
                             ></button>
+                        }
+                        <!-- After the due date, the milestone - and with it every user story of the group - can be practiced. -->
+                        @if (canPracticeMilestone() && milestonePracticeExercise(); as practiceExercise) {
+                            <jhi-start-practice-mode-button
+                                data-testid="milestone-start-practice"
+                                [smallButtons]="false"
+                                [exercise]="practiceExercise"
+                                (practiceModeStarted)="onMilestonePracticeStarted($event)"
+                            />
                         }
                     } @else if (milestoneStatusFailed()) {
                         <!-- Without this the header renders nothing at all when the status request fails, which reads as a missing start action. -->
@@ -166,7 +185,7 @@
                              each task's test outcome. -->
                         <jhi-programming-exercise-instructions
                             [exercise]="milestoneExercise()"
-                            [participation]="milestoneParticipation()"
+                            [participation]="displayedMilestoneParticipation()"
                             [personalParticipation]="true"
                             [showStepWizard]="false"
                         />

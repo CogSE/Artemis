@@ -266,6 +266,28 @@ describe('SubmissionResultStatusComponent', () => {
             expect(comp.shouldShowResult()).toBe(false);
         });
 
+        /**
+         * The course overview only sends the latest submission, which has no result while it builds. A student whose
+         * due date was extended past the exercise's can push after it, and that build must show as building, not "-".
+         */
+        it.each([ExerciseType.PROGRAMMING, ExerciseType.USER_STORY])(
+            'should show the live result for a %s participation building before its individual due date',
+            async (type: ExerciseType) => {
+                fixture.componentRef.setInput('exercise', { type, dueDate: dayjs().subtract(1, 'hours') } as Exercise);
+                fixture.componentRef.setInput('studentParticipation', {
+                    initializationState: InitializationState.INITIALIZED,
+                    individualDueDate: dayjs().add(1, 'day'),
+                    submissions: [{ submitted: true, results: [] }],
+                } as StudentParticipation);
+                TestBed.tick();
+                fixture.detectChanges();
+                await fixture.whenStable();
+
+                expect(comp.shouldShowResult()).toBe(true);
+                expect(fixture.debugElement.query(By.css('#submission-result-graded'))).not.toBeNull();
+            },
+        );
+
         it('should show the result once a practice participation with a result exists', async () => {
             fixture.componentRef.setInput('exercise', {
                 type: ExerciseType.QUIZ,

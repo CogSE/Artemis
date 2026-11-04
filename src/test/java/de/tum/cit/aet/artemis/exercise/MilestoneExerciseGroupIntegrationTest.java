@@ -52,6 +52,7 @@ import de.tum.cit.aet.artemis.exercise.dto.MilestoneStatusDTO;
 import de.tum.cit.aet.artemis.exercise.dto.ParticipationDueDateUpdateDTO;
 import de.tum.cit.aet.artemis.exercise.dto.UpdateMilestoneExerciseGroupDTO;
 import de.tum.cit.aet.artemis.exercise.dto.UserStoryExerciseDTO;
+import de.tum.cit.aet.artemis.exercise.participation.util.ParticipationFactory;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseVariantGroupRepository;
 import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseVariantGroupService;
@@ -347,6 +348,26 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         MilestoneStatusDTO status = request.get(milestoneGroupsUrl() + "/" + milestoneGroup.getId() + "/milestone-status", HttpStatus.OK, MilestoneStatusDTO.class);
 
         assertThat(status.definitionOfDoneTestCaseIds()).containsExactly(gating.getId());
+    }
+
+    /**
+     * After the due date the group view offers the practice mode, and it can only show the practice repository and stop
+     * offering the practice start again if the status reports the practice participation next to the graded one.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void milestoneStatusReportsTheGradedAndThePracticeParticipation() throws Exception {
+        ProgrammingExerciseStudentParticipation graded = participationUtilService.addStudentParticipationForProgrammingExercise(milestoneExercise, TEST_PREFIX + "student1");
+        ProgrammingExerciseStudentParticipation practice = ParticipationFactory.generateIndividualProgrammingExerciseStudentParticipation(milestoneExercise,
+                userUtilService.getUserByLogin(TEST_PREFIX + "student1"));
+        practice.setPracticeMode(true);
+        practice.setAttempt(1);
+        practice = programmingExerciseStudentParticipationRepository.save(practice);
+
+        MilestoneStatusDTO status = request.get(milestoneGroupsUrl() + "/" + milestoneGroup.getId() + "/milestone-status", HttpStatus.OK, MilestoneStatusDTO.class);
+
+        assertThat(status.participationId()).isEqualTo(graded.getId());
+        assertThat(status.practiceParticipationId()).isEqualTo(practice.getId());
     }
 
     @Test

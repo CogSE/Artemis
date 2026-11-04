@@ -47,6 +47,8 @@ import { ResultComponent } from 'app/exercise/result/result.component';
 import { MilestoneCodeQualityComponent } from 'app/programming/shared/milestone-code-quality/milestone-code-quality.component';
 import { ProgrammingExerciseInstructionComponent } from 'app/programming/shared/instructions-render/programming-exercise-instruction.component';
 import { ProgrammingExerciseInstructionService, TestCaseState } from 'app/programming/shared/instructions-render/services/programming-exercise-instruction.service';
+import { StartPracticeModeButtonComponent } from 'app/course/overview/exercise-details/start-practice-mode-button/start-practice-mode-button.component';
+import { ParticipationMode, ParticipationModeToggleComponent } from 'app/exercise/exercise-headers/participation-mode-toggle/participation-mode-toggle.component';
 
 @Component({
     selector: 'jhi-course-exercise-group-detail',
@@ -73,6 +75,8 @@ import { ProgrammingExerciseInstructionService, TestCaseState } from 'app/progra
         ResultComponent,
         ProgrammingExerciseInstructionComponent,
         CourseSidebarToggleButtonComponent,
+        StartPracticeModeButtonComponent,
+        ParticipationModeToggleComponent,
     ],
     /* preserveWhitespaces: false is required here because the global tsconfig sets preserveWhitespaces: true,
      * which inserts whitespace text nodes that break [contentComponent] slot matching in jhi-information-box. */
@@ -145,23 +149,43 @@ export class CourseExerciseGroupDetailComponent {
         const participationId = this.milestoneStatus()?.participationId;
         return participationId === undefined ? undefined : this.milestoneParticipationsById().get(participationId);
     });
-    /** Each loaded milestone participation, keyed by participation id. */
+    /** Each loaded milestone participation, graded and practice alike, keyed by participation id. */
     private readonly milestoneParticipationsById = signal<Map<number, ProgrammingExerciseStudentParticipation>>(new Map());
 
+    /** The student's practice participation in the milestone, started after the due date. */
+    private readonly milestonePracticeParticipation = computed<ProgrammingExerciseStudentParticipation | undefined>(() => {
+        const participationId = this.milestoneStatus()?.practiceParticipationId;
+        return participationId === undefined ? undefined : this.milestoneParticipationsById().get(participationId);
+    });
+
     /**
-     * The most recent milestone result pushed over the websocket, which supersedes the one the participation request
-     * brought along. Undefined until a build finishes while this page is open.
+     * The id of the milestone participation the page's build widgets show - status badge, code quality, task outcomes -
+     * and that the code button and repository link refer to: the one selected with the participation mode toggle, or the
+     * only one the student has. As on an exercise page, the toggle switches what the student is looking at; the group's
+     * points always stay those of the graded participation (see {@link gradedMilestoneResult}).
+     */
+    private readonly displayedMilestoneParticipationId = computed<number | undefined>(() => {
+        const status = this.milestoneStatus();
+        return this.milestoneParticipationMode() === 'practice'
+            ? (status?.practiceParticipationId ?? status?.participationId)
+            : (status?.participationId ?? status?.practiceParticipationId);
+    });
+    /** The milestone participation the build widgets show, see {@link displayedMilestoneParticipationId}. */
+    protected readonly displayedMilestoneParticipation = computed<ProgrammingExerciseStudentParticipation | undefined>(() => {
+        const participationId = this.displayedMilestoneParticipationId();
+        return participationId === undefined ? undefined : this.milestoneParticipationsById().get(participationId);
+    });
+
+    /**
+     * The latest websocket result per milestone participation, keyed by the participation it was subscribed for. Only
+     * the displayed participation is followed live; a result pushed for it supersedes the one its participation request
+     * brought along.
      * <p>
-     * A result arrives here twice per push: once when the build finishes, and once again ~half a second later when
+     * A graded result arrives twice per push: once when the build finishes, and once again ~half a second later when
      * `MilestoneScoreService` has aggregated the group's story points onto it. Both updates carry the same result id
      * and the same static code analysis feedback - the aggregation rewrites the very same row - so the code-quality
      * box does not flicker between two different issue sets; only the score changes.
      */
-    private readonly liveMilestoneResult = computed<Result | undefined>(() => {
-        const participationId = this.milestoneStatus()?.participationId;
-        return participationId === undefined ? undefined : this.liveMilestoneResultsByParticipationId().get(participationId);
-    });
-    /** The latest websocket result per milestone participation, keyed by the participation it was subscribed for. */
     private readonly liveMilestoneResultsByParticipationId = signal<Map<number, Result>>(new Map());
     /** Whether the milestone's build is queued / running, so the code-quality box can say so instead of showing a stale count. */
     protected readonly isMilestoneBuilding = signal(false);
@@ -196,18 +220,19 @@ export class CourseExerciseGroupDetailComponent {
     });
 
     /**
-     * The latest result of the milestone's own build, which carries the group's static code analysis feedback. Prefers
-     * whatever the websocket last delivered over the snapshot the one-shot participation request brought along.
+     * The latest result of the displayed participation's milestone build, which carries the static code analysis
+     * feedback the code-quality box shows. Prefers whatever the websocket last delivered over the snapshot the one-shot
+     * participation request brought along.
      */
-    protected readonly milestoneResult = computed<Result | undefined>(() => {
-        const liveResult = this.liveMilestoneResult();
-        if (liveResult) {
-            return liveResult;
-        }
-        // Across all submissions rather than off the latest one: a push creates a pending submission without a result, and
-        // the latest submission's result would then be nothing for the whole build.
-        return getLatestResultOfStudentParticipation(this.milestoneParticipation(), true);
-    });
+    protected readonly displayedMilestoneResult = computed<Result | undefined>(() =>
+        this.latestMilestoneResult(this.displayedMilestoneParticipationId(), this.displayedMilestoneParticipation()),
+    );
+
+    /**
+     * The latest result of the graded milestone participation, whatever the toggle shows: the group's points are built
+     * from it, never from a practice result.
+     */
+    private readonly gradedMilestoneResult = computed<Result | undefined>(() => this.latestMilestoneResult(this.milestoneStatus()?.participationId, this.milestoneParticipation()));
 
     /**
      * Whether the group's shared build failed, which is what gives the status badge something to open: the build log.
@@ -215,8 +240,8 @@ export class CourseExerciseGroupDetailComponent {
      * {@link FeedbackComponent} uses to decide whether to fetch the log, so badge and dialog agree.
      */
     protected readonly isMilestoneBuildFailed = computed<boolean>(() => {
-        const participation = this.milestoneParticipation();
-        const submission = this.milestoneResult()?.submission ?? (participation ? getLatestSubmission(participation) : undefined);
+        const participation = this.displayedMilestoneParticipation();
+        const submission = this.displayedMilestoneResult()?.submission ?? (participation ? getLatestSubmission(participation) : undefined);
         // Read through the shared Submission type, which does not declare the flag a programming submission carries.
         return submission !== undefined && 'buildFailed' in submission && submission.buildFailed === true;
     });
@@ -228,7 +253,7 @@ export class CourseExerciseGroupDetailComponent {
      */
     protected readonly isMilestoneDodFailed = computed<boolean>(() => {
         const testIds = this.milestoneStatus()?.definitionOfDoneTestCaseIds ?? [];
-        const result = this.milestoneResult();
+        const result = this.displayedMilestoneResult();
         return testIds.length > 0 && !!result && this.instructionService.testStatusForTask(testIds, result).testCaseState !== TestCaseState.SUCCESS;
     });
 
@@ -314,7 +339,8 @@ export class CourseExerciseGroupDetailComponent {
 
     /** Whether anything that changes a milestone group's points has been pushed since the page loaded its stored value. */
     private readonly hasLiveMilestoneGroupUpdate = computed<boolean>(() => {
-        if (this.liveMilestoneResult()) {
+        const gradedParticipationId = this.milestoneStatus()?.participationId;
+        if (gradedParticipationId !== undefined && this.liveMilestoneResultsByParticipationId().has(gradedParticipationId)) {
             return true;
         }
         const liveExerciseIds = this.liveParticipations();
@@ -323,7 +349,7 @@ export class CourseExerciseGroupDetailComponent {
 
     /** The points the milestone's own result carries - the group's user story points after the code quality penalty. */
     private readonly milestoneResultPoints = computed<number>(() => {
-        const score = this.milestoneResult()?.score;
+        const score = this.gradedMilestoneResult()?.score;
         const milestoneMaxPoints = this.milestoneExercise()?.maxPoints;
         return score !== undefined && milestoneMaxPoints !== undefined ? (score / 100) * milestoneMaxPoints : 0;
     });
@@ -342,13 +368,19 @@ export class CourseExerciseGroupDetailComponent {
     );
 
     /**
-     * What the points box shows: {@link achievedGroupPoints}, except that a queued or running milestone build keeps the
-     * value from before it instead of whatever passes through in the meantime. The group's points only have a new
+     * What the points box shows: {@link achievedGroupPoints}, except that a queued or running graded milestone build keeps
+     * the value from before it instead of whatever passes through in the meantime. The group's points only have a new
      * settled value once the build's aggregated result has arrived, so anything shown earlier (a zero, or a raw build
-     * score) would only flash a wrong number at the student.
+     * score) would only flash a wrong number at the student. A practice build does not touch the group's points.
      */
     protected readonly displayedGroupPoints = linkedSignal<{ points: number; isBuildPending: boolean }, number>({
-        source: () => ({ points: this.achievedGroupPoints(), isBuildPending: this.isMilestoneBuilding() || this.isMilestoneQueued() }),
+        source: () => ({
+            points: this.achievedGroupPoints(),
+            isBuildPending:
+                (this.isMilestoneBuilding() || this.isMilestoneQueued()) &&
+                this.displayedMilestoneParticipationId() !== undefined &&
+                this.displayedMilestoneParticipationId() === this.milestoneStatus()?.participationId,
+        }),
         computation: (source, previous) => (source.isBuildPending && previous !== undefined ? previous.value : source.points),
     });
 
@@ -370,11 +402,81 @@ export class CourseExerciseGroupDetailComponent {
         content: { type: 'string', value: this.exercises().length },
     }));
 
+    /**
+     * The student's individual due date on the milestone, which the server passes on to every user story of the group.
+     * The participation request does not convert dates, so it arrives as a string.
+     */
+    private readonly milestoneIndividualDueDate = computed(() => convertDateFromServer(this.milestoneParticipation()?.individualDueDate));
+
+    /**
+     * Which of the milestone's participations the page shows: its build status, code quality and task outcomes, and the
+     * repository the code button and the repository link refer to. Starts at the repository the student works in: the
+     * graded one while their own due date is running - an individual due date can extend it past a practice repository
+     * started earlier - and the practice one once that due date has passed or the student only practices. Switched
+     * with the participation mode toggle, which only appears while the student has both. The group's points always
+     * stay graded.
+     */
+    protected readonly milestoneParticipationMode = linkedSignal<ParticipationMode>(() => {
+        const status = this.milestoneStatus();
+        if (status?.practiceParticipationId === undefined) {
+            return 'graded';
+        }
+        if (status.participationId === undefined) {
+            return 'practice';
+        }
+        // Until the graded participation has loaded, its individual due date is unknown; the graded one is the safe start.
+        if (!this.milestoneParticipation()) {
+            return 'graded';
+        }
+        const dueDate = this.milestoneIndividualDueDate() ?? this.group()?.dueDate;
+        return dueDate && this.now.isAfter(dueDate) ? 'practice' : 'graded';
+    });
+
+    /**
+     * Whether the student may start the milestone: not started yet, and before the group's due date - the rule
+     * `isStartExerciseAvailable` applies to any exercise. Without a participation there is no individual due date.
+     */
+    protected readonly canStartMilestone = computed<boolean>(() => {
+        const status = this.milestoneStatus();
+        const dueDate = this.group()?.dueDate;
+        return !!status && status.participationId === undefined && (!dueDate || this.now.isBefore(dueDate));
+    });
+
+    /**
+     * Whether the student may start the practice mode of the milestone, by the conditions the server checks: the group's
+     * due date has passed, and so has the student's individual due date, if their graded participation has one. Offered
+     * only once, as the practice participation then stays the student's practice repository.
+     */
+    protected readonly canPracticeMilestone = computed<boolean>(() => {
+        const status = this.milestoneStatus();
+        const dueDate = this.group()?.dueDate;
+        if (!status || status.practiceParticipationId !== undefined || !dueDate || !this.now.isAfter(dueDate)) {
+            return false;
+        }
+        // Until the graded participation has loaded, its individual due date is unknown.
+        if (status.participationId !== undefined && !this.milestoneParticipation()) {
+            return false;
+        }
+        const individualDueDate = this.milestoneIndividualDueDate();
+        return !individualDueDate || this.now.isAfter(individualDueDate);
+    });
+
+    /**
+     * The milestone as the practice button needs it: with the graded participation, if there is one, so that the button
+     * offers to start the practice repository from it rather than from the template.
+     */
+    protected readonly milestonePracticeExercise = computed<ProgrammingExercise | undefined>(() => {
+        const exercise = this.milestoneExercise();
+        const gradedParticipation = this.milestoneParticipation();
+        return exercise && cloneWith(exercise, { studentParticipations: gradedParticipation ? [gradedParticipation] : [] });
+    });
+
     /** Dynamic date info boxes for the group header, mirroring the exercise due-date + assessment-due logic. */
     protected readonly groupDateInfoBoxes = computed<InformationBox[]>(() => {
         const group = this.group();
         const now = this.now;
-        const dueDate = group?.dueDate;
+        // Like getExerciseDueDate: an individual due date only applies when the group has a due date at all.
+        const dueDate = group?.dueDate ? (this.milestoneIndividualDueDate() ?? group.dueDate) : undefined;
         const startDate = group?.startDate;
         const assessmentDueDate = group?.assessmentDueDate;
         const items: InformationBox[] = [];
@@ -462,18 +564,21 @@ export class CourseExerciseGroupDetailComponent {
         });
 
         effect(() => {
-            const participationId = this.milestoneStatus()?.participationId;
-            if (participationId === undefined || this.requestedMilestoneParticipationIds.has(participationId)) {
-                return;
+            const status = this.milestoneStatus();
+            // The practice participation is only needed for its repository, which the code button offers next to the graded one.
+            for (const participationId of [status?.participationId, status?.practiceParticipationId]) {
+                if (participationId !== undefined && !this.requestedMilestoneParticipationIds.has(participationId)) {
+                    untracked(() => this.loadMilestoneParticipation(participationId));
+                }
             }
-            untracked(() => this.loadMilestoneParticipation(participationId));
         });
 
         // The participation request above is a one-shot snapshot. A build triggered by a push from the student's own
         // IDE - the normal case for a milestone, whose repository is shared across the whole group - has to reach this
         // page without a reload, so the same participation is also followed live.
         effect(() => {
-            const participationId = this.milestoneStatus()?.participationId;
+            // Switching the participation mode moves the subscriptions over to the participation now on screen.
+            const participationId = this.displayedMilestoneParticipationId();
             const milestoneExerciseId = this.group()?.milestoneExerciseId;
             untracked(() => this.subscribeToMilestoneUpdates(participationId, milestoneExerciseId));
         });
@@ -598,6 +703,16 @@ export class CourseExerciseGroupDetailComponent {
     }
 
     /**
+     * The latest result of a milestone participation: the one last pushed over the websocket, else the one its
+     * participation request brought along - across all submissions rather than off the latest one, as a push creates a
+     * pending submission without a result, and the latest submission's result would then be nothing for the whole build.
+     */
+    private latestMilestoneResult(participationId: number | undefined, participation: ProgrammingExerciseStudentParticipation | undefined): Result | undefined {
+        const liveResult = participationId === undefined ? undefined : this.liveMilestoneResultsByParticipationId().get(participationId);
+        return liveResult ?? getLatestResultOfStudentParticipation(participation, true);
+    }
+
+    /**
      * Loads the milestone's own participation with its latest result, which is what the code-quality panel reads the
      * group's static code analysis feedback from. Deliberately quiet on failure: unlike the start action, this is
      * supplementary information, so a failure simply leaves the panel unrendered rather than alerting the student. The
@@ -703,7 +818,7 @@ export class CourseExerciseGroupDetailComponent {
         const status = this.milestoneStatus();
         const groupId = this.groupId();
         const milestoneExercise = this.milestoneExercise();
-        if (!status || groupId === undefined || !milestoneExercise || status.participationId !== undefined || this.isStartingMilestone()) {
+        if (!status || groupId === undefined || !milestoneExercise || !this.canStartMilestone() || this.isStartingMilestone()) {
             return;
         }
         this.isStartingMilestone.set(true);
@@ -725,24 +840,38 @@ export class CourseExerciseGroupDetailComponent {
             });
     }
 
+    /**
+     * Records the practice participation the practice button started, under the group it was started on, so the effect
+     * following the status loads it and the code button offers its repository. The server has given every user story of
+     * the group the same practice repository (`ParticipationService.startPracticeMode`).
+     */
+    protected onMilestonePracticeStarted(participation: StudentParticipation): void {
+        const status = this.milestoneStatus();
+        const groupId = this.groupId();
+        if (!status || groupId === undefined || participation.id === undefined) {
+            return;
+        }
+        this.setMilestoneStatus(groupId, cloneWith(status, { practiceParticipationId: participation.id }));
+    }
+
     /** Where the group's "Instructor actions" dropdown entry for one member exercise links to: its own course-management detail page. */
     protected exerciseManagementRouterLink(exercise: Exercise): (string | number)[] {
         return ['/course-management', this.courseId, getExerciseUrlSegment(exercise.type), exercise.id ?? 0];
     }
 
     /**
-     * The milestone's own participation, wrapped as a single-element array for `jhi-code-button`'s `[participations]`
-     * input - the group view shows the "Code" button for the milestone's (shared) repository directly, instead of the
-     * plain "started" text a normal exercise page would show once a participation exists.
+     * The milestone's own participations, graded and practice, for `jhi-code-button`'s `[participations]` input - the
+     * group view shows the "Code" button for the milestone's (shared) repositories directly, instead of the plain
+     * "started" text a normal exercise page would show once a participation exists. With both, the button switches
+     * between the rated and the practice repository.
      */
-    protected readonly milestoneCodeButtonParticipations = computed<ProgrammingExerciseStudentParticipation[]>(() => {
-        const participation = this.milestoneParticipation();
-        return participation ? [participation] : [];
-    });
+    protected readonly milestoneCodeButtonParticipations = computed<ProgrammingExerciseStudentParticipation[]>(() =>
+        [this.milestoneParticipation(), this.milestonePracticeParticipation()].filter((participation) => participation !== undefined),
+    );
 
     protected routerLinkForMilestoneRepository(): (string | number)[] {
         const milestoneExerciseId = this.group()?.milestoneExerciseId ?? 0;
-        const participationId = this.milestoneStatus()?.participationId;
+        const participationId = this.displayedMilestoneParticipationId();
         if (participationId === undefined) {
             return ['/courses', this.courseId, 'exercises', milestoneExerciseId];
         }

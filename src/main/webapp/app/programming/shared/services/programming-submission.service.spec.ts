@@ -210,6 +210,21 @@ describe('ProgrammingSubmissionService', () => {
         expect(participationWsLatestResultStub).toHaveBeenCalledWith(participationId, true, 10);
     });
 
+    it('should keep a rebuild of a submission pending when the result stream replays the result of the build before', () => {
+        // A rebuild reuses the commit's submission, so the replayed result belongs to the pending submission as well.
+        const previousResult = { id: 30, submission: currentSubmission } as Result;
+        participationWsLatestResultStub.mockReturnValue(new BehaviorSubject<Result | undefined>(previousResult));
+        httpGetStub.mockReturnValue(of({ ...currentSubmission, isProcessing: true }));
+        submissionService.isLocalCIEnabled = true;
+        const states: ProgrammingSubmissionState[] = [];
+
+        submissionService.getLatestPendingSubmissionByParticipationId(participationId, 10, true).subscribe(({ submissionState }) => states.push(submissionState));
+        expect(states).toEqual([ProgrammingSubmissionState.IS_BUILDING_PENDING_SUBMISSION]);
+
+        (participationWsLatestResultStub.mock.results[0].value as BehaviorSubject<Result | undefined>).next(result);
+        expect(states).toEqual([ProgrammingSubmissionState.IS_BUILDING_PENDING_SUBMISSION, ProgrammingSubmissionState.HAS_NO_PENDING_SUBMISSION]);
+    });
+
     it('should emit undefined when a new result comes in for the given participation to signal that the building process is over', () => {
         const returnedSubmissions: Array<ProgrammingSubmissionStateObj | undefined> = [];
         httpGetStub.mockReturnValue(of(currentSubmission));

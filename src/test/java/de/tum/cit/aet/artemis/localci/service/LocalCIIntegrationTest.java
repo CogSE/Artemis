@@ -72,6 +72,7 @@ import com.github.dockerjava.api.model.Frame;
 import tools.jackson.core.JacksonException;
 
 import de.tum.cit.aet.artemis.account.domain.User;
+import de.tum.cit.aet.artemis.assessment.domain.AssessmentType;
 import de.tum.cit.aet.artemis.assessment.domain.Result;
 import de.tum.cit.aet.artemis.buildagent.dto.BuildAgentDTO;
 import de.tum.cit.aet.artemis.buildagent.dto.BuildAgentDetailsDTO;
@@ -899,6 +900,35 @@ class LocalCIIntegrationTest extends AbstractProgrammingIntegrationLocalCILocalV
         assertThat(submissionDto.isProcessing()).isTrue();
         assertThat(submissionDto.buildStartDate()).isNotNull();
         assertThat(submissionDto.estimatedCompletionDate()).isNotNull();
+    }
+
+    /**
+     * A triggered rebuild reuses the commit's submission, which still carries the result of the build before. While the
+     * rebuild runs, a page opened anew must still find it pending - otherwise it shows the old result instead of the build.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void testGetSubmissionReturnsASubmissionWithAResultWhileItIsRebuilt() throws Exception {
+        ProgrammingSubmission submission = (ProgrammingSubmission) new ProgrammingSubmission().submissionDate(ZonedDateTime.now().minusMinutes(10));
+        submission.setCommitHash(commitHash);
+        submission = programmingExerciseUtilService.addProgrammingSubmission(programmingExercise, submission, TEST_PREFIX + "student1");
+        participationUtilService.addResultToSubmission(AssessmentType.AUTOMATIC, ZonedDateTime.now().minusMinutes(9), submission);
+        String url = "/api/programming/programming-exercise-participations/" + submission.getParticipation().getId() + "/latest-pending-submission";
+
+        // Without a build of its commit, a submission with a result is not pending.
+        assertThat(request.get(url, HttpStatus.OK, SubmissionDTO.class)).isNull();
+
+        JobTimingInfo jobTimingInfo = new JobTimingInfo(ZonedDateTime.now().minusSeconds(30), ZonedDateTime.now(), null, ZonedDateTime.now().plusSeconds(30), 60);
+        BuildConfig buildConfig = new BuildConfig(null, null, commitHash, commitHash, null, null, null, null, false, false, null, 0, null, null, null, null);
+        BuildJobQueueItem buildJobQueueItem = new BuildJobQueueItem("1", "1", null, submission.getParticipation().getId(), 1L, programmingExercise.getId(), 0, 1, null, null,
+                jobTimingInfo, buildConfig, null);
+        processingJobs.put(buildJobQueueItem.id(), buildJobQueueItem);
+        var submissionDto = request.get(url, HttpStatus.OK, SubmissionDTO.class);
+        processingJobs.remove(buildJobQueueItem.id());
+
+        assertThat(submissionDto).isNotNull();
+        assertThat(submissionDto.id()).isEqualTo(submission.getId());
+        assertThat(submissionDto.isProcessing()).isTrue();
     }
 
     /**

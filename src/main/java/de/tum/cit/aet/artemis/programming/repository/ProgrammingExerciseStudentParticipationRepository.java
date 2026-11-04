@@ -105,6 +105,23 @@ public interface ProgrammingExerciseStudentParticipationRepository extends Artem
     Optional<ProgrammingExerciseStudentParticipation> findByExerciseIdAndStudentId(@Param("exerciseId") long exerciseId, @Param("studentId") long studentId);
 
     /**
+     * The id of the student's practice participation in an exercise; the practice counterpart of
+     * {@link #findByExerciseIdAndStudentId(long, long)}, of which a student also has at most one per exercise.
+     *
+     * @param exerciseId the id of the exercise
+     * @param studentId  the id of the student
+     * @return the id of the practice participation, or empty if the student has not started the practice mode
+     */
+    @Query("""
+            SELECT p.id
+            FROM ProgrammingExerciseStudentParticipation p
+            WHERE p.exercise.id = :exerciseId
+                AND p.student.id = :studentId
+                AND p.testRun = TRUE
+            """)
+    Optional<Long> findPracticeParticipationIdByExerciseIdAndStudentId(@Param("exerciseId") long exerciseId, @Param("studentId") long studentId);
+
+    /**
      * Like {@link #findByExerciseIdAndStudentId(long, long)}, but with the student eagerly fetched.
      * <p>
      * Needed by callers that run outside a web request (spring.jpa.open-in-view is off) and have to address the

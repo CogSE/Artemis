@@ -658,6 +658,18 @@ public class SharedQueueManagementService {
                 .orElse(null);
     }
 
+    /**
+     * Check if a build of a submission is waiting in the queue.
+     *
+     * @param participationId the id of the participation
+     * @param commitHash      the commit hash
+     * @return whether a queued build job builds that commit for the participation
+     */
+    public boolean isSubmissionQueued(long participationId, String commitHash) {
+        return distributedDataAccessService.getQueuedJobs().stream()
+                .anyMatch(job -> job.participationId() == participationId && Objects.equals(commitHash, job.buildConfig().assignmentCommitHash()));
+    }
+
     public record BuildTimingInfo(ZonedDateTime buildStartDate, ZonedDateTime estimatedCompletionDate) {
     }
 }

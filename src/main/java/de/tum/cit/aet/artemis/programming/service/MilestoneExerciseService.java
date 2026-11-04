@@ -334,7 +334,7 @@ public class MilestoneExerciseService {
      * @param groupId  the id of the milestone group to check
      * @param courseId the id of the course the group belongs to
      * @param user     the requesting student
-     * @return the student's participation id in the milestone (if started), the milestone's problem statement and its
+     * @return the student's graded and practice participation ids in the milestone (where started), the milestone's problem statement and its
      *         Definition of Done tests
      */
     public MilestoneStatusDTO getMilestoneStatus(Long groupId, Long courseId, User user) {
@@ -349,9 +349,12 @@ public class MilestoneExerciseService {
         String problemStatement = milestoneExerciseGroupRepository.findMilestoneProblemStatementByGroupId(groupId).orElse(null);
         Long participationId = programmingExerciseStudentParticipationRepository.findByExerciseIdAndStudentId(milestoneExerciseId, user.getId())
                 .map(ProgrammingExerciseStudentParticipation::getId).orElse(null);
+        // Started from the group view after the due date; it carries the milestone's practice repository, which the stories share.
+        Long practiceParticipationId = programmingExerciseStudentParticipationRepository.findPracticeParticipationIdByExerciseIdAndStudentId(milestoneExerciseId, user.getId())
+                .orElse(null);
         // The very set MilestoneScoreService gates the points on, so the student's Definition of Done box cannot disagree with it.
         Set<Long> definitionOfDoneTestCaseIds = programmingExerciseTaskRepository.findDefinitionOfDoneTestCaseIdsByExerciseId(milestoneExerciseId);
-        return new MilestoneStatusDTO(participationId, problemStatement, definitionOfDoneTestCaseIds);
+        return new MilestoneStatusDTO(participationId, practiceParticipationId, problemStatement, definitionOfDoneTestCaseIds);
     }
 
     /**

@@ -351,6 +351,9 @@ public class ProgrammingExerciseParticipationResource {
         catch (IllegalArgumentException ex) {
             throw new EntityNotFoundException("participation", participationId);
         }
+        if (submissionOpt.isEmpty() && !lastGraded) {
+            submissionOpt = sharedQueueManagementService.flatMap(queue -> findSubmissionBeingRebuilt(queue, participationId));
+        }
         if (submissionOpt.isEmpty()) {
             return ResponseEntity.ok(null);
         }
@@ -376,6 +379,46 @@ public class ProgrammingExerciseParticipationResource {
         programmingSubmission.setParticipation(null);
         var submissionDTO = SubmissionDTO.of(programmingSubmission, isSubmissionProcessing, buildStartDate, estimatedCompletionDate);
         return ResponseEntity.ok(submissionDTO);
+    }
+
+    /**
+     * The latest submission of a participation while a build of its commit is queued or running, although it already has
+     * a result. A triggered rebuild of a commit reuses that commit's submission instead of creating a new one, so the
+     * submission keeps the result of the build before until the rebuild's result arrives. Without this, a page opened
+     * during the rebuild - or reopened, after navigating away - would find nothing pending and show the old result
+     * instead of the running build.
+     *
+     * @param sharedQueueManagementService the local CI queue to look the job up in
+     * @param participationId              the participation whose latest submission is checked; its access is already checked
+     * @return the latest submission, if a build of its commit is queued or running
+     */
+    private Optional<ProgrammingSubmission> findSubmissionBeingRebuilt(SharedQueueManagementService sharedQueueManagementService, long participationId) {
+        try {
+            return submissionService.findLatestSubmission(participationId).filter(submission -> submission.getCommitHash() != null)
+                    .filter(submission -> findBuildTimingInfo(sharedQueueManagementService, participationId, submission.getCommitHash()) != null
+                            || isBuildQueued(sharedQueueManagementService, participationId, submission.getCommitHash()));
+        }
+        catch (Exception e) {
+            log.warn("Failed to check for a running rebuild of participation {}: {}", participationId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Whether a build of {@code commitHash} is waiting in the queue for a participation - for a user story, for the
+     * milestone participation that builds its repository (see {@link #findBuildTimingInfo}).
+     *
+     * @param sharedQueueManagementService the local CI queue to look the job up in
+     * @param participationId              the participation the submission belongs to
+     * @param commitHash                   the commit hash of the submission
+     * @return whether the participation or its milestone has a queued build of that commit
+     */
+    private boolean isBuildQueued(SharedQueueManagementService sharedQueueManagementService, long participationId, String commitHash) {
+        if (sharedQueueManagementService.isSubmissionQueued(participationId, commitHash)) {
+            return true;
+        }
+        return programmingExerciseStudentParticipationRepository.findById(participationId).flatMap(userStoryExerciseService::findMilestoneParticipationForUserStory)
+                .map(milestoneParticipation -> sharedQueueManagementService.isSubmissionQueued(milestoneParticipation.getId(), commitHash)).orElse(false);
     }
 
     /**
