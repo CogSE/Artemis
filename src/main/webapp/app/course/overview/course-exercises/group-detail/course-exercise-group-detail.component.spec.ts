@@ -838,8 +838,8 @@ describe('CourseExerciseGroupDetailComponent', () => {
                     .milestoneCodeButtonParticipations()
                     .map((participation) => participation.id),
             ).toEqual([555, 556]);
-            expect(actions().milestoneParticipationMode()).toBe('practice');
-            expect(actions().routerLinkForMilestoneRepository()).toEqual(['/courses', 1, 'exercises', 99, 'repository', 556]);
+            expect(actions().milestoneParticipationMode()).toBe('graded');
+            expect(actions().routerLinkForMilestoneRepository()).toEqual(['/courses', 1, 'exercises', 99, 'repository', 555]);
         });
 
         it('loads the practice participation once the practice mode was started', async () => {
@@ -871,21 +871,8 @@ describe('CourseExerciseGroupDetailComponent', () => {
                 ]);
             }
 
-            it('shows and follows the practice participation by default', async () => {
+            it('shows and follows the graded participation by default', async () => {
                 await setupBoth();
-
-                expect(actions().milestoneParticipationMode()).toBe('practice');
-                expect(actions().displayedMilestoneResult()?.id).toBe(802);
-                expect(registeredParticipations.map((registration) => registration.participationId)).toContain(556);
-                expect(registeredParticipations.map((registration) => registration.participationId)).not.toContain(555);
-            });
-
-            it('shows and follows the graded participation while an individual due date is still running', async () => {
-                // The practice repository was started before the student's due date was extended.
-                await setupActions(dayjs().subtract(1, 'day'), { participationId: 555, practiceParticipationId: 556 } as MilestoneStatusDTO, [
-                    milestoneParticipation(555, { individualDueDate: dayjs().add(1, 'day'), result: gradedResult }),
-                    milestoneParticipation(556, { testRun: true, result: practiceResult }),
-                ]);
 
                 expect(actions().milestoneParticipationMode()).toBe('graded');
                 expect(actions().displayedMilestoneResult()?.id).toBe(801);
@@ -893,22 +880,25 @@ describe('CourseExerciseGroupDetailComponent', () => {
                 expect(registeredParticipations.map((registration) => registration.participationId)).not.toContain(556);
             });
 
-            it('moves the build widgets and the live subscription to the graded participation when switched', async () => {
+            it('moves the build widgets and the live subscription to the practice participation when switched', async () => {
                 await setupBoth();
 
-                actions().milestoneParticipationMode.set('graded');
+                actions().milestoneParticipationMode.set('practice');
                 fixture.detectChanges();
                 await fixture.whenStable();
 
-                expect(actions().displayedMilestoneResult()?.id).toBe(801);
-                expect(registeredParticipations.map((registration) => registration.participationId)).toContain(555);
-                expect(releasedResultParticipationIds).toContain(556);
-                expect(actions().routerLinkForMilestoneRepository()).toEqual(['/courses', 1, 'exercises', 99, 'repository', 555]);
+                expect(actions().displayedMilestoneResult()?.id).toBe(802);
+                expect(registeredParticipations.map((registration) => registration.participationId)).toContain(556);
+                expect(releasedResultParticipationIds).toContain(555);
+                expect(actions().routerLinkForMilestoneRepository()).toEqual(['/courses', 1, 'exercises', 99, 'repository', 556]);
             });
 
             it('keeps the group points graded while a practice result is shown', async () => {
                 await setupBoth();
                 storedGroupPoints.set(GROUP_ID, 5);
+                actions().milestoneParticipationMode.set('practice');
+                fixture.detectChanges();
+                await fixture.whenStable();
 
                 // A live practice build: the practice participation is the one subscribed.
                 latestResultOf(556).next({ id: 803, score: 100 } as unknown as Result);

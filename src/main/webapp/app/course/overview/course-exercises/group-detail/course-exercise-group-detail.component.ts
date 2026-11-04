@@ -410,26 +410,13 @@ export class CourseExerciseGroupDetailComponent {
 
     /**
      * Which of the milestone's participations the page shows: its build status, code quality and task outcomes, and the
-     * repository the code button and the repository link refer to. Starts at the repository the student works in: the
-     * graded one while their own due date is running - an individual due date can extend it past a practice repository
-     * started earlier - and the practice one once that due date has passed or the student only practices. Switched
-     * with the participation mode toggle, which only appears while the student has both. The group's points always
-     * stay graded.
+     * repository the code button and the repository link refer to. Starts at the graded participation, and at the
+     * practice one only when the student has no graded one. Switched with the participation mode toggle, which only
+     * appears while the student has both. The group's points always stay graded.
      */
     protected readonly milestoneParticipationMode = linkedSignal<ParticipationMode>(() => {
         const status = this.milestoneStatus();
-        if (status?.practiceParticipationId === undefined) {
-            return 'graded';
-        }
-        if (status.participationId === undefined) {
-            return 'practice';
-        }
-        // Until the graded participation has loaded, its individual due date is unknown; the graded one is the safe start.
-        if (!this.milestoneParticipation()) {
-            return 'graded';
-        }
-        const dueDate = this.milestoneIndividualDueDate() ?? this.group()?.dueDate;
-        return dueDate && this.now.isAfter(dueDate) ? 'practice' : 'graded';
+        return status?.participationId === undefined && status?.practiceParticipationId !== undefined ? 'practice' : 'graded';
     });
 
     /**
