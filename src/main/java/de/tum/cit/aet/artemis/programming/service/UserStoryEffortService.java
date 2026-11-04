@@ -3,6 +3,7 @@ package de.tum.cit.aet.artemis.programming.service;
 import static de.tum.cit.aet.artemis.core.config.Constants.PROFILE_CORE;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
@@ -54,11 +55,12 @@ public class UserStoryEffortService {
      *
      * @param exerciseId the id of the user story exercise
      * @param user       the requesting user
-     * @return the summed pair
+     * @return the summed pair; nothing estimated and nothing logged if the user never started the story graded - a
+     *         student who only practices it has no board to sum, and that must not be an error
      */
     public UserStoryEffortDTO findForUser(long exerciseId, User user) {
-        StudentParticipation participation = resolveOwnParticipationElseThrow(exerciseId, user);
-        return userStoryTaskRepository.sumEffortByParticipationId(participation.getId());
+        return findOwnGradedParticipation(exerciseId, user).map(participation -> userStoryTaskRepository.sumEffortByParticipationId(participation.getId()))
+                .orElseGet(() -> new UserStoryEffortDTO(0.0, null));
     }
 
     /**
@@ -74,24 +76,23 @@ public class UserStoryEffortService {
     }
 
     /**
-     * Resolves the participation the user reports on, rejecting anything that is not the user's own participation in
-     * a user story exercise.
+     * Finds the user's own graded participation the effort is reported on, rejecting any exercise that is not a user
+     * story exercise.
      *
      * @param exerciseId the id of the exercise, which must be a {@link UserStoryExercise}
      * @param user       the requesting user
-     * @return the user's (or their team's) graded participation in that exercise
+     * @return the user's (or their team's) graded participation in that exercise, or empty if there is none
      */
-    private StudentParticipation resolveOwnParticipationElseThrow(long exerciseId, User user) {
+    private Optional<StudentParticipation> findOwnGradedParticipation(long exerciseId, User user) {
         Exercise exercise = exerciseRepository.findByIdElseThrow(exerciseId);
         if (!(exercise instanceof UserStoryExercise)) {
             throw new BadRequestAlertException("Effort can only be reported for a user story exercise", ENTITY_NAME, "notUserStoryExercise");
         }
         // The graded participation: a practice participation has no board of its own. Team-aware: for a team exercise this
         // resolves the team's single participation, so its members share one pair.
-        StudentParticipation participation = participationService.findOneGradedByExerciseAndStudentAnyState(exercise, user)
-                .orElseThrow(() -> new BadRequestAlertException("The exercise has to be started before its effort can be reported", ENTITY_NAME, "participationMissing"));
+        Optional<StudentParticipation> participation = participationService.findOneGradedByExerciseAndStudentAnyState(exercise, user);
         // Belt and braces: the lookup above is already scoped to this user, so this only ever fires if that changes.
-        participationAuthorizationCheckService.checkCanAccessParticipationElseThrow(participation);
+        participation.ifPresent(participationAuthorizationCheckService::checkCanAccessParticipationElseThrow);
         return participation;
     }
 }

@@ -426,6 +426,28 @@ class UserStoryTaskIntegrationTest extends AbstractProgrammingIntegrationIndepen
         });
     }
 
+    /**
+     * A student who first starts the story in practice mode after the due date never had a board: listing it is empty
+     * rather than an error the client would show, and no task can be created on it.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void aStudentWhoOnlyPracticesHasAnEmptyBoardTheyCannotAddTo() throws Exception {
+        passTheDueDate();
+        participationUtilService.createAndSavePracticeParticipationForExercise(userStory, studentLogin);
+
+        assertThat(request.getList(tasksUrl(userStory.getId()), HttpStatus.OK, UserStoryTaskDTO.class)).isEmpty();
+        request.postWithResponseBody(tasksUrl(userStory.getId()), aTask(), UserStoryTaskDTO.class, HttpStatus.BAD_REQUEST);
+        // The table is shared with the other tests, so only this story's tasks are looked at.
+        assertThat(userStoryTaskRepository.findAll()).noneMatch(task -> task.getParticipation().getExercise().getId().equals(userStory.getId()));
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void listingTasksIsEmptyWithoutAParticipation() throws Exception {
+        assertThat(request.getList(tasksUrl(userStory.getId()), HttpStatus.OK, UserStoryTaskDTO.class)).isEmpty();
+    }
+
     private void passTheDueDate() {
         userStory.setDueDate(ZonedDateTime.now().minusHours(1));
         userStory = (UserStoryExercise) programmingExerciseRepository.save(userStory);

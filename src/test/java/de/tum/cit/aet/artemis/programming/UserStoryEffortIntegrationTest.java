@@ -146,10 +146,28 @@ class UserStoryEffortIntegrationTest extends AbstractProgrammingIntegrationIndep
         assertThat(effort.actualEffort()).isEqualTo(1.0);
     }
 
+    /**
+     * A student who only practices the story - first started after the due date - has no graded board: the header's
+     * effort boxes read an empty one instead of getting an error the client would show.
+     */
     @Test
     @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
-    void readingEffortIsRejectedWithoutAParticipation() throws Exception {
-        request.get(effortUrl(userStory.getId()), HttpStatus.BAD_REQUEST, UserStoryEffortDTO.class);
+    void readingEffortReportsNothingForAStudentWhoOnlyPractices() throws Exception {
+        participationUtilService.createAndSavePracticeParticipationForExercise(userStory, studentLogin);
+
+        UserStoryEffortDTO effort = request.get(effortUrl(userStory.getId()), HttpStatus.OK, UserStoryEffortDTO.class);
+
+        assertThat(effort.estimatedEffort()).isEqualTo(0.0);
+        assertThat(effort.actualEffort()).isNull();
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void readingEffortReportsNothingWithoutAParticipation() throws Exception {
+        UserStoryEffortDTO effort = request.get(effortUrl(userStory.getId()), HttpStatus.OK, UserStoryEffortDTO.class);
+
+        assertThat(effort.estimatedEffort()).isEqualTo(0.0);
+        assertThat(effort.actualEffort()).isNull();
     }
 
     @Test

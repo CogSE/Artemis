@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -72,14 +73,18 @@ public class UserStoryTaskService {
 
     /**
      * The user's tasks for the story, in the user's own manual board order.
+     * <p>
+     * Without a graded participation the board is empty rather than an error: a student who only started the practice
+     * mode after the due date never had a board, and the practice participation has none of its own.
      *
      * @param exerciseId the id of the user story exercise
      * @param user       the requesting user
-     * @return the tasks on the user's (or their team's) board
+     * @return the tasks on the user's (or their team's) board; empty if they never started the story graded
      */
     public List<UserStoryTaskDTO> findAllForUser(long exerciseId, User user) {
-        StudentParticipation participation = resolveOwnParticipationElseThrow(exerciseId, user);
-        return userStoryTaskRepository.findAllByParticipationIdOrderByOrderIndexAsc(participation.getId()).stream().map(UserStoryTaskDTO::of).toList();
+        return findOwnGradedParticipation(exerciseId, user)
+                .map(participation -> userStoryTaskRepository.findAllByParticipationIdOrderByOrderIndexAsc(participation.getId()).stream().map(UserStoryTaskDTO::of).toList())
+                .orElseGet(List::of);
     }
 
     /**
@@ -211,16 +216,27 @@ public class UserStoryTaskService {
      * @return the user's (or their team's) graded participation in that exercise
      */
     private StudentParticipation resolveOwnParticipationElseThrow(long exerciseId, User user) {
+        return findOwnGradedParticipation(exerciseId, user)
+                .orElseThrow(() -> new BadRequestAlertException("The exercise has to be started before tasks can be created for it", ENTITY_NAME, "participationMissing"));
+    }
+
+    /**
+     * The participation the user's board belongs to, if they have started the story graded.
+     *
+     * @param exerciseId the id of the exercise, which must be a {@link UserStoryExercise}
+     * @param user       the requesting user
+     * @return the user's (or their team's) graded participation in that exercise, or empty if there is none
+     */
+    private Optional<StudentParticipation> findOwnGradedParticipation(long exerciseId, User user) {
         Exercise exercise = exerciseRepository.findByIdElseThrow(exerciseId);
         if (!(exercise instanceof UserStoryExercise)) {
             throw new BadRequestAlertException("Tasks can only be created for a user story exercise", ENTITY_NAME, "notUserStoryExercise");
         }
         // The graded participation: a practice participation has no board of its own. Team-aware: for a team exercise this
         // resolves the team's single participation, so its members share one board.
-        StudentParticipation participation = participationService.findOneGradedByExerciseAndStudentAnyState(exercise, user)
-                .orElseThrow(() -> new BadRequestAlertException("The exercise has to be started before tasks can be created for it", ENTITY_NAME, "participationMissing"));
+        Optional<StudentParticipation> participation = participationService.findOneGradedByExerciseAndStudentAnyState(exercise, user);
         // Belt and braces: the lookup above is already scoped to this user, so this only ever fires if that changes.
-        participationAuthorizationCheckService.checkCanAccessParticipationElseThrow(participation);
+        participation.ifPresent(participationAuthorizationCheckService::checkCanAccessParticipationElseThrow);
         return participation;
     }
 
