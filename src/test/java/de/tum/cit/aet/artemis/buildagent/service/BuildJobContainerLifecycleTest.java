@@ -20,6 +20,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +78,7 @@ class BuildJobContainerLifecycleTest {
         when(docker.inspectContainerCmd("build")).thenReturn(inspect);
         when(inspect.exec()).thenThrow(new NotFoundException("no such container"));
         when(docker.createContainerCmd("image")).thenReturn(create);
+        ReflectionTestUtils.setField(service, "maxFinishedContainers", 20);
         when(configuration.hostConfig())
                 .thenReturn(HostConfig.newHostConfig().withCpuPeriod(100000L).withCpuQuota(200000L).withMemory(1024L).withMemorySwap(2048L).withPidsLimit(100L));
     }
@@ -243,7 +246,7 @@ class BuildJobContainerLifecycleTest {
     }
 
     @Test
-    void unresponsiveContainerIsKilledWithoutGracefulStop() {
+    void unresponsiveContainerIsKilledWithoutGracefulStopAndRemovedLater() {
         KillContainerCmd kill = mock(KillContainerCmd.class);
         when(docker.killContainerCmd("id")).thenReturn(kill);
 
@@ -252,15 +255,14 @@ class BuildJobContainerLifecycleTest {
         verify(kill).exec();
         verify(docker, never()).stopContainerCmd(any());
         verify(docker, never()).removeContainerCmd(any());
+        assertThat(service.getNumberOfFinishedContainers()).isOne();
     }
 
     @ParameterizedTest
     @ValueSource(strings = { "missing", "not-running", "conflict", "other" })
-    void unresponsiveContainerThatCannotBeKilledIsRemovedUnlessGone(String failure) {
+    void unresponsiveContainerThatCannotBeKilledIsScheduledForRemovalUnlessGone(String failure) {
         KillContainerCmd kill = mock(KillContainerCmd.class);
-        RemoveContainerCmd remove = mock(RemoveContainerCmd.class, RETURNS_SELF);
         when(docker.killContainerCmd("id")).thenReturn(kill);
-        when(docker.removeContainerCmd("id")).thenReturn(remove);
         RuntimeException exception = switch (failure) {
             case "missing" -> new NotFoundException("already removed");
             case "not-running" -> new NotModifiedException("already stopped");
@@ -271,14 +273,93 @@ class BuildJobContainerLifecycleTest {
 
         assertThatCode(() -> service.stopUnresponsiveContainer("id")).doesNotThrowAnyException();
 
-        if (failure.equals("missing")) {
-            verify(remove, never()).exec();
-        }
-        else {
-            verify(remove).withForce(true);
-            verify(remove).exec();
-        }
+        assertThat(service.getNumberOfFinishedContainers()).isEqualTo(failure.equals("missing") ? 0 : 1);
+        verify(docker, never()).removeContainerCmd(any());
         verify(docker, never()).stopContainerCmd(any());
+    }
+
+    @Test
+    void stoppedContainerIsScheduledForRemoval() {
+        doReturn(inspected("running-id", "running")).when(inspect).exec();
+        // The stop file exec itself is not mocked; a failing exec only logs a warning, the container is scheduled for removal before it
+        service.stopContainer("build");
+        assertThat(service.getNumberOfFinishedContainers()).isOne();
+    }
+
+    @Test
+    void idleAgentRemovesFinishedContainersOneByOneAndStopsWhenAJobStarts() {
+        ThreadPoolExecutor buildExecutor = mock(ThreadPoolExecutor.class);
+        when(buildExecutor.getQueue()).thenReturn(new LinkedBlockingQueue<>());
+        // idle for the first container, then a build job starts
+        when(buildExecutor.getActiveCount()).thenReturn(0, 1);
+        when(configuration.getBuildExecutor()).thenReturn(buildExecutor);
+        RemoveContainerCmd remove = mock(RemoveContainerCmd.class, RETURNS_SELF);
+        when(docker.removeContainerCmd(any())).thenReturn(remove);
+        service.scheduleRemoval("first");
+        service.scheduleRemoval("second");
+
+        service.removeFinishedContainers();
+
+        verify(remove).withForce(true);
+        verify(remove).exec();
+        assertThat(service.getNumberOfFinishedContainers()).isOne();
+    }
+
+    @Test
+    void busyAgentPostponesRemovalUntilLimitIsExceededThenRemovesAll() {
+        ThreadPoolExecutor buildExecutor = mock(ThreadPoolExecutor.class);
+        when(buildExecutor.getActiveCount()).thenReturn(2);
+        when(configuration.getBuildExecutor()).thenReturn(buildExecutor);
+        RemoveContainerCmd remove = mock(RemoveContainerCmd.class, RETURNS_SELF);
+        when(docker.removeContainerCmd(any())).thenReturn(remove);
+        ReflectionTestUtils.setField(service, "maxFinishedContainers", 2);
+        service.scheduleRemoval("first");
+        service.scheduleRemoval("second");
+
+        service.removeFinishedContainers();
+        verify(remove, never()).exec();
+        assertThat(service.getNumberOfFinishedContainers()).isEqualTo(2);
+
+        service.scheduleRemoval("third");
+        service.removeFinishedContainers();
+        verify(remove, times(3)).exec();
+        assertThat(service.getNumberOfFinishedContainers()).isZero();
+    }
+
+    @Test
+    void failedRemovalIsRetriedAndGivenUpAfterFiveAttemptsWhileMissingContainerIsDropped() {
+        RemoveContainerCmd failing = mock(RemoveContainerCmd.class, RETURNS_SELF);
+        RemoveContainerCmd missing = mock(RemoveContainerCmd.class, RETURNS_SELF);
+        when(docker.removeContainerCmd("failing")).thenReturn(failing);
+        when(docker.removeContainerCmd("missing")).thenReturn(missing);
+        doThrow(new IllegalStateException("removal in progress")).when(failing).exec();
+        doThrow(new NotFoundException("already removed")).when(missing).exec();
+        service.scheduleRemoval("failing");
+        service.scheduleRemoval("missing");
+
+        service.removeFinishedContainers();
+        assertThat(service.getNumberOfFinishedContainers()).isOne();
+        for (int attempt = 2; attempt <= 5; attempt++) {
+            service.removeFinishedContainers();
+        }
+
+        verify(failing, times(5)).exec();
+        assertThat(service.getNumberOfFinishedContainers()).isZero();
+    }
+
+    @Test
+    void conflictingContainerIsRemovedRightAwayAndLeavesTheRemovalQueue() {
+        CreateContainerResponse response = mock(CreateContainerResponse.class);
+        when(create.exec()).thenThrow(new ConflictException("name already in use")).thenReturn(response);
+        doReturn(inspected("old", "exited")).when(inspect).exec();
+        RemoveContainerCmd remove = mock(RemoveContainerCmd.class, RETURNS_SELF);
+        when(docker.removeContainerCmd("old")).thenReturn(remove);
+        service.scheduleRemoval("old");
+
+        service.configureContainer("build", "image", new DockerRunConfig(null, null, 0, 0, 0));
+
+        verify(remove).exec();
+        assertThat(service.getNumberOfFinishedContainers()).isZero();
     }
 
     @Test

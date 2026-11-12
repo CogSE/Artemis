@@ -67,22 +67,26 @@ class BuildAgentDockerCleanupTest {
         ReflectionTestUtils.setField(service, "imageCleanupEnabled", true);
         ReflectionTestUtils.setField(service, "imageExpiryDays", 2);
         ReflectionTestUtils.setField(service, "containerExpiryMinutes", 5);
+        ReflectionTestUtils.setField(service, "maxBuildTimeoutSeconds", 240);
         ReflectionTestUtils.setField(service, "buildContainerPrefix", "local-ci-");
         ReflectionTestUtils.setField(service, "buildAgentShortName", "agent");
         ReflectionTestUtils.setField(service, "imageCleanupDiskSpaceThresholdMb", 100);
     }
 
     @Test
-    void initialCleanupRemovesAllOwnContainersAndLaterOnlyExpiredOnes() {
-        Container old = container("old", new String[] { "/local-ci-old" }, Instant.now().minusSeconds(600).getEpochSecond());
-        Container young = container("young", new String[] { "/local-ci-young" }, Instant.now().getEpochSecond());
-        Container other = container("other", new String[] { "/other-service" }, 0);
-        Container unnamed = container("unnamed", null, 0);
-        Container emptyNames = container("empty", new String[0], 0);
-        when(listContainers.exec()).thenReturn(List.of(old, young, other, unnamed, emptyNames));
+    void initialCleanupKillsAllOwnContainersAndLaterOnlyThoseOlderThanAnyBuild() {
+        // build-timeout-seconds.max of 240 s plus the 10 minute margin: running containers are only stale after 14 minutes
+        Container stuck = container("stuck", new String[] { "/local-ci-stuck" }, Instant.now().minusSeconds(15 * 60).getEpochSecond(), "running");
+        Container stillBuilding = container("building", new String[] { "/local-ci-building" }, Instant.now().minusSeconds(10 * 60).getEpochSecond(), "running");
+        Container young = container("young", new String[] { "/local-ci-young" }, Instant.now().getEpochSecond(), "running");
+        Container other = container("other", new String[] { "/other-service" }, 0, "running");
+        Container unnamed = container("unnamed", null, 0, "running");
+        Container emptyNames = container("empty", new String[0], 0, "running");
+        when(listContainers.exec()).thenReturn(List.of(stuck, stillBuilding, young, other, unnamed, emptyNames));
         service.cleanUpContainers();
         service.cleanUpContainers();
-        verify(containers, times(2)).stopUnresponsiveContainer("old");
+        verify(containers, times(2)).stopUnresponsiveContainer("stuck");
+        verify(containers).stopUnresponsiveContainer("building");
         verify(containers).stopUnresponsiveContainer("young");
         verify(containers, never()).stopUnresponsiveContainer("other");
         verify(containers, never()).stopUnresponsiveContainer("unnamed");
@@ -90,8 +94,24 @@ class BuildAgentDockerCleanupTest {
     }
 
     @Test
+    void laterCleanupHandsOverExitedAndExpiredCreatedContainersForRemoval() {
+        Container exited = container("exited", new String[] { "/local-ci-exited" }, Instant.now().getEpochSecond(), "exited");
+        Container dead = container("dead", new String[] { "/local-ci-dead" }, Instant.now().getEpochSecond(), "dead");
+        Container expiredCreated = container("expired", new String[] { "/local-ci-expired" }, Instant.now().minusSeconds(600).getEpochSecond(), "created");
+        Container freshCreated = container("fresh", new String[] { "/local-ci-fresh" }, Instant.now().getEpochSecond(), "created");
+        when(listContainers.exec()).thenReturn(List.of()).thenReturn(List.of(exited, dead, expiredCreated, freshCreated));
+        service.cleanUpContainers();
+        service.cleanUpContainers();
+        verify(containers).scheduleRemoval("exited");
+        verify(containers).scheduleRemoval("dead");
+        verify(containers).scheduleRemoval("expired");
+        verify(containers, never()).scheduleRemoval("fresh");
+        verify(containers, never()).stopUnresponsiveContainer(any());
+    }
+
+    @Test
     void failedInitialListingStillAdvancesToAgeFilteredCleanup() {
-        Container young = container("young", new String[] { "/local-ci-young" }, Instant.now().getEpochSecond());
+        Container young = container("young", new String[] { "/local-ci-young" }, Instant.now().getEpochSecond(), "running");
         when(listContainers.exec()).thenThrow(new IllegalStateException("daemon error")).thenReturn(List.of(young)).thenThrow(new RuntimeException("Connection refused"));
         service.cleanUpContainers();
         service.cleanUpContainers();
@@ -197,11 +217,12 @@ class BuildAgentDockerCleanupTest {
         verify(docker, never()).removeImageCmd(any());
     }
 
-    private Container container(String id, String[] names, long created) {
+    private Container container(String id, String[] names, long created, String state) {
         Container container = mock(Container.class);
         when(container.getId()).thenReturn(id);
         when(container.getNames()).thenReturn(names);
         when(container.getCreated()).thenReturn(created);
+        when(container.getState()).thenReturn(state);
         return container;
     }
 

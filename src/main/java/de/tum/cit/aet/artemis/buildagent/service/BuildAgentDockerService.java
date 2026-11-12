@@ -130,6 +130,16 @@ public class BuildAgentDockerService {
     @Value("${artemis.continuous-integration.container-cleanup.cleanup-schedule-minutes:60}")
     private int containerCleanupScheduleMinutes;
 
+    /** The longest a build may run. A running container younger than this plus {@link #RUNNING_CONTAINER_MARGIN_SECONDS} may still belong to a build. */
+    @Value("${artemis.continuous-integration.build-timeout-seconds.max:240}")
+    private int maxBuildTimeoutSeconds;
+
+    /** Margin on top of the build timeout for the time a build job spends around the build script, e.g. copying files in and results out. */
+    static final long RUNNING_CONTAINER_MARGIN_SECONDS = 10 * 60L;
+
+    /** How often finished build containers are removed if the agent is idle. */
+    static final long FINISHED_CONTAINER_REMOVAL_INTERVAL_SECONDS = 15;
+
     // The image architecture that is supported by the build agent
     // amd64 is the default value, as this is the architecture of Intel and AMD CPUs, which most systems still use
     @Value("${artemis.continuous-integration.image-architecture:amd64}")
@@ -206,28 +216,32 @@ public class BuildAgentDockerService {
 
         // Schedule the cleanup of dangling build containers once 10 seconds after the application has started and then every containerCleanupScheduleMinutes minutes
         taskScheduler.scheduleAtFixedRate(this::cleanUpContainers, Instant.now().plusSeconds(10), Duration.ofMinutes(containerCleanupScheduleMinutes));
+        // Finished build containers are not removed automatically; remove them whenever the agent has nothing to build
+        taskScheduler.scheduleWithFixedDelay(buildJobContainerService::removeFinishedContainers, Instant.now().plusSeconds(FINISHED_CONTAINER_REMOVAL_INTERVAL_SECONDS),
+                Duration.ofSeconds(FINISHED_CONTAINER_REMOVAL_INTERVAL_SECONDS));
     }
 
     /**
      * Cleans up dangling build containers from the system. This method differentiates between the initial cleanup
      * and subsequent cleanups to handle containers differently based on their age and status.
      * <p>
-     * For the initial cleanup, it removes all containers that match the build container prefix, assuming these containers
-     * are left from before the application started. For subsequent cleanups, it only removes containers that are older
-     * than a specified age threshold (defaulted to 5 minutes), targeting containers likely stuck or inactive.
-     * <p>
-     * Detailed steps include:
-     * - Logging the start of the cleanup process.
-     * - Determining whether it's the initial or a subsequent cleanup.
-     * - Listing all containers, filtering them based on name prefix and, for subsequent cleanups, their age.
-     * - Forcibly removing the identified dangling containers.
-     * - Logging the results and completion of the cleanup process.
+     * For the initial cleanup, it kills and removes all containers that match the build container prefix, assuming these containers
+     * are left from before the application started. For subsequent cleanups:
+     * <ul>
+     * <li>Exited containers belong to no build job any more, whatever their age, and are handed over for removal.</li>
+     * <li>Containers created but never started are handed over for removal once they are older than {@code container-cleanup.expiry-minutes}.</li>
+     * <li>Containers that may still be running a build are only killed once they are older than the longest a build may take
+     * ({@code build-timeout-seconds.max}) plus {@link #RUNNING_CONTAINER_MARGIN_SECONDS}, and not less than {@code container-cleanup.expiry-minutes}. A shorter limit
+     * killed the containers of builds that were still running.</li>
+     * </ul>
+     * Containers are removed by {@link BuildJobContainerService#removeFinishedContainers()}, normally while the agent runs no build job.
      *
-     * @implNote The method uses Docker commands to list and remove containers. It handles state changes using a flag
+     * @implNote The method lists all containers. It handles state changes using a flag
      *           (`isFirstCleanup`) to toggle the cleanup logic between the initial and subsequent runs.
      */
     public void cleanUpContainers() {
         List<Container> danglingBuildContainers;
+        List<Container> finishedBuildContainers = List.of();
         log.info("Start cleanup dangling build containers");
 
         if (dockerClientNotAvailable("Cannot clean up dangling build containers.")) {
@@ -255,17 +269,16 @@ public class BuildAgentDockerService {
             }
         }
         else {
-            // Cleanup all containers that are older than 5 minutes (or ageThreshold) for all subsequent cleanups
             // Get current time in seconds
             long now = Instant.now().getEpochSecond();
+            long expiryThreshold = containerExpiryMinutes * 60L;
+            long runningThreshold = Math.max(expiryThreshold, maxBuildTimeoutSeconds + RUNNING_CONTAINER_MARGIN_SECONDS);
 
-            // Threshold for "stuck" containers in seconds
-            long ageThreshold = containerExpiryMinutes * 60L;
-
+            List<Container> buildContainers;
             try {
-                danglingBuildContainers = dockerClient.listContainersCmd().withShowAll(true).exec().stream()
+                buildContainers = dockerClient.listContainersCmd().withShowAll(true).exec().stream()
                         .filter(container -> container.getNames() != null && container.getNames().length > 0 && container.getNames()[0].startsWith("/" + buildContainerPrefix))
-                        .filter(container -> (now - container.getCreated()) > ageThreshold).toList();
+                        .toList();
             }
             catch (Exception ex) {
                 if (DockerUtil.isDockerNotAvailable(ex)) {
@@ -275,13 +288,29 @@ public class BuildAgentDockerService {
                 log.error("Error while listing containers for cleanup: {}", ex.getMessage(), ex);
                 return;
             }
+
+            finishedBuildContainers = buildContainers.stream().filter(container -> isFinished(container, now - container.getCreated(), expiryThreshold)).toList();
+            danglingBuildContainers = buildContainers.stream().filter(container -> !isFinished(container, now - container.getCreated(), expiryThreshold))
+                    .filter(container -> !"created".equals(container.getState())).filter(container -> (now - container.getCreated()) > runningThreshold).toList();
         }
 
+        if (!finishedBuildContainers.isEmpty()) {
+            log.info("Found {} finished build containers that were not removed yet", finishedBuildContainers.size());
+            finishedBuildContainers.forEach(container -> buildJobContainerService.scheduleRemoval(container.getId()));
+        }
         if (!danglingBuildContainers.isEmpty()) {
             log.info("Found {} dangling build containers", danglingBuildContainers.size());
             danglingBuildContainers.forEach(container -> buildJobContainerService.stopUnresponsiveContainer(container.getId()));
         }
         log.info("Cleanup dangling build containers done");
+    }
+
+    /**
+     * Whether a build container only still has to be removed: it has exited, or it was created but not started within the expiry time.
+     */
+    private static boolean isFinished(Container container, long ageSeconds, long expiryThresholdSeconds) {
+        String state = container.getState();
+        return "exited".equals(state) || "dead".equals(state) || ("created".equals(state) && ageSeconds > expiryThresholdSeconds);
     }
 
     /**

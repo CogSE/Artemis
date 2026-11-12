@@ -47,7 +47,6 @@ import com.github.dockerjava.api.command.InspectImageResponse;
 import com.github.dockerjava.api.command.KillContainerCmd;
 import com.github.dockerjava.api.command.ListContainersCmd;
 import com.github.dockerjava.api.command.PullImageCmd;
-import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Info;
@@ -75,6 +74,9 @@ class BuildAgentDockerServiceTest extends AbstractProgrammingIntegrationLocalCIL
 
     @Autowired
     private BuildAgentDockerService buildAgentDockerService;
+
+    @Autowired
+    private BuildJobContainerService buildJobContainerService;
 
     @Autowired
     @Qualifier("hazelcastInstance")
@@ -444,46 +446,55 @@ class BuildAgentDockerServiceTest extends AbstractProgrammingIntegrationLocalCIL
         doReturn(listContainersCmd).when(dockerClient).listContainersCmd();
         doReturn(listContainersCmd).when(listContainersCmd).withShowAll(true);
 
+        // The docker client mock is shared by all tests of the class and never reset
+        clearInvocations(dockerClient);
+        // Running containers only count as stuck once they are older than the longest a build may take (240 s by default) plus a 10 minute margin
+        long stuckAge = 20 * 60;
+
         Container mockContainer = mock(Container.class);
         doReturn(List.of(mockContainer)).when(listContainersCmd).exec();
         doReturn(new String[] { "/local-ci-dummycontainer" }).when(mockContainer).getNames();
-        // Mock container creation time to be older than 5 minutes
-        doReturn(Instant.now().getEpochSecond() - (6 * 60)).when(mockContainer).getCreated();
+        doReturn("running").when(mockContainer).getState();
+        doReturn(Instant.now().getEpochSecond() - stuckAge).when(mockContainer).getCreated();
         doReturn("dummy-container-id").when(mockContainer).getId();
 
         buildAgentDockerService.cleanUpContainers();
 
-        // The stale container is killed right away, without a graceful stop first
+        // The stale container is killed right away, without a graceful stop first, and only removed later
         verify(dockerClient, times(1)).killContainerCmd(anyString());
         verify(dockerClient, never()).stopContainerCmd(anyString());
+        verify(dockerClient, never()).removeContainerCmd(anyString());
 
-        // Mock container creation time to be younger than 5 minutes
-        doReturn(Instant.now().getEpochSecond()).when(mockContainer).getCreated();
-
+        // A running container younger than any build may take is left alone
+        doReturn(Instant.now().getEpochSecond() - (6 * 60)).when(mockContainer).getCreated();
         buildAgentDockerService.cleanUpContainers();
-
-        // Verify that killContainerCmd() was not called a second time
         verify(dockerClient, times(1)).killContainerCmd(anyString());
 
-        // Mock container creation time to be older than 5 minutes
-        doReturn(Instant.now().getEpochSecond() - (6 * 60)).when(mockContainer).getCreated();
-
-        // Mock exception when killing the container
+        // A container that could not be killed is handed over for removal as well
+        doReturn(Instant.now().getEpochSecond() - stuckAge).when(mockContainer).getCreated();
         KillContainerCmd killContainerCmd = mock(KillContainerCmd.class);
         doReturn(killContainerCmd).when(dockerClient).killContainerCmd(anyString());
         doThrow(new RuntimeException("Container killing failed")).when(killContainerCmd).exec();
-
         buildAgentDockerService.cleanUpContainers();
+        verify(dockerClient, never()).removeContainerCmd(anyString());
 
-        // A container that could not be killed is removed by force
-        verify(dockerClient, times(1)).removeContainerCmd(anyString());
-
-        // Mock a container that is not running and therefore cannot be killed
-        doThrow(new ConflictException("Container not running")).when(killContainerCmd).exec();
+        // An exited container is not killed, only handed over for removal
+        doReturn("exited").when(mockContainer).getState();
         buildAgentDockerService.cleanUpContainers();
+        verify(killContainerCmd, times(1)).exec();
+        assertThat(buildJobContainerService.getNumberOfFinishedContainers()).isPositive();
 
-        // It is removed as well
-        verify(dockerClient, times(2)).removeContainerCmd(anyString());
+        // The handed-over containers are removed by force. A limit of 0 makes the removal independent of whether the agent is idle.
+        Object maxFinishedContainers = ReflectionTestUtils.getField(buildJobContainerService, "maxFinishedContainers");
+        ReflectionTestUtils.setField(buildJobContainerService, "maxFinishedContainers", 0);
+        try {
+            buildJobContainerService.removeFinishedContainers();
+        }
+        finally {
+            ReflectionTestUtils.setField(buildJobContainerService, "maxFinishedContainers", maxFinishedContainers);
+        }
+        verify(dockerClient, atLeastOnce()).removeContainerCmd("dummy-container-id");
+        assertThat(buildJobContainerService.getNumberOfFinishedContainers()).isZero();
         verify(dockerClient, never()).stopContainerCmd(anyString());
     }
 }

@@ -39,7 +39,8 @@ class BuildAgentConfigurationHostConfigTest {
 
         assertThat(hostConfig.getTmpFs()).containsExactlyEntriesOf(Map.of("/var/tmp", "rw,exec,size=2g"));
         assertThat(hostConfig.getCpuQuota()).isEqualTo(200000L);
-        assertThat(hostConfig.getAutoRemove()).isTrue();
+        // Finished containers are removed by the build agent while it is idle, not by the container engine when they stop
+        assertThat(hostConfig.getAutoRemove()).isFalse();
     }
 
     @ParameterizedTest

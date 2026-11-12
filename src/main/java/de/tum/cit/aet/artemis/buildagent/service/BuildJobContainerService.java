@@ -10,13 +10,15 @@ import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
@@ -152,6 +154,25 @@ public class BuildJobContainerService {
     @Value("${artemis.continuous-integration.container-flags-limit.max-memory-swap:0}")
     private int maxMemorySwap;
 
+    /**
+     * How many finished build containers may wait for removal while build jobs keep running. Above this, all of them are removed at once, see
+     * {@link #removeFinishedContainers()}.
+     */
+    @Value("${artemis.continuous-integration.container-cleanup.max-finished-containers:20}")
+    private int maxFinishedContainers;
+
+    /** How often removing a finished container may fail before it is left to the scheduled container cleanup. */
+    private static final int MAX_REMOVAL_ATTEMPTS = 5;
+
+    /**
+     * Finished build containers that still have to be removed, with the number of failed removal attempts so far.
+     * <p>
+     * Build containers are not removed automatically when they stop. Removing a container deletes its files while the container engine holds its storage locks,
+     * and with Podman that blocks every container create, start and image inspect of the build jobs starting at the same time. The containers are collected here
+     * instead and removed by {@link #removeFinishedContainers()} once no build job is running.
+     */
+    private final Map<String, Integer> finishedContainers = new ConcurrentHashMap<>();
+
     public BuildJobContainerService(BuildAgentConfiguration buildAgentConfiguration, BuildLogsMap buildLogsMap) {
         this.buildAgentConfiguration = buildAgentConfiguration;
         this.buildLogsMap = buildLogsMap;
@@ -246,7 +267,7 @@ public class BuildJobContainerService {
     private HostConfig copyAndAdjustHostConfig(HostConfig defaultHostConfig, String network, long cpuCount, long memory, long memorySwap) {
         long cpuPeriod = defaultHostConfig.getCpuPeriod();
         HostConfig host = HostConfig.newHostConfig().withCpuQuota(cpuCount * cpuPeriod).withCpuPeriod(cpuPeriod).withMemory(memory).withMemorySwap(memorySwap)
-                .withPidsLimit(defaultHostConfig.getPidsLimit()).withAutoRemove(true);
+                .withPidsLimit(defaultHostConfig.getPidsLimit()).withAutoRemove(false);
         // Keep the working directory tmpfs of the default configuration; only the resource limits and the network are adjusted per exercise.
         if (defaultHostConfig.getTmpFs() != null) {
             host.withTmpFs(defaultHostConfig.getTmpFs());
@@ -381,22 +402,26 @@ public class BuildJobContainerService {
 
     /**
      * Stops the container with the given name by creating a file "stop_container.txt" in its root directory.
-     * The container must be created in such a way that it waits for this file to appear and then stops running, causing it to be removed at the same time.
-     * In case the container is not responding, we can force remove it using {@link DockerClient#removeContainerCmd(String)}.
-     * This takes significantly longer than using the approach with the file because of increased overhead for the removeContainerCmd() method.
+     * The container must be created in such a way that it waits for this file to appear and then stops running.
+     * The stopped container is not removed right away but handed to {@link #scheduleRemoval(String)}.
      *
      * @param containerName The name of the container to stop. Cannot use the container ID, because this method might have to be called from the main thread (not the thread started
      *                          for the build job) where the container ID is not available.
      */
     public void stopContainer(String containerName) {
         Optional<ContainerLookup> container = findContainerByName(containerName);
-
-        // Only a running container can react to the stop file.
-        if (container.isEmpty() || !container.get().isRunning()) {
+        if (container.isEmpty()) {
             return;
         }
 
         String containerId = container.get().id();
+        // Whether it stops now or has already stopped, the container is done and only has to be removed.
+        scheduleRemoval(containerId);
+
+        // Only a running container can react to the stop file.
+        if (!container.get().isRunning()) {
+            return;
+        }
 
         log.info("Stopping container with id {}", containerId);
 
@@ -419,7 +444,8 @@ public class BuildJobContainerService {
      * {@link DockerClient#killContainerCmd(String)}. It is killed right away instead of being stopped first: a build container holds nothing that needs a graceful
      * shutdown, and a stop only waited for its timeout, because the container's main process ignores SIGTERM.
      * <p>
-     * A container that is not running (exited, or created but never started) cannot be killed and is removed instead.
+     * The container is then handed to {@link #scheduleRemoval(String)}, also when it was not running (exited, or created but never started) or could not be
+     * killed: the removal is forced, so it ends such a container as well.
      * <p>
      * Runs to the end even when the calling thread has been interrupted, because it is reached during cancellation and
      * stopping the container is exactly the work that still has to happen.
@@ -437,6 +463,7 @@ public class BuildJobContainerService {
                     }
                 });
                 future.get(10, TimeUnit.SECONDS);
+                scheduleRemoval(containerId);
             }
             catch (Exception e) {
                 // The interrupt status is deliberately left cleared here, which is what java:S2142 would ask to
@@ -453,13 +480,90 @@ public class BuildJobContainerService {
                     return;
                 }
                 if (cause instanceof NotModifiedException || cause instanceof ConflictException) {
-                    // The container is not running: it already exited, or it is stuck in the created state. Neither is removed automatically.
-                    log.info("Container with id {} is not running. Removing it.", containerId);
+                    // The container is not running: it already exited, or it is stuck in the created state.
+                    log.info("Container with id {} is not running. It will be removed.", containerId);
                 }
                 else {
-                    log.error("Failed to kill container with id {}. Removing it by force.", containerId, e);
+                    log.error("Failed to kill container with id {}. It will be removed by force.", containerId, e);
                 }
-                removeContainer(containerId, executor);
+                scheduleRemoval(containerId);
+            }
+        }
+    }
+
+    /**
+     * Hands a finished build container over for removal. It is removed by {@link #removeFinishedContainers()}, normally once no build job is running.
+     *
+     * @param containerId the ID of the container to remove
+     */
+    public void scheduleRemoval(String containerId) {
+        if (containerId != null) {
+            finishedContainers.putIfAbsent(containerId, 0);
+        }
+    }
+
+    /**
+     * Removes the finished build containers handed over by {@link #scheduleRemoval(String)}.
+     * <p>
+     * Removing a container deletes its files while the container engine holds its storage locks, which blocks the container creates, starts and image inspects
+     * of build jobs starting at the same time. So containers are only removed while this build agent runs no build job, one at a time, checking again before each
+     * one, so a job that arrives in between waits for at most one removal.
+     * <p>
+     * If more than {@code container-cleanup.max-finished-containers} containers are waiting, the agent has not been idle for a long time and the containers would
+     * keep piling up on disk. Then all of them are removed at once, although build jobs are running.
+     */
+    public void removeFinishedContainers() {
+        if (finishedContainers.isEmpty() || !buildAgentConfiguration.isDockerAvailable()) {
+            return;
+        }
+        boolean removeAll = finishedContainers.size() > maxFinishedContainers;
+        if (removeAll) {
+            log.info("{} finished build containers are waiting for removal, more than the limit of {}. Removing all of them now, although build jobs may be running.",
+                    finishedContainers.size(), maxFinishedContainers);
+        }
+        for (String containerId : List.copyOf(finishedContainers.keySet())) {
+            if (!removeAll && !isBuildAgentIdle()) {
+                log.debug("Build jobs are running. Postponing the removal of {} finished build containers.", finishedContainers.size());
+                return;
+            }
+            removeFinishedContainer(containerId);
+        }
+    }
+
+    /**
+     * @return the number of finished build containers that are waiting for removal
+     */
+    public int getNumberOfFinishedContainers() {
+        return finishedContainers.size();
+    }
+
+    /**
+     * Whether this build agent currently runs no build job. A job runs on the build executor from the moment it starts until its container is stopped.
+     */
+    private boolean isBuildAgentIdle() {
+        ThreadPoolExecutor buildExecutor = buildAgentConfiguration.getBuildExecutor();
+        return buildExecutor == null || (buildExecutor.getActiveCount() == 0 && buildExecutor.getQueue().isEmpty());
+    }
+
+    private void removeFinishedContainer(String containerId) {
+        long start = System.nanoTime();
+        try (final var removeCommand = buildAgentConfiguration.getDockerClient().removeContainerCmd(containerId).withForce(true)) {
+            removeCommand.exec();
+            finishedContainers.remove(containerId);
+            log.debug("Removed finished build container {} in {} ms", containerId, elapsedMillis(start));
+        }
+        catch (NotFoundException e) {
+            finishedContainers.remove(containerId);
+        }
+        catch (Exception e) {
+            int attempts = finishedContainers.merge(containerId, 1, Integer::sum);
+            if (attempts >= MAX_REMOVAL_ATTEMPTS) {
+                // The scheduled container cleanup will find it again if it is still there
+                finishedContainers.remove(containerId);
+                log.error("Giving up removing finished build container {} after {} attempts: {}", containerId, attempts, e.getMessage());
+            }
+            else {
+                log.warn("Could not remove finished build container {} (attempt {} of {}), trying again later: {}", containerId, attempts, MAX_REMOVAL_ATTEMPTS, e.getMessage());
             }
         }
     }
@@ -469,8 +573,8 @@ public class BuildJobContainerService {
      * This is used when creating a container failed because the name is taken, which can happen when a job is re-queued after agent disconnect
      * (the job ID and thus container name remain the same).
      * <p>
-     * The container is force-removed right away instead of being stopped first: the new container can only be created once the name is free,
-     * and stopping with auto-remove would free it asynchronously.
+     * The container is force-removed right away instead of being handed to {@link #scheduleRemoval(String)}: the new container can only be created once the
+     * name is free.
      *
      * @param containerName The name of the container to remove if it exists.
      */
@@ -487,29 +591,7 @@ public class BuildJobContainerService {
         catch (NotFoundException e) {
             log.debug("Container {} was removed in the meantime", containerId);
         }
-    }
-
-    /**
-     * Force-removes a Docker container asynchronously using the given container ID and executor.
-     * Waits up to 10 seconds for completion. Logs an error if the operation fails.
-     *
-     * @param containerId The ID of the container to remove.
-     * @param executor    The ExecutorService for running the command.
-     */
-    private void removeContainer(String containerId, ExecutorService executor) {
-        try (final var removeCommand = buildAgentConfiguration.getDockerClient().removeContainerCmd(containerId).withForce(true)) {
-            Future<Void> removeFuture = executor.submit(() -> {
-                removeCommand.exec();
-                return null;
-            });
-            removeFuture.get(10, TimeUnit.SECONDS); // Wait for the remove command to complete with a timeout
-        }
-        catch (Exception e) {
-            // Not restoring the interrupt status is deliberate; see stopUnresponsiveContainer. Restoring it here would
-            // additionally make the enclosing try-with-resources close the executor with shutdownNow() instead of
-            // shutdown(), which drains the work queue.
-            log.error("Failed to remove container with id {}", containerId, e);
-        }
+        finishedContainers.remove(containerId);
     }
 
     /**

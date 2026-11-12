@@ -163,7 +163,9 @@ public class BuildAgentConfiguration {
                 formatMemory(memory), formatMemory(memorySwap), pidsLimit, hasBuildContainerTmpfs() ? buildContainerTmpfsOptions : "none");
 
         HostConfig hostConfig = HostConfig.newHostConfig().withCpuQuota(cpuCount * cpuPeriod).withCpuPeriod(cpuPeriod).withMemory(memory).withMemorySwap(memorySwap)
-                .withPidsLimit(pidsLimit).withAutoRemove(true);
+                // Not removed automatically when they stop: removing a container blocks the container engine for other build jobs while its files are deleted.
+                // BuildJobContainerService collects finished containers and removes them while no build job runs.
+                .withPidsLimit(pidsLimit).withAutoRemove(false);
         if (hasBuildContainerTmpfs()) {
             // Files on the tmpfs count against the container's memory limit, so the limit has to leave room for them next to the build itself.
             hostConfig.withTmpFs(Map.of(LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY, buildContainerTmpfsOptions.strip()));
