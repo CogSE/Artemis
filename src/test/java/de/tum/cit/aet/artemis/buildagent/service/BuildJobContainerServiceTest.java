@@ -69,6 +69,8 @@ class BuildJobContainerServiceTest extends AbstractArtemisBuildAgentTest {
         when(createContainerCmd.withName(anyString())).thenReturn(createContainerCmd);
         when(createContainerCmd.withHostConfig(any())).thenReturn(createContainerCmd);
         when(createContainerCmd.withEnv(anyList())).thenReturn(createContainerCmd);
+        when(createContainerCmd.withStopSignal(anyString())).thenReturn(createContainerCmd);
+        when(createContainerCmd.withStopTimeout(any())).thenReturn(createContainerCmd);
         when(createContainerCmd.withEntrypoint()).thenReturn(createContainerCmd);
         when(createContainerCmd.withCmd(ArgumentMatchers.any(String[].class))).thenReturn(createContainerCmd);
         when(createContainerCmd.exec()).thenReturn(null);

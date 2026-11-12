@@ -3,7 +3,6 @@ package de.tum.cit.aet.artemis.buildagent.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
@@ -45,11 +44,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.github.dockerjava.api.command.InfoCmd;
 import com.github.dockerjava.api.command.InspectImageCmd;
 import com.github.dockerjava.api.command.InspectImageResponse;
+import com.github.dockerjava.api.command.KillContainerCmd;
 import com.github.dockerjava.api.command.ListContainersCmd;
 import com.github.dockerjava.api.command.PullImageCmd;
-import com.github.dockerjava.api.command.StopContainerCmd;
+import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.NotFoundException;
-import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Info;
 import com.github.dockerjava.api.model.PullResponseItem;
@@ -454,36 +453,37 @@ class BuildAgentDockerServiceTest extends AbstractProgrammingIntegrationLocalCIL
 
         buildAgentDockerService.cleanUpContainers();
 
-        // Verify that stopContainerCmd() was called
-        verify(dockerClient, times(1)).stopContainerCmd(anyString());
+        // The stale container is killed right away, without a graceful stop first
+        verify(dockerClient, times(1)).killContainerCmd(anyString());
+        verify(dockerClient, never()).stopContainerCmd(anyString());
 
         // Mock container creation time to be younger than 5 minutes
         doReturn(Instant.now().getEpochSecond()).when(mockContainer).getCreated();
 
         buildAgentDockerService.cleanUpContainers();
 
-        // Verify that stopContainerCmd() was not called a second time
-        verify(dockerClient, times(1)).stopContainerCmd(anyString());
+        // Verify that killContainerCmd() was not called a second time
+        verify(dockerClient, times(1)).killContainerCmd(anyString());
 
         // Mock container creation time to be older than 5 minutes
         doReturn(Instant.now().getEpochSecond() - (6 * 60)).when(mockContainer).getCreated();
 
-        // Mock exception when stopping container
-        StopContainerCmd stopContainerCmd = mock(StopContainerCmd.class);
-        doReturn(stopContainerCmd).when(dockerClient).stopContainerCmd(anyString());
-        doReturn(stopContainerCmd).when(stopContainerCmd).withTimeout(anyInt());
-        doThrow(new RuntimeException("Container stopping failed")).when(stopContainerCmd).exec();
+        // Mock exception when killing the container
+        KillContainerCmd killContainerCmd = mock(KillContainerCmd.class);
+        doReturn(killContainerCmd).when(dockerClient).killContainerCmd(anyString());
+        doThrow(new RuntimeException("Container killing failed")).when(killContainerCmd).exec();
 
         buildAgentDockerService.cleanUpContainers();
 
-        // Verify that killContainerCmd() was called
-        verify(dockerClient, times(1)).killContainerCmd(anyString());
-
-        // Mock NotModified exception when stopping container
-        doThrow(new NotModifiedException("Container not running")).when(stopContainerCmd).exec();
-        buildAgentDockerService.cleanUpContainers();
-
-        // Verify that removeContainerCmd() was called
+        // A container that could not be killed is removed by force
         verify(dockerClient, times(1)).removeContainerCmd(anyString());
+
+        // Mock a container that is not running and therefore cannot be killed
+        doThrow(new ConflictException("Container not running")).when(killContainerCmd).exec();
+        buildAgentDockerService.cleanUpContainers();
+
+        // It is removed as well
+        verify(dockerClient, times(2)).removeContainerCmd(anyString());
+        verify(dockerClient, never()).stopContainerCmd(anyString());
     }
 }

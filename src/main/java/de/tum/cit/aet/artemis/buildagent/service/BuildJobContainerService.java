@@ -119,6 +119,14 @@ public class BuildJobContainerService {
      */
     private static final int TAR_RETRY_BASE_DELAY_MS = 100;
 
+    /** Signal a build container is stopped with. Build containers hold nothing worth a graceful shutdown. */
+    static final String BUILD_CONTAINER_STOP_SIGNAL = "SIGKILL";
+
+    /**
+     * The main process of a build container: wait until the stop file appears. It ends on SIGTERM too, because as PID 1 the shell would otherwise ignore it.
+     */
+    static final String MAIN_PROCESS_COMMAND = "trap 'exit 0' TERM; while [ ! -f " + LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/stop_container.txt ]; do sleep 0.5; done";
+
     private final BuildAgentConfiguration buildAgentConfiguration;
 
     private final BuildLogsMap buildLogsMap;
@@ -220,13 +228,15 @@ public class BuildJobContainerService {
     private CreateContainerResponse createContainer(String containerName, String image, HostConfig hostConfig, List<String> envVars) {
         try (final var createCommand = buildAgentConfiguration.getDockerClient().createContainerCmd(image)) {
             return createCommand.withName(containerName).withHostConfig(hostConfig).withEnv(envVars)
+                    // Build containers are thrown away, so nothing in them needs a graceful shutdown. Without this, stopping or force-removing a container sends SIGTERM,
+                    // which the main process below ignores (it runs as PID 1), and the container engine waits its full stop timeout before sending SIGKILL.
+                    .withStopSignal(BUILD_CONTAINER_STOP_SIGNAL).withStopTimeout(0)
                     // Command to run when the container starts. This is the command that will be executed in the container's main process, which runs in the foreground and blocks
-                    // the
-                    // container from exiting until it finishes.
+                    // the container from exiting until it finishes.
                     // It waits until the script that is running the tests (see below execCreateCmdResponse) is completed, and until the result files are extracted which is
-                    // indicated
-                    // by the creation of a file "stop_container.txt" in the container's root directory.
-                    .withEntrypoint().withCmd("sh", "-c", "while [ ! -f " + LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY + "/stop_container.txt ]; do sleep 0.5; done")
+                    // indicated by the creation of a file "stop_container.txt" in the container's root directory.
+                    // The trap makes the loop end on SIGTERM as well, for a stop that does not use the stop signal configured above.
+                    .withEntrypoint().withCmd("sh", "-c", MAIN_PROCESS_COMMAND)
                     // .withCmd("tail", "-f", "/dev/null") // Activate for debugging purposes instead of the above command to get a running container that you can peek into using
                     // "docker exec -it <container-id> /bin/bash".
                     .exec();
@@ -404,34 +414,29 @@ public class BuildJobContainerService {
     }
 
     /**
-     * Stops, kills or removes a container in case a build job has failed or the container is unresponsive.
-     * Adding a file "stop_container.txt" like in {@link #stopContainer(String)} might not work for unresponsive containers, thus we use
-     * {@link DockerClient#stopContainerCmd(String)}, {@link DockerClient#killContainerCmd(String)} and {@link DockerClient#removeContainerCmd(String)} to stop, kill or remove the
-     * container.
+     * Kills a container in case a build job has failed, timed out or the container is unresponsive.
+     * Adding a file "stop_container.txt" like in {@link #stopContainer(String)} might not work for unresponsive containers, thus the container is killed with
+     * {@link DockerClient#killContainerCmd(String)}. It is killed right away instead of being stopped first: a build container holds nothing that needs a graceful
+     * shutdown, and a stop only waited for its timeout, because the container's main process ignores SIGTERM.
+     * <p>
+     * A container that is not running (exited, or created but never started) cannot be killed and is removed instead.
      * <p>
      * Runs to the end even when the calling thread has been interrupted, because it is reached during cancellation and
      * stopping the container is exactly the work that still has to happen.
      *
-     * @param containerId The ID of the container to stop or kill.
+     * @param containerId The ID of the container to kill.
      */
     public void stopUnresponsiveContainer(String containerId) {
         try (final var executor = Executors.newSingleThreadExecutor()) {
+            log.warn("Killing unresponsive container with id {}", containerId);
             try {
-                // Attempt to stop the container. It should stop the container and auto-remove it.
-                // {@link DockerClient#stopContainerCmd(String)} first sends a SIGTERM command to the container to gracefully stop it,
-                // and if it does not stop within the timeout, it sends a SIGKILL command to kill the container.
-                log.warn("Stopping unresponsive container with id {}", containerId);
-
-                // Submit Docker stop command to executor service
                 Future<Void> future = executor.submit(() -> {
-                    try (final var stopCommand = buildAgentConfiguration.getDockerClient().stopContainerCmd(containerId)) {
-                        stopCommand.withTimeout(15).exec();
+                    try (final var killCommand = buildAgentConfiguration.getDockerClient().killContainerCmd(containerId)) {
+                        killCommand.exec();
                         return null;  // Return type to match Future<Void>
                     }
                 });
-
-                // Await the future with a timeout
-                future.get(20, TimeUnit.SECONDS);  // Wait for the stop command to complete with a timeout
+                future.get(10, TimeUnit.SECONDS);
             }
             catch (Exception e) {
                 // The interrupt status is deliberately left cleared here, which is what java:S2142 would ask to
@@ -440,21 +445,21 @@ public class BuildJobContainerService {
                 // SharedQueueProcessingService both do - and every Docker call below waits on a Future, which fails
                 // immediately while the flag is set. Restoring it would abandon a running container per cancelled job
                 // and leave the students' build scripts burning CPU until the hourly container cleanup reaps them.
-                Throwable cause = e.getCause();
-                // e will be ExecutionException if thrown in executor service by submitted task
-                // We are interested in the underlying cause in this case
-                if (e instanceof ExecutionException && (cause instanceof NotFoundException || cause instanceof NotModifiedException)) {
-                    log.warn("Container with id {} is already stopped. Attempting to remove container.", containerId, cause);
-                    // this can also happen for containers that are stuck in "Ready" state so they can not be stopped or killed
-                    // try to remove the container so it won't show up in the next cleanup again
-                    removeContainer(containerId, executor);
+
+                // e is an ExecutionException if the kill itself failed; we are interested in the underlying cause then
+                Throwable cause = e instanceof ExecutionException ? e.getCause() : e;
+                if (cause instanceof NotFoundException) {
+                    log.debug("Container with id {} is already gone.", containerId);
+                    return;
+                }
+                if (cause instanceof NotModifiedException || cause instanceof ConflictException) {
+                    // The container is not running: it already exited, or it is stuck in the created state. Neither is removed automatically.
+                    log.info("Container with id {} is not running. Removing it.", containerId);
                 }
                 else {
-                    log.error("Failed to stop container with id {}. Attempting to kill container.", containerId, e);
-
-                    // Attempt to kill the container if stop fails
-                    killContainer(containerId, executor);
+                    log.error("Failed to kill container with id {}. Removing it by force.", containerId, e);
                 }
+                removeContainer(containerId, executor);
             }
         }
     }
@@ -485,39 +490,14 @@ public class BuildJobContainerService {
     }
 
     /**
-     * Kills a Docker container asynchronously using the given container ID and executor.
-     * Waits up to 10 seconds for completion. Logs an error if the operation fails.
-     *
-     * @param containerId The ID of the container to kill.
-     * @param executor    The ExecutorService for running the command.
-     */
-    private void killContainer(String containerId, ExecutorService executor) {
-        try (final var killCommand = buildAgentConfiguration.getDockerClient().killContainerCmd(containerId)) {
-            Future<Void> killFuture = executor.submit(() -> {
-                killCommand.exec();
-                return null;
-            });
-
-            killFuture.get(10, TimeUnit.SECONDS);  // Wait for the kill command to complete with a timeout
-        }
-        catch (Exception e) {
-            // Not restoring the interrupt status is deliberate; see stopUnresponsiveContainer. Restoring it here would
-            // additionally make the enclosing try-with-resources close the executor with shutdownNow() instead of
-            // shutdown(), which drains the work queue and so drops a kill or remove task still queued behind a
-            // wedged stop.
-            log.error("Failed to kill container with id {}.", containerId, e);
-        }
-    }
-
-    /**
-     * Removes a Docker container asynchronously using the given container ID and executor.
+     * Force-removes a Docker container asynchronously using the given container ID and executor.
      * Waits up to 10 seconds for completion. Logs an error if the operation fails.
      *
      * @param containerId The ID of the container to remove.
      * @param executor    The ExecutorService for running the command.
      */
     private void removeContainer(String containerId, ExecutorService executor) {
-        try (final var removeCommand = buildAgentConfiguration.getDockerClient().removeContainerCmd(containerId)) {
+        try (final var removeCommand = buildAgentConfiguration.getDockerClient().removeContainerCmd(containerId).withForce(true)) {
             Future<Void> removeFuture = executor.submit(() -> {
                 removeCommand.exec();
                 return null;
@@ -525,7 +505,9 @@ public class BuildJobContainerService {
             removeFuture.get(10, TimeUnit.SECONDS); // Wait for the remove command to complete with a timeout
         }
         catch (Exception e) {
-            // Not restoring the interrupt status is deliberate; see killContainer.
+            // Not restoring the interrupt status is deliberate; see stopUnresponsiveContainer. Restoring it here would
+            // additionally make the enclosing try-with-resources close the executor with shutdownNow() instead of
+            // shutdown(), which drains the work queue.
             log.error("Failed to remove container with id {}", containerId, e);
         }
     }

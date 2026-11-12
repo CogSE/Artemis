@@ -234,6 +234,8 @@ public class DockerClientTestService {
         when(createContainerCmd.withHostConfig(any())).thenReturn(createContainerCmd);
         when(createContainerCmd.withEnv(anyList())).thenReturn(createContainerCmd);
         when(createContainerCmd.withUser(anyString())).thenReturn(createContainerCmd);
+        when(createContainerCmd.withStopSignal(anyString())).thenReturn(createContainerCmd);
+        when(createContainerCmd.withStopTimeout(any())).thenReturn(createContainerCmd);
         when(createContainerCmd.withEntrypoint()).thenReturn(createContainerCmd);
         when(createContainerCmd.withCmd(anyString(), anyString(), anyString())).thenReturn(createContainerCmd);
         when(createContainerCmd.exec()).thenReturn(createContainerResponse);

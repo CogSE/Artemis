@@ -43,7 +43,6 @@ import com.github.dockerjava.api.command.InspectExecCmd;
 import com.github.dockerjava.api.command.InspectExecResponse;
 import com.github.dockerjava.api.command.KillContainerCmd;
 import com.github.dockerjava.api.command.RemoveContainerCmd;
-import com.github.dockerjava.api.command.StopContainerCmd;
 import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
@@ -243,30 +242,52 @@ class BuildJobContainerLifecycleTest {
         assertThatThrownBy(() -> service.runScriptInContainer("build", "job")).isInstanceOf(LocalCIException.class).hasMessageContaining("Docker command failed");
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = { "missing", "stopped", "other" })
-    void unresponsiveContainerRemovesStoppedOnesAndKillsOtherFailures(String failure) {
-        StopContainerCmd stop = mock(StopContainerCmd.class, RETURNS_SELF);
-        RemoveContainerCmd remove = mock(RemoveContainerCmd.class);
+    @Test
+    void unresponsiveContainerIsKilledWithoutGracefulStop() {
         KillContainerCmd kill = mock(KillContainerCmd.class);
-        when(docker.stopContainerCmd("id")).thenReturn(stop);
-        when(docker.removeContainerCmd("id")).thenReturn(remove);
         when(docker.killContainerCmd("id")).thenReturn(kill);
+
+        assertThatCode(() -> service.stopUnresponsiveContainer("id")).doesNotThrowAnyException();
+
+        verify(kill).exec();
+        verify(docker, never()).stopContainerCmd(any());
+        verify(docker, never()).removeContainerCmd(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "missing", "not-running", "conflict", "other" })
+    void unresponsiveContainerThatCannotBeKilledIsRemovedUnlessGone(String failure) {
+        KillContainerCmd kill = mock(KillContainerCmd.class);
+        RemoveContainerCmd remove = mock(RemoveContainerCmd.class, RETURNS_SELF);
+        when(docker.killContainerCmd("id")).thenReturn(kill);
+        when(docker.removeContainerCmd("id")).thenReturn(remove);
         RuntimeException exception = switch (failure) {
             case "missing" -> new NotFoundException("already removed");
-            case "stopped" -> new NotModifiedException("already stopped");
+            case "not-running" -> new NotModifiedException("already stopped");
+            case "conflict" -> new ConflictException("container is not running");
             default -> new IllegalStateException("daemon failed");
         };
-        when(stop.exec()).thenThrow(exception);
+        when(kill.exec()).thenThrow(exception);
+
         assertThatCode(() -> service.stopUnresponsiveContainer("id")).doesNotThrowAnyException();
-        if (failure.equals("other")) {
-            verify(kill).exec();
+
+        if (failure.equals("missing")) {
             verify(remove, never()).exec();
         }
         else {
+            verify(remove).withForce(true);
             verify(remove).exec();
-            verify(kill, never()).exec();
         }
+        verify(docker, never()).stopContainerCmd(any());
+    }
+
+    @Test
+    void containersAreCreatedToDieOnStopWithoutWaiting() {
+        service.configureContainer("build", "image", new DockerRunConfig(null, null, 0, 0, 0));
+
+        verify(create).withStopSignal("SIGKILL");
+        verify(create).withStopTimeout(0);
+        verify(create).withCmd("sh", "-c", "trap 'exit 0' TERM; while [ ! -f /var/tmp/stop_container.txt ]; do sleep 0.5; done");
     }
 
     private ExecStartCmd execSetup() {
