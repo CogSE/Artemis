@@ -1,5 +1,6 @@
 package de.tum.cit.aet.artemis.buildagent.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.mock;
@@ -74,9 +75,10 @@ class BuildAgentDockerCleanupTest {
     }
 
     @Test
-    void initialCleanupKillsAllOwnContainersAndLaterOnlyThoseOlderThanAnyBuild() {
-        // build-timeout-seconds.max of 240 s plus the 10 minute margin: running containers are only stale after 14 minutes
-        Container stuck = container("stuck", new String[] { "/local-ci-stuck" }, Instant.now().minusSeconds(15 * 60).getEpochSecond(), "running");
+    void initialCleanupKillsAllOwnContainersAndLaterOnlyThoseOlderThanExpiry() {
+        // Running containers are stale once they are older than expiry-minutes, which is set alone, independent of the build timeout
+        ReflectionTestUtils.setField(service, "containerExpiryMinutes", 15);
+        Container stuck = container("stuck", new String[] { "/local-ci-stuck" }, Instant.now().minusSeconds(16 * 60).getEpochSecond(), "running");
         Container stillBuilding = container("building", new String[] { "/local-ci-building" }, Instant.now().minusSeconds(10 * 60).getEpochSecond(), "running");
         Container young = container("young", new String[] { "/local-ci-young" }, Instant.now().getEpochSecond(), "running");
         Container other = container("other", new String[] { "/other-service" }, 0, "running");
@@ -91,6 +93,17 @@ class BuildAgentDockerCleanupTest {
         verify(containers, never()).stopUnresponsiveContainer("other");
         verify(containers, never()).stopUnresponsiveContainer("unnamed");
         verify(containers, never()).stopUnresponsiveContainer("empty");
+    }
+
+    @Test
+    void warnsOnlyIfExpiryIsNotLongerThanTheMaximumBuildTimeout() {
+        ReflectionTestUtils.setField(service, "maxBuildTimeoutSeconds", 360);
+        ReflectionTestUtils.setField(service, "containerExpiryMinutes", 5);
+        assertThat(service.warnIfContainerExpiryIsShorterThanBuildTimeout()).isTrue();
+        ReflectionTestUtils.setField(service, "containerExpiryMinutes", 6);
+        assertThat(service.warnIfContainerExpiryIsShorterThanBuildTimeout()).isTrue();
+        ReflectionTestUtils.setField(service, "containerExpiryMinutes", 15);
+        assertThat(service.warnIfContainerExpiryIsShorterThanBuildTimeout()).isFalse();
     }
 
     @Test

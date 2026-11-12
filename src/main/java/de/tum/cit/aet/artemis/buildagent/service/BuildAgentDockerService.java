@@ -130,12 +130,9 @@ public class BuildAgentDockerService {
     @Value("${artemis.continuous-integration.container-cleanup.cleanup-schedule-minutes:60}")
     private int containerCleanupScheduleMinutes;
 
-    /** The longest a build may run. A running container younger than this plus {@link #RUNNING_CONTAINER_MARGIN_SECONDS} may still belong to a build. */
+    /** The longest a build may run. Only used to warn when {@link #containerExpiryMinutes} is shorter, see {@link #warnIfContainerExpiryIsShorterThanBuildTimeout()}. */
     @Value("${artemis.continuous-integration.build-timeout-seconds.max:240}")
     private int maxBuildTimeoutSeconds;
-
-    /** Margin on top of the build timeout for the time a build job spends around the build script, e.g. copying files in and results out. */
-    static final long RUNNING_CONTAINER_MARGIN_SECONDS = 10 * 60L;
 
     /** How often finished build containers are removed if the agent is idle. */
     static final long FINISHED_CONTAINER_REMOVAL_INTERVAL_SECONDS = 15;
@@ -213,6 +210,7 @@ public class BuildAgentDockerService {
             log.error(errorMessage);
             throw new IllegalArgumentException(errorMessage);
         }
+        warnIfContainerExpiryIsShorterThanBuildTimeout();
 
         // Schedule the cleanup of dangling build containers once 10 seconds after the application has started and then every containerCleanupScheduleMinutes minutes
         taskScheduler.scheduleAtFixedRate(this::cleanUpContainers, Instant.now().plusSeconds(10), Duration.ofMinutes(containerCleanupScheduleMinutes));
@@ -230,9 +228,8 @@ public class BuildAgentDockerService {
      * <ul>
      * <li>Exited containers belong to no build job any more, whatever their age, and are handed over for removal.</li>
      * <li>Containers created but never started are handed over for removal once they are older than {@code container-cleanup.expiry-minutes}.</li>
-     * <li>Containers that may still be running a build are only killed once they are older than the longest a build may take
-     * ({@code build-timeout-seconds.max}) plus {@link #RUNNING_CONTAINER_MARGIN_SECONDS}, and not less than {@code container-cleanup.expiry-minutes}. A shorter limit
-     * killed the containers of builds that were still running.</li>
+     * <li>Containers that may still be running a build are killed once they are older than {@code container-cleanup.expiry-minutes}. This has to be longer than
+     * the longest a build may take, otherwise the cleanup kills builds that are still running; the agent warns at startup if it is not.</li>
      * </ul>
      * Containers are removed by {@link BuildJobContainerService#removeFinishedContainers()}, normally while the agent runs no build job.
      *
@@ -272,7 +269,6 @@ public class BuildAgentDockerService {
             // Get current time in seconds
             long now = Instant.now().getEpochSecond();
             long expiryThreshold = containerExpiryMinutes * 60L;
-            long runningThreshold = Math.max(expiryThreshold, maxBuildTimeoutSeconds + RUNNING_CONTAINER_MARGIN_SECONDS);
 
             List<Container> buildContainers;
             try {
@@ -291,7 +287,7 @@ public class BuildAgentDockerService {
 
             finishedBuildContainers = buildContainers.stream().filter(container -> isFinished(container, now - container.getCreated(), expiryThreshold)).toList();
             danglingBuildContainers = buildContainers.stream().filter(container -> !isFinished(container, now - container.getCreated(), expiryThreshold))
-                    .filter(container -> !"created".equals(container.getState())).filter(container -> (now - container.getCreated()) > runningThreshold).toList();
+                    .filter(container -> !"created".equals(container.getState())).filter(container -> (now - container.getCreated()) > expiryThreshold).toList();
         }
 
         if (!finishedBuildContainers.isEmpty()) {
@@ -303,6 +299,22 @@ public class BuildAgentDockerService {
             danglingBuildContainers.forEach(container -> buildJobContainerService.stopUnresponsiveContainer(container.getId()));
         }
         log.info("Cleanup dangling build containers done");
+    }
+
+    /**
+     * Logs a warning if {@code container-cleanup.expiry-minutes} is not longer than {@code build-timeout-seconds.max}. The container cleanup kills running
+     * build containers older than the expiry time, so with a shorter expiry time it kills builds that are still running within their timeout.
+     *
+     * @return whether the warning was logged
+     */
+    boolean warnIfContainerExpiryIsShorterThanBuildTimeout() {
+        if (containerExpiryMinutes * 60L > maxBuildTimeoutSeconds) {
+            return false;
+        }
+        log.warn("artemis.continuous-integration.container-cleanup.expiry-minutes ({} min) is not longer than artemis.continuous-integration.build-timeout-seconds.max "
+                + "({} s). The container cleanup kills build containers older than the expiry time, so it can kill builds that are still running. "
+                + "Set expiry-minutes to the maximum build timeout plus a few minutes.", containerExpiryMinutes, maxBuildTimeoutSeconds);
+        return true;
     }
 
     /**

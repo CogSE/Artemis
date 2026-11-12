@@ -110,8 +110,8 @@ artemis:
             expiry-days: 2 # The number of days after which a Docker image is considered outdated and can be removed.
             cleanup-schedule-time: 0 0 3 * * * # Time of cleanup (cron expression)
         container-cleanup:
-            # The amount of time after which a container that was created but never started is considered stale and can be removed. Running containers are only
-            # considered stale once they are older than build-timeout-seconds.max plus 10 minutes, and never before this time.
+            # The amount of time after which a build container is considered stale and is killed and removed. Must be longer than build-timeout-seconds.max,
+            # otherwise the cleanup kills builds that are still running; the build agent logs a warning at startup if it is not.
             expiry-minutes: 5
             cleanup-schedule-minutes: 60 # How often the cleanup job is executed
             # Finished build containers are removed while the build agent runs no build job, because removing a container blocks the container engine for other jobs.

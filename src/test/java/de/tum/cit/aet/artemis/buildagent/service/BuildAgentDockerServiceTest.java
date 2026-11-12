@@ -448,7 +448,7 @@ class BuildAgentDockerServiceTest extends AbstractProgrammingIntegrationLocalCIL
 
         // The docker client mock is shared by all tests of the class and never reset
         clearInvocations(dockerClient);
-        // Running containers only count as stuck once they are older than the longest a build may take (240 s by default) plus a 10 minute margin
+        // Running containers count as stuck once they are older than container-cleanup.expiry-minutes (5 minutes by default)
         long stuckAge = 20 * 60;
 
         Container mockContainer = mock(Container.class);
@@ -465,8 +465,8 @@ class BuildAgentDockerServiceTest extends AbstractProgrammingIntegrationLocalCIL
         verify(dockerClient, never()).stopContainerCmd(anyString());
         verify(dockerClient, never()).removeContainerCmd(anyString());
 
-        // A running container younger than any build may take is left alone
-        doReturn(Instant.now().getEpochSecond() - (6 * 60)).when(mockContainer).getCreated();
+        // A running container younger than the expiry time is left alone
+        doReturn(Instant.now().getEpochSecond()).when(mockContainer).getCreated();
         buildAgentDockerService.cleanUpContainers();
         verify(dockerClient, times(1)).killContainerCmd(anyString());
 
