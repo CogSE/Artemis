@@ -11,6 +11,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -33,11 +34,11 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.InspectExecResponse;
 import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
-import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.api.model.HostConfig;
 
@@ -151,11 +152,12 @@ public class BuildJobContainerService {
     /**
      * Configure a container with the Docker image, the container name, optional proxy config variables, and set the command that runs when the container starts.
      * <p>
-     * This method first removes any existing container with the same name to handle cases where:
+     * If a container with the same name already exists, it is removed and the container is created again. This happens when:
      * <ul>
      * <li>A previous build job was interrupted and the container wasn't cleaned up</li>
      * <li>A re-queued job (after agent disconnect) is picked up by the same or different agent</li>
      * </ul>
+     * The existing container is only looked for after the create call failed, so the usual case costs a single Docker call.
      *
      * @param containerName the name of the container to be created
      * @param image         the Docker image to use for the container
@@ -166,9 +168,6 @@ public class BuildJobContainerService {
         if (!buildAgentConfiguration.isDockerAvailable()) {
             throw new LocalCIException("Docker is not available. Cannot configure container " + containerName);
         }
-        // Remove any existing container with the same name to avoid ConflictException.
-        // This can happen when a job is re-queued after agent disconnect (same job ID = same container name).
-        removeExistingContainer(containerName);
         // get all record fields here because we need them more than once
         List<String> exerciseEnvVars = runConfig.env();
         String network = runConfig.network();
@@ -206,8 +205,21 @@ public class BuildJobContainerService {
 
         log.debug("Set docker network to {}", customHostConfig.getNetworkMode());
 
+        try {
+            return createContainer(containerName, image, customHostConfig, envVars);
+        }
+        catch (ConflictException e) {
+            // The name is taken. This happens when a job is re-queued after an agent disconnect (same job ID = same container name).
+            // Looking for such a container before every create would cost a Docker call on each build, so it is only done here.
+            log.warn("A container named '{}' already exists. Removing it and creating the container again.", containerName);
+            removeExistingContainer(containerName);
+            return createContainer(containerName, image, customHostConfig, envVars);
+        }
+    }
+
+    private CreateContainerResponse createContainer(String containerName, String image, HostConfig hostConfig, List<String> envVars) {
         try (final var createCommand = buildAgentConfiguration.getDockerClient().createContainerCmd(image)) {
-            return createCommand.withName(containerName).withHostConfig(customHostConfig).withEnv(envVars)
+            return createCommand.withName(containerName).withHostConfig(hostConfig).withEnv(envVars)
                     // Command to run when the container starts. This is the command that will be executed in the container's main process, which runs in the foreground and blocks
                     // the
                     // container from exiting until it finishes.
@@ -367,22 +379,14 @@ public class BuildJobContainerService {
      *                          for the build job) where the container ID is not available.
      */
     public void stopContainer(String containerName) {
-        // List all containers, including the non-running ones.
-        Container container = getContainerForName(containerName);
+        Optional<ContainerLookup> container = findContainerByName(containerName);
 
-        // Check if the container exists. Return if it does not.
-        if (container == null) {
+        // Only a running container can react to the stop file.
+        if (container.isEmpty() || !container.get().isRunning()) {
             return;
         }
 
-        // Check if the container is running. Return if it's not.
-        boolean isContainerRunning = "running".equals(container.getState());
-        if (!isContainerRunning) {
-            return;
-        }
-
-        // Get the container ID.
-        String containerId = container.getId();
+        String containerId = container.get().id();
 
         log.info("Stopping container with id {}", containerId);
 
@@ -457,18 +461,26 @@ public class BuildJobContainerService {
 
     /**
      * Removes an existing container with the given name if it exists.
-     * This is used to clean up leftover containers before creating a new one with the same name,
-     * which can happen when a job is re-queued after agent disconnect (the job ID and thus container
-     * name remain the same).
+     * This is used when creating a container failed because the name is taken, which can happen when a job is re-queued after agent disconnect
+     * (the job ID and thus container name remain the same).
+     * <p>
+     * The container is force-removed right away instead of being stopped first: the new container can only be created once the name is free,
+     * and stopping with auto-remove would free it asynchronously.
      *
      * @param containerName The name of the container to remove if it exists.
      */
     private void removeExistingContainer(String containerName) {
-        Container existingContainer = getContainerForName(containerName);
-        if (existingContainer != null) {
-            String containerId = existingContainer.getId();
-            log.warn("Found existing container with name '{}' (id: {}). Removing it before creating new container.", containerName, containerId);
-            stopUnresponsiveContainer(containerId);
+        Optional<ContainerLookup> existingContainer = findContainerByName(containerName);
+        if (existingContainer.isEmpty()) {
+            return;
+        }
+        String containerId = existingContainer.get().id();
+        log.warn("Found existing container with name '{}' (id: {}). Removing it before creating new container.", containerName, containerId);
+        try (final var removeCommand = buildAgentConfiguration.getDockerClient().removeContainerCmd(containerId).withForce(true)) {
+            removeCommand.exec();
+        }
+        catch (NotFoundException e) {
+            log.debug("Container {} was removed in the meantime", containerId);
         }
     }
 
@@ -519,15 +531,16 @@ public class BuildJobContainerService {
     }
 
     /**
-     * Get the ID of a container by its name.
+     * Get the ID of a container by its name, if the container still belongs to a running build job.
+     * <p>
+     * A container counts as such while it has been created but not started yet, or is running. An exited container does not: its build is over, whether or not the
+     * container itself has been removed yet.
      *
      * @param containerName The name of the container.
-     * @return The ID of the container or null if no container with the given name was found.
+     * @return The ID of the container, or null if no active container with the given name was found.
      */
     public String getIDOfRunningContainer(String containerName) {
-        Container container = getContainerForName(containerName);
-        // Return id if container not null
-        return Optional.ofNullable(container).map(Container::getId).orElse(null);
+        return findContainerByName(containerName).filter(ContainerLookup::isActive).map(ContainerLookup::id).orElse(null);
     }
 
     /**
@@ -772,27 +785,50 @@ public class BuildJobContainerService {
     }
 
     /**
+     * The ID and state of a build container, as far as the callers of {@link #findContainerByName} need them.
+     *
+     * @param id    the container ID
+     * @param state the container state as reported by Docker, e.g. {@code created}, {@code running} or {@code exited}; null if unknown
+     */
+    private record ContainerLookup(String id, String state) {
+
+        /** States in which the container still belongs to a running build job. */
+        private static final Set<String> ACTIVE_STATES = Set.of("created", "running", "paused", "restarting");
+
+        boolean isRunning() {
+            return "running".equals(state);
+        }
+
+        boolean isActive() {
+            return state != null && ACTIVE_STATES.contains(state);
+        }
+    }
+
+    /**
      * Finds a Docker container by its name.
      * <p>
-     * Docker container names are prefixed with "/" internally, so this method handles that.
-     * Returns null if the container is not found or if Docker is not available.
+     * The container is inspected by name instead of being picked out of a list of all containers. Listing makes the container engine look at every container and,
+     * with Podman, wait for each container's lock, so a single container being removed held up every lookup. Inspecting only touches the one container.
+     * Returns an empty Optional if the container is not found or if Docker is not available.
      *
-     * @param containerName the container name (without the "/" prefix)
-     * @return the Container object if found, null otherwise
+     * @param containerName the container name
+     * @return the ID and state of the container if found
      */
-    private Container getContainerForName(String containerName) {
-        // When Docker is temporarily unavailable, we skip the container lookup and return null.
+    private Optional<ContainerLookup> findContainerByName(String containerName) {
+        // When Docker is temporarily unavailable, we skip the container lookup.
         // Any containers left behind will be cleaned up by the scheduled cleanUpContainers() task
         // in BuildAgentDockerService once Docker becomes available again.
         if (!buildAgentConfiguration.isDockerAvailable()) {
             log.debug("Docker is not available. Cannot get container for name {}", containerName);
-            return null;
+            return Optional.empty();
         }
-        try (final var listContainerCommand = buildAgentConfiguration.getDockerClient().listContainersCmd().withShowAll(true)) {
-            List<Container> containers = listContainerCommand.exec();
-            String expectedName = "/" + containerName;
-            return containers.stream().filter(container -> container.getNames() != null && container.getNames().length > 0 && expectedName.equals(container.getNames()[0]))
-                    .findFirst().orElse(null);
+        try (final var inspectCommand = buildAgentConfiguration.getDockerClient().inspectContainerCmd(containerName)) {
+            InspectContainerResponse container = inspectCommand.exec();
+            String state = container.getState() != null ? container.getState().getStatus() : null;
+            return Optional.of(new ContainerLookup(container.getId(), state));
+        }
+        catch (NotFoundException e) {
+            return Optional.empty();
         }
         catch (Exception ex) {
             if (DockerUtil.isDockerNotAvailable(ex)) {
@@ -801,7 +837,7 @@ public class BuildJobContainerService {
             else {
                 log.error("Failed to get container for name {}: {}", containerName, ex.getMessage());
             }
-            return null;
+            return Optional.empty();
         }
     }
 

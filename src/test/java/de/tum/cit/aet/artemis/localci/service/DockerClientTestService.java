@@ -46,6 +46,7 @@ import com.github.dockerjava.api.command.DisconnectFromNetworkCmd;
 import com.github.dockerjava.api.command.ExecCreateCmd;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.ExecStartCmd;
+import com.github.dockerjava.api.command.InspectContainerCmd;
 import com.github.dockerjava.api.command.InspectExecCmd;
 import com.github.dockerjava.api.command.InspectExecResponse;
 import com.github.dockerjava.api.command.InspectImageCmd;
@@ -59,6 +60,7 @@ import com.github.dockerjava.api.command.RemoveImageCmd;
 import com.github.dockerjava.api.command.StartContainerCmd;
 import com.github.dockerjava.api.command.StopContainerCmd;
 import com.github.dockerjava.api.command.VersionCmd;
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.api.model.Version;
@@ -151,6 +153,11 @@ public class DockerClientTestService {
         when(container.getNames()).thenReturn(new String[] { "dummy-container-name" });
         when(container.getImageId()).thenReturn("dummy-image-id");
         when(listContainersCmd.exec()).thenReturn(List.of(container));
+
+        // Mock inspectContainerCmd(): build containers are looked up by name, and none exists unless a test says otherwise.
+        InspectContainerCmd inspectContainerCmd = mock(InspectContainerCmd.class);
+        when(dockerClient.inspectContainerCmd(anyString())).thenReturn(inspectContainerCmd);
+        when(inspectContainerCmd.exec()).thenThrow(new NotFoundException("no such container"));
 
         // Mock listImagesCmd() method.
         ListImagesCmd listImagesCmd = mock(ListImagesCmd.class);

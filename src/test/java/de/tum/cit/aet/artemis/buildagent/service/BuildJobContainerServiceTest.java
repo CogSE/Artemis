@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -25,9 +26,10 @@ import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.ExecCreateCmd;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.ExecStartCmd;
+import com.github.dockerjava.api.command.InspectContainerCmd;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.InspectExecCmd;
 import com.github.dockerjava.api.command.InspectExecResponse;
-import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.HostConfig;
 
 import de.tum.cit.aet.artemis.buildagent.dto.DockerRunConfig;
@@ -173,13 +175,13 @@ class BuildJobContainerServiceTest extends AbstractArtemisBuildAgentTest {
 
     @Test
     void testStopContainerExecutesDetached() {
-        // Set up a mock running container so stopContainer can find it
-        var listContainersCmd = buildAgentConfiguration.getDockerClient().listContainersCmd().withShowAll(true);
-        Container container = mock(Container.class);
-        when(container.getNames()).thenReturn(new String[] { "/" + CONTAINER_NAME });
-        when(container.getState()).thenReturn("running");
+        // Set up a mock running container so stopContainer can find it by name
+        InspectContainerCmd inspectContainerCmd = mock(InspectContainerCmd.class);
+        InspectContainerResponse container = mock(InspectContainerResponse.class, RETURNS_DEEP_STUBS);
         when(container.getId()).thenReturn(DUMMY_CONTAINER_ID);
-        when(listContainersCmd.exec()).thenReturn(List.of(container));
+        when(container.getState().getStatus()).thenReturn("running");
+        when(inspectContainerCmd.exec()).thenReturn(container);
+        when(buildAgentConfiguration.getDockerClient().inspectContainerCmd(CONTAINER_NAME)).thenReturn(inspectContainerCmd);
 
         buildJobContainerService.stopContainer(CONTAINER_NAME);
 

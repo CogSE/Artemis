@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.RETURNS_SELF;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -35,15 +37,16 @@ import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.ExecCreateCmd;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.ExecStartCmd;
+import com.github.dockerjava.api.command.InspectContainerCmd;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.InspectExecCmd;
 import com.github.dockerjava.api.command.InspectExecResponse;
 import com.github.dockerjava.api.command.KillContainerCmd;
-import com.github.dockerjava.api.command.ListContainersCmd;
 import com.github.dockerjava.api.command.RemoveContainerCmd;
 import com.github.dockerjava.api.command.StopContainerCmd;
+import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
-import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.StreamType;
@@ -63,7 +66,7 @@ class BuildJobContainerLifecycleTest {
 
     private final BuildJobContainerService service = new BuildJobContainerService(configuration, logs);
 
-    private final ListContainersCmd list = mock(ListContainersCmd.class, RETURNS_SELF);
+    private final InspectContainerCmd inspect = mock(InspectContainerCmd.class);
 
     private final CreateContainerCmd create = mock(CreateContainerCmd.class, RETURNS_SELF);
 
@@ -71,8 +74,8 @@ class BuildJobContainerLifecycleTest {
     void setUp() {
         when(configuration.getDockerClient()).thenReturn(docker);
         when(configuration.isDockerAvailable()).thenReturn(true);
-        when(docker.listContainersCmd()).thenReturn(list);
-        when(list.exec()).thenReturn(List.of());
+        when(docker.inspectContainerCmd("build")).thenReturn(inspect);
+        when(inspect.exec()).thenThrow(new NotFoundException("no such container"));
         when(docker.createContainerCmd("image")).thenReturn(create);
         when(configuration.hostConfig())
                 .thenReturn(HostConfig.newHostConfig().withCpuPeriod(100000L).withCpuQuota(200000L).withMemory(1024L).withMemorySwap(2048L).withPidsLimit(100L));
@@ -134,20 +137,49 @@ class BuildJobContainerLifecycleTest {
         assertThat(service.getIDOfRunningContainer("build")).isNull();
     }
 
-    @Test
-    void lookupFiltersUnnamedContainersAndNonMatchingNames() {
-        Container unnamed = container("unnamed", null, null);
-        Container empty = container("empty", new String[0], null);
-        Container other = container("other", new String[] { "/other" }, "running");
-        Container matching = container("matching", new String[] { "/build" }, "exited");
-        when(list.exec()).thenReturn(List.of(unnamed, empty, other, matching));
+    @ParameterizedTest
+    @ValueSource(strings = { "created", "running" })
+    void lookupByNameReportsCreatedAndRunningContainersAsActive(String state) {
+        doReturn(inspected("matching", state)).when(inspect).exec();
         assertThat(service.getIDOfRunningContainer("build")).isEqualTo("matching");
+        verify(docker, never()).listContainersCmd();
+    }
+
+    @Test
+    void lookupByNameTreatsExitedAndFailingLookupsAsInactive() {
+        doReturn(inspected("matching", "exited")).when(inspect).exec();
+        assertThat(service.getIDOfRunningContainer("build")).isNull();
+        // An exited container can no longer react to the stop file, so no exec is sent
         service.stopContainer("build");
         verify(docker, never()).execCreateCmd(any());
-        when(list.exec()).thenThrow(new IllegalStateException("unexpected daemon failure"));
+        doThrow(new IllegalStateException("unexpected daemon failure")).when(inspect).exec();
         assertThat(service.getIDOfRunningContainer("build")).isNull();
-        doThrow(new RuntimeException("Connection refused")).when(list).exec();
+        doThrow(new RuntimeException("Connection refused")).when(inspect).exec();
         assertThat(service.getIDOfRunningContainer("build")).isNull();
+        verify(docker, never()).listContainersCmd();
+    }
+
+    @Test
+    void createWithFreeNameDoesNotLookForExistingContainer() {
+        service.configureContainer("build", "image", new DockerRunConfig(null, null, 0, 0, 0));
+        verify(create).exec();
+        verify(docker, never()).inspectContainerCmd(any());
+        verify(docker, never()).removeContainerCmd(any());
+    }
+
+    @Test
+    void createWithTakenNameRemovesExistingContainerAndCreatesAgain() {
+        CreateContainerResponse response = mock(CreateContainerResponse.class);
+        when(create.exec()).thenThrow(new ConflictException("name already in use")).thenReturn(response);
+        doReturn(inspected("old", "exited")).when(inspect).exec();
+        RemoveContainerCmd remove = mock(RemoveContainerCmd.class, RETURNS_SELF);
+        when(docker.removeContainerCmd("old")).thenReturn(remove);
+
+        assertThat(service.configureContainer("build", "image", new DockerRunConfig(null, null, 0, 0, 0))).isSameAs(response);
+
+        verify(remove).withForce(true);
+        verify(remove).exec();
+        verify(create, times(2)).exec();
     }
 
     @ParameterizedTest
@@ -253,11 +285,10 @@ class BuildJobContainerLifecycleTest {
         return start;
     }
 
-    private Container container(String id, String[] names, String state) {
-        Container container = mock(Container.class);
+    private InspectContainerResponse inspected(String id, String state) {
+        InspectContainerResponse container = mock(InspectContainerResponse.class, RETURNS_DEEP_STUBS);
         when(container.getId()).thenReturn(id);
-        when(container.getNames()).thenReturn(names);
-        when(container.getState()).thenReturn(state);
+        when(container.getState().getStatus()).thenReturn(state);
         return container;
     }
 }
