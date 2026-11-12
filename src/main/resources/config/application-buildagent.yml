@@ -89,6 +89,10 @@ artemis:
         concurrent-build-size: 1 # The number of builds that can run concurrently on this node.
         asynchronous: true # If true, the CI jobs will be executed asynchronously. If false, the CI jobs will be executed synchronously (e.g. for debugging and tests).
         build-container-prefix: local-ci- # The prefix that is used for the Docker containers that are created by the local CI system.
+        # Mount options for a tmpfs over the build container's working directory (/var/tmp), e.g. "rw,exec,size=2g". Empty disables it.
+        # Keeps the repositories and build output off the container storage, so removing finished containers is cheap. "exec" is required because
+        # build scripts run from there. Files on the tmpfs count against the container's memory limit.
+        build-container-tmpfs-options: ""
         proxies:
             use-system-proxy: false
             default:

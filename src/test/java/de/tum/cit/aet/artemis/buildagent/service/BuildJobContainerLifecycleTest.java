@@ -17,6 +17,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -96,6 +97,28 @@ class BuildJobContainerLifecycleTest {
         ArgumentCaptor<List<String>> environment = ArgumentCaptor.forClass(List.class);
         verify(create).withEnv(environment.capture());
         assertThat(environment.getValue()).containsExactly("HTTP_PROXY=http://proxy", "HTTPS_PROXY=https://proxy", "NO_PROXY=localhost", "CUSTOM=value");
+    }
+
+    @Test
+    void exerciseResourceRequestKeepsWorkingDirectoryTmpfs() {
+        when(configuration.hostConfig()).thenReturn(HostConfig.newHostConfig().withCpuPeriod(100000L).withCpuQuota(200000L).withMemory(1024L).withMemorySwap(2048L)
+                .withPidsLimit(100L).withTmpFs(Map.of("/var/tmp", "rw,exec,size=2g")));
+
+        service.configureContainer("build", "image", new DockerRunConfig(null, null, 4, 4096, 4096));
+
+        var host = ArgumentCaptor.forClass(HostConfig.class);
+        verify(create).withHostConfig(host.capture());
+        assertThat(host.getValue().getCpuQuota()).isEqualTo(400000L);
+        assertThat(host.getValue().getTmpFs()).containsExactlyEntriesOf(Map.of("/var/tmp", "rw,exec,size=2g"));
+    }
+
+    @Test
+    void exerciseResourceRequestWithoutTmpfsDoesNotAddOne() {
+        service.configureContainer("build", "image", new DockerRunConfig(null, null, 4, 4096, 4096));
+
+        var host = ArgumentCaptor.forClass(HostConfig.class);
+        verify(create).withHostConfig(host.capture());
+        assertThat(host.getValue().getTmpFs()).isNull();
     }
 
     @Test

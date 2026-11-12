@@ -225,6 +225,10 @@ public class BuildJobContainerService {
         long cpuPeriod = defaultHostConfig.getCpuPeriod();
         HostConfig host = HostConfig.newHostConfig().withCpuQuota(cpuCount * cpuPeriod).withCpuPeriod(cpuPeriod).withMemory(memory).withMemorySwap(memorySwap)
                 .withPidsLimit(defaultHostConfig.getPidsLimit()).withAutoRemove(true);
+        // Keep the working directory tmpfs of the default configuration; only the resource limits and the network are adjusted per exercise.
+        if (defaultHostConfig.getTmpFs() != null) {
+            host.withTmpFs(defaultHostConfig.getTmpFs());
+        }
         if (network != null && !network.trim().isBlank()) {
             host.withNetworkMode(network);
         }

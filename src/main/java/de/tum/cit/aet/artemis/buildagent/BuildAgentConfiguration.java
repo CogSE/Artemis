@@ -1,9 +1,11 @@
 package de.tum.cit.aet.artemis.buildagent;
 
+import static de.tum.cit.aet.artemis.core.config.Constants.LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY;
 import static de.tum.cit.aet.artemis.core.config.Constants.PROFILE_BUILDAGENT;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -75,6 +77,14 @@ public class BuildAgentConfiguration {
 
     @Value("${artemis.continuous-integration.pause-after-consecutive-failed-jobs:100}")
     int pauseAfterConsecutiveFailedJobs;
+
+    /**
+     * Mount options for a tmpfs over the build container's working directory, e.g. {@code rw,exec,size=2g}. Empty means no tmpfs.
+     * With a tmpfs, the repositories and everything the build writes there never reach the container storage, so removing a finished container
+     * does not have to delete them from disk while holding the container engine's storage locks.
+     */
+    @Value("${artemis.continuous-integration.build-container-tmpfs-options:}")
+    String buildContainerTmpfsOptions;
 
     public BuildAgentConfiguration(ProgrammingLanguageConfiguration programmingLanguageConfiguration) {
         this.programmingLanguageConfiguration = programmingLanguageConfiguration;
@@ -149,11 +159,20 @@ public class BuildAgentConfiguration {
             }
         }
 
-        log.info("Using build job container docker host config with CPU(s): {}, memory: {}, memory swap: {}, pids limit: {}.", cpuCount, formatMemory(memory),
-                formatMemory(memorySwap), pidsLimit);
+        log.info("Using build job container docker host config with CPU(s): {}, memory: {}, memory swap: {}, pids limit: {}, working directory tmpfs: {}.", cpuCount,
+                formatMemory(memory), formatMemory(memorySwap), pidsLimit, hasBuildContainerTmpfs() ? buildContainerTmpfsOptions : "none");
 
-        return HostConfig.newHostConfig().withCpuQuota(cpuCount * cpuPeriod).withCpuPeriod(cpuPeriod).withMemory(memory).withMemorySwap(memorySwap).withPidsLimit(pidsLimit)
-                .withAutoRemove(true);
+        HostConfig hostConfig = HostConfig.newHostConfig().withCpuQuota(cpuCount * cpuPeriod).withCpuPeriod(cpuPeriod).withMemory(memory).withMemorySwap(memorySwap)
+                .withPidsLimit(pidsLimit).withAutoRemove(true);
+        if (hasBuildContainerTmpfs()) {
+            // Files on the tmpfs count against the container's memory limit, so the limit has to leave room for them next to the build itself.
+            hostConfig.withTmpFs(Map.of(LOCAL_CI_DOCKER_CONTAINER_WORKING_DIRECTORY, buildContainerTmpfsOptions.strip()));
+        }
+        return hostConfig;
+    }
+
+    private boolean hasBuildContainerTmpfs() {
+        return buildContainerTmpfsOptions != null && !buildContainerTmpfsOptions.isBlank();
     }
 
     /**
