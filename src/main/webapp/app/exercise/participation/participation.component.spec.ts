@@ -178,6 +178,28 @@ describe('ParticipationComponent', () => {
             expect(row.querySelector('.btn-link')).toBeNull();
         });
 
+        it('should explain that a text member of a milestone takes its individual due dates from the milestone and offer no editing', async () => {
+            const row = await render(
+                { ...exercise, type: ExerciseType.TEXT, isAtLeastInstructor: true, dueDate: dayjs(), exerciseVariantGroup: { id: 3, type: 'milestone', milestoneExerciseId: 9 } },
+                sampleDto,
+            );
+
+            const dueDateColumn = component.columns().find((column) => column.headerKey === 'artemisApp.participation.individualDueDate');
+            expect(dueDateColumn?.headerTooltip).toBe('artemisApp.participation.individualDueDateFromMilestone');
+            expect(row.querySelector('.btn-link')).toBeNull();
+        });
+
+        it('should offer granting an individual due date only on a milestone', async () => {
+            await render({ ...exercise, type: ExerciseType.MILESTONE, isAtLeastInstructor: true, dueDate: dayjs() }, sampleDto);
+            expect(component.canGrantMilestoneIndividualDueDate()).toBe(true);
+
+            component.exercise.set({ ...exercise, type: ExerciseType.TEXT, isAtLeastInstructor: true, dueDate: dayjs() });
+            expect(component.canGrantMilestoneIndividualDueDate()).toBe(false);
+
+            component.exercise.set({ ...exercise, type: ExerciseType.MILESTONE, isAtLeastInstructor: false, dueDate: dayjs() });
+            expect(component.canGrantMilestoneIndividualDueDate()).toBe(false);
+        });
+
         it('should list the team members below the team instead of in a column of their own', async () => {
             const row = await render(
                 { ...exercise, isAtLeastInstructor: true, teamMode: true },

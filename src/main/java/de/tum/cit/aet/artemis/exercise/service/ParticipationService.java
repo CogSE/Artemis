@@ -366,6 +366,9 @@ public class ParticipationService {
         participation.setParticipant(participant);
         participation.setTestRun(testRun);
         participation.setAttempt(firstFreeAttempt(exercise, participant, testRun));
+        if (!testRun) {
+            takeOverMilestoneIndividualDueDate(participation, exercise, participant);
+        }
 
         participation = studentParticipationRepository.saveAndFlush(participation);
 
@@ -374,6 +377,28 @@ public class ParticipationService {
         }
 
         return participation;
+    }
+
+    /**
+     * Gives a new graded participation in a member of a milestone group the individual due date of the student's
+     * milestone participation. The milestone participation owns that date (see
+     * {@code MilestoneIndividualDueDateService}), so a member the student only starts after an extension was granted
+     * must not fall back to the regular due date.
+     * <p>
+     * Ungrouped exercises are recognized by their group reference alone, a lazy foreign key, so they cost no query.
+     *
+     * @param participation the not yet saved participation
+     * @param exercise      the exercise it is created for
+     * @param participant   the student or team it is created for; teams are not part of the milestone's per-student scheme
+     */
+    private void takeOverMilestoneIndividualDueDate(StudentParticipation participation, Exercise exercise, Participant participant) {
+        if (!(participant instanceof User student) || exercise instanceof MilestoneExercise || exercise.getExerciseVariantGroup() == null || !exercise.isCourseExercise()) {
+            return;
+        }
+        milestoneExerciseGroupRepository
+                .findMilestoneExerciseIdByUserStoryExerciseId(exercise.getId()).flatMap(milestoneExerciseId -> studentParticipationRepository
+                        .findGradedByExerciseIdAndStudentIdInWithStudent(milestoneExerciseId, List.of(student.getId())).stream().findFirst())
+                .map(Participation::getIndividualDueDate).ifPresent(participation::setIndividualDueDate);
     }
 
     /**
@@ -450,7 +475,7 @@ public class ParticipationService {
 
         participation.setRepositoryUri(milestoneParticipation.getRepositoryUri());
         // The milestone participation owns the student's individual due date; a story takes it over (see
-        // UserStoryExerciseService.syncIndividualDueDatesFromMilestone).
+        // MilestoneIndividualDueDateService.syncIndividualDueDatesToMembers).
         participation.setIndividualDueDate(milestoneParticipation.getIndividualDueDate());
         // No buildPlanId is set: only the milestone's own build plan is ever triggered for this repository (see
         // the grading fan-out in ProgrammingExerciseGradingService that reevaluates every sibling's grade after that build).
@@ -951,6 +976,7 @@ public class ParticipationService {
             participation.setInitializationDate(ZonedDateTime.now());
             participation.setExercise(exercise);
             participation.setParticipant(participant);
+            takeOverMilestoneIndividualDueDate(participation, exercise, participant);
 
             participation = studentParticipationRepository.saveAndFlush(participation);
         }

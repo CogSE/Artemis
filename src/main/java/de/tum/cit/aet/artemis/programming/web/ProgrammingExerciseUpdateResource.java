@@ -64,6 +64,7 @@ import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseBuildCon
 import de.tum.cit.aet.artemis.programming.repository.ProgrammingExerciseRepository;
 import de.tum.cit.aet.artemis.programming.service.AuxiliaryRepositoryService;
 import de.tum.cit.aet.artemis.programming.service.MilestoneExercisePointsService;
+import de.tum.cit.aet.artemis.programming.service.MilestoneIndividualDueDateService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseCreationUpdateService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseMutationGuardService;
 import de.tum.cit.aet.artemis.programming.service.ProgrammingExerciseRepositoryService;
@@ -128,6 +129,8 @@ public class ProgrammingExerciseUpdateResource {
 
     private final MilestoneExercisePointsService milestoneExercisePointsService;
 
+    private final MilestoneIndividualDueDateService milestoneIndividualDueDateService;
+
     public ProgrammingExerciseUpdateResource(ProgrammingExerciseRepository programmingExerciseRepository,
             ProgrammingExerciseBuildConfigRepository programmingExerciseBuildConfigRepository, UserRepository userRepository, AuthorizationCheckService authCheckService,
             CourseService courseService, ExerciseService exerciseService, ProgrammingExerciseValidationService programmingExerciseValidationService,
@@ -137,7 +140,7 @@ public class ProgrammingExerciseUpdateResource {
             CompetencyExerciseLinkService competencyExerciseLinkService, ProgrammingExerciseMutationGuardService programmingExerciseMutationGuard,
             ExerciseVariantGroupService exerciseVariantGroupService, ExerciseVariantGroupRepository exerciseVariantGroupRepository,
             MilestoneExerciseGroupRepository milestoneExerciseGroupRepository, UserStoryExerciseService userStoryExerciseService,
-            MilestoneExercisePointsService milestoneExercisePointsService) {
+            MilestoneExercisePointsService milestoneExercisePointsService, MilestoneIndividualDueDateService milestoneIndividualDueDateService) {
         this.programmingExerciseValidationService = programmingExerciseValidationService;
         this.programmingExerciseCreationUpdateService = programmingExerciseCreationUpdateService;
         this.programmingExerciseRepository = programmingExerciseRepository;
@@ -160,6 +163,7 @@ public class ProgrammingExerciseUpdateResource {
         this.milestoneExerciseGroupRepository = milestoneExerciseGroupRepository;
         this.userStoryExerciseService = userStoryExerciseService;
         this.milestoneExercisePointsService = milestoneExercisePointsService;
+        this.milestoneIndividualDueDateService = milestoneIndividualDueDateService;
     }
 
     /**
@@ -336,9 +340,9 @@ public class ProgrammingExerciseUpdateResource {
             }
             participationRepository.removeIndividualDueDatesIfBeforeDueDate(savedProgrammingExercise, originalDueDate);
             if (savedProgrammingExercise instanceof MilestoneExercise) {
-                // An individual due date that fell before the new due date was just cleared on the milestone; its stories follow.
+                // An individual due date that fell before the new due date was just cleared on the milestone; its members follow.
                 // They need no rescheduling of their own here: the timeline push below reschedules every member.
-                userStoryExerciseService.syncAllIndividualDueDatesFromMilestone(savedProgrammingExercise.getId());
+                milestoneIndividualDueDateService.syncAllIndividualDueDatesToMembers(savedProgrammingExercise.getId());
             }
             slideApi.ifPresent(api -> api.handleDueDateChange(originalDueDate, updatedProgrammingExercise));
             if (lease.coordinated()) {

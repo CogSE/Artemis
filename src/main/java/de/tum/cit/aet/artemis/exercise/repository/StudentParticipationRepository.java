@@ -89,6 +89,38 @@ public interface StudentParticipationRepository extends ArtemisJpaRepository<Stu
             """)
     List<StudentParticipation> findWithStudentByExerciseId(@Param("exerciseId") long exerciseId);
 
+    /**
+     * The graded (neither practice nor test run) individual participations of an exercise, with their student.
+     *
+     * @param exerciseId the id of the exercise
+     * @return the graded participations whose participant is a single student
+     */
+    @Query("""
+            SELECT p
+            FROM StudentParticipation p
+                JOIN FETCH p.student
+            WHERE p.exercise.id = :exerciseId
+                AND p.testRun = FALSE
+            """)
+    List<StudentParticipation> findGradedIndividualByExerciseIdWithStudent(@Param("exerciseId") long exerciseId);
+
+    /**
+     * The graded (neither practice nor test run) participations of the given students in an exercise, with their student.
+     *
+     * @param exerciseId the id of the exercise
+     * @param studentIds the ids of the students
+     * @return the matching graded participations
+     */
+    @Query("""
+            SELECT p
+            FROM StudentParticipation p
+                JOIN FETCH p.student
+            WHERE p.exercise.id = :exerciseId
+                AND p.student.id IN :studentIds
+                AND p.testRun = FALSE
+            """)
+    List<StudentParticipation> findGradedByExerciseIdAndStudentIdInWithStudent(@Param("exerciseId") long exerciseId, @Param("studentIds") Collection<Long> studentIds);
+
     // NOTE: we have an edge case for quizzes where we need to take the first submission and not the last one
     @Query("""
             SELECT DISTINCT NEW de.tum.cit.aet.artemis.exercise.dto.CourseGradeScoreDTO(

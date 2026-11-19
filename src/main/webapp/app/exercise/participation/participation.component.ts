@@ -20,7 +20,19 @@ import { Result } from 'app/exercise/shared/entities/result/result.model';
 import { Submission } from 'app/exercise/shared/entities/submission/submission.model';
 import { AssessmentType } from 'app/assessment/shared/entities/assessment-type.model';
 import { AlertService } from 'app/foundation/service/alert.service';
-import { faCheck, faCircleNotch, faDownload, faEraser, faFilePowerpoint, faFolderOpen, faPencil, faSync, faTimes, faTrash } from '@fortawesome/free-solid-svg-icons';
+import {
+    faCalendarPlus,
+    faCheck,
+    faCircleNotch,
+    faDownload,
+    faEraser,
+    faFilePowerpoint,
+    faFolderOpen,
+    faPencil,
+    faSync,
+    faTimes,
+    faTrash,
+} from '@fortawesome/free-solid-svg-icons';
 import { faFileCode } from '@fortawesome/free-regular-svg-icons';
 import { GradingService } from 'app/assessment/manage/grading/grading-service';
 import { GradeStepsDTO } from 'app/assessment/shared/entities/grade-step.model';
@@ -61,6 +73,7 @@ import { ExerciseCacheService } from 'app/exercise/services/exercise-cache.servi
 import { NgbPopover } from '@ng-bootstrap/ng-bootstrap';
 import { TooltipModule } from 'primeng/tooltip';
 import { TumAetUiTagComponent } from '@tumaet/ui-angular';
+import { ButtonComponent, ButtonSize, ButtonType } from 'app/shared-ui/components/buttons/button/button.component';
 import { ExternalSubmissionButtonComponent } from 'app/exercise/external-submission/external-submission-button.component';
 import { ExerciseActionButtonComponent } from 'app/shared-ui/components/buttons/exercise-action-button/exercise-action-button.component';
 import { ExerciseScoresExportButtonComponent } from 'app/exercise/exercise-scores/export-button/exercise-scores-export-button.component';
@@ -70,6 +83,7 @@ import { FeatureToggleLinkDirective } from 'app/foundation/feature-toggle/featur
 import { ManageAssessmentButtonsComponent } from 'app/exercise/exercise-scores/manage-assessment-buttons/manage-assessment-buttons.component';
 import { ResultComponent } from 'app/exercise/result/result.component';
 import { ArtemisDurationFromSecondsPipe } from 'app/foundation/pipes/artemis-duration-from-seconds.pipe';
+import { MilestoneIndividualDueDateDialogComponent } from 'app/exercise/participation/milestone-individual-due-date-dialog/milestone-individual-due-date-dialog.component';
 
 export enum FilterProp {
     ALL = 'All',
@@ -119,6 +133,8 @@ export enum FilterProp {
         ManageAssessmentButtonsComponent,
         ResultComponent,
         ArtemisDurationFromSecondsPipe,
+        MilestoneIndividualDueDateDialogComponent,
+        ButtonComponent,
     ],
 })
 export class ParticipationComponent implements OnInit, OnDestroy {
@@ -136,6 +152,9 @@ export class ParticipationComponent implements OnInit, OnDestroy {
     private readonly websocketService = inject(WebsocketService);
 
     protected readonly faDownload = faDownload;
+    protected readonly faCalendarPlus = faCalendarPlus;
+    protected readonly ButtonType = ButtonType;
+    protected readonly ButtonSize = ButtonSize;
     protected readonly faSync = faSync;
     protected readonly faFolderOpen = faFolderOpen;
     protected readonly farFileCode = faFileCode;
@@ -216,6 +235,17 @@ export class ParticipationComponent implements OnInit, OnDestroy {
 
     readonly isExamExercise = computed(() => !!this.exercise()?.exerciseGroup);
     readonly isProgrammingExercise = computed(() => isProgrammingExerciseType(this.exercise()?.type));
+    /** A member of a milestone group takes its individual due dates from the milestone, where they are set for the whole group. */
+    readonly isMilestoneMember = computed(() => {
+        const exercise = this.exercise();
+        return exercise?.type === ExerciseType.USER_STORY || exercise?.exerciseVariantGroup?.type === 'milestone';
+    });
+    /** On a milestone an instructor can grant a student an individual due date even before the student has started it. */
+    readonly canGrantMilestoneIndividualDueDate = computed(() => {
+        const exercise = this.exercise();
+        return !!exercise?.isAtLeastInstructor && exercise.type === ExerciseType.MILESTONE && !exercise.teamMode && !!exercise.dueDate;
+    });
+    readonly isMilestoneIndividualDueDateDialogVisible = signal(false);
 
     private lastLazyEvent: TableLazyLoadEvent | undefined;
     private currentLoadRequestId = 0;
@@ -360,8 +390,8 @@ export class ParticipationComponent implements OnInit, OnDestroy {
         if (ex.type !== ExerciseType.QUIZ && ex.dueDate) {
             cols.push({
                 headerKey: 'artemisApp.participation.individualDueDate',
-                // A user story works in its milestone's repository and takes its individual due dates from there.
-                headerTooltip: ex.type === ExerciseType.USER_STORY ? 'artemisApp.participation.individualDueDateFromMilestone' : undefined,
+                // A member of a milestone group takes its individual due dates from the milestone.
+                headerTooltip: this.isMilestoneMember() ? 'artemisApp.participation.individualDueDateFromMilestone' : undefined,
                 field: 'individualDueDate',
                 width: '180px',
                 sort: true,
@@ -494,6 +524,11 @@ export class ParticipationComponent implements OnInit, OnDestroy {
                 }
             },
         });
+    }
+
+    /** Reloads the list, which now shows the student's row even if their participation was only just created. */
+    onMilestoneIndividualDueDateSaved() {
+        this.loadPage();
     }
 
     updateParticipationFilter(newValue: string) {

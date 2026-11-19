@@ -328,6 +328,26 @@ describe('Participation Service', () => {
         });
     });
 
+    describe('setMilestoneIndividualDueDateOfStudent', () => {
+        it('should PUT the individual due date of the student', () => {
+            const exercise: Exercise = {
+                id: 7,
+                type: ExerciseType.MILESTONE,
+                numberOfAssessmentsOfCorrectionRounds: [],
+                secondCorrectionEnabled: false,
+                studentAssignedTeamIdComputed: false,
+            };
+            const dueDate = dayjs('2024-12-31T12:00:00Z');
+
+            service.setMilestoneIndividualDueDateOfStudent(exercise, 'ab12cde', dueDate).subscribe();
+
+            const req = httpMock.expectOne('api/exercise/exercises/7/participations/individual-due-date/students/ab12cde');
+            expect(req.request.method).toBe('PUT');
+            expect(dayjs(req.request.body.individualDueDate).isSame(dueDate)).toBe(true);
+            req.flush({ id: 11 });
+        });
+    });
+
     afterEach(() => {
         httpMock.verify();
     });

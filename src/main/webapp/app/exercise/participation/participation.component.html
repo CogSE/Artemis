@@ -14,6 +14,24 @@
             @if (exercise()!.isAtLeastInstructor && !exercise()!.teamMode && exercise()!.type !== ExerciseType.USER_STORY) {
                 <jhi-external-submission class="d-inline-block" [exercise]="exercise()!" />
             }
+            @if (canGrantMilestoneIndividualDueDate()) {
+                <jhi-button
+                    class="d-inline-block"
+                    data-testid="add-milestone-individual-due-date"
+                    [btnType]="ButtonType.PRIMARY"
+                    [btnSize]="ButtonSize.SMALL"
+                    [icon]="faCalendarPlus"
+                    [title]="'artemisApp.participation.milestoneIndividualDueDate.add'"
+                    [shouldToggle]="true"
+                    [toggleBreakpoint]="'md'"
+                    (onClick)="isMilestoneIndividualDueDateDialogVisible.set(true)"
+                />
+                <jhi-milestone-individual-due-date-dialog
+                    [exercise]="exercise()!"
+                    [(visible)]="isMilestoneIndividualDueDateDialogVisible"
+                    (saved)="onMilestoneIndividualDueDateSaved()"
+                />
+            }
             @if (exercise()!.isAtLeastInstructor) {
                 <button
                     type="button"
@@ -297,7 +315,7 @@
             } @else {
                 <span class="text-secondary fst-italic" jhiTranslate="artemisApp.participation.noIndividualDueDate"></span>
             }
-            @if (exercise()!.isAtLeastInstructor && exercise()!.type !== ExerciseType.USER_STORY) {
+            @if (exercise()!.isAtLeastInstructor && !isMilestoneMember()) {
                 <button
                     type="button"
                     class="btn btn-link btn-sm p-0"

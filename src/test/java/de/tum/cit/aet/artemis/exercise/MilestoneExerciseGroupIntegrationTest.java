@@ -1079,7 +1079,7 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
 
         request.putAndExpectError(individualDueDateUrl(story.getId()),
                 List.of(new ParticipationDueDateUpdateDTO(participations.getLast().getId(), story.getId(), milestoneExercise.getDueDate().plusDays(3))), HttpStatus.BAD_REQUEST,
-                "userstoryduedate");
+                "milestonememberduedate");
     }
 
     /** Moving the milestone's due date past an individual due date drops it, on the milestone and on its stories alike. */
@@ -1096,5 +1096,111 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
         request.putWithResponseBody(milestoneGroupsUrl() + "/" + milestoneGroup.getId(), updateDTO, MilestoneExerciseGroupDTO.class, HttpStatus.OK);
 
         assertThat(participations).allSatisfy(participation -> assertThat(individualDueDateOf(participation)).isNull());
+    }
+
+    private @Nullable ZonedDateTime individualDueDateOf(StudentParticipation participation) {
+        return studentParticipationRepository.findByIdElseThrow(participation.getId()).getIndividualDueDate();
+    }
+
+    private static void assertSameInstant(@Nullable ZonedDateTime actual, ZonedDateTime expected) {
+        assertThat(actual).isNotNull().satisfies(dueDate -> assertThat(dueDate.toInstant()).isEqualTo(expected.toInstant()));
+    }
+
+    /**
+     * A milestone group holds more than user stories. A text member judges lateness by its own participation's due date
+     * as well, so an extension granted on the milestone has to reach it too.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void anIndividualDueDateOnTheMilestoneReachesANonProgrammingMember() throws Exception {
+        var participations = addSharedParticipations(addUserStoryMember("first", null, null));
+        Exercise essay = addMember(TextExerciseFactory.generateTextExercise(null, null, null, course), "An essay");
+        StudentParticipation essayParticipation = participationUtilService.createAndSaveParticipationForExercise(essay, TEST_PREFIX + "student1");
+        ZonedDateTime extendedDueDate = milestoneExercise.getDueDate().plusDays(3);
+
+        request.put(individualDueDateUrl(milestoneExercise.getId()),
+                List.of(new ParticipationDueDateUpdateDTO(participations.getFirst().getId(), milestoneExercise.getId(), extendedDueDate)), HttpStatus.OK);
+
+        assertSameInstant(individualDueDateOf(essayParticipation), extendedDueDate);
+        assertSameInstant(individualDueDateOf(participations.getLast()), extendedDueDate);
+
+        request.put(individualDueDateUrl(milestoneExercise.getId()), List.of(new ParticipationDueDateUpdateDTO(participations.getFirst().getId(), milestoneExercise.getId(), null)),
+                HttpStatus.OK);
+
+        assertThat(individualDueDateOf(essayParticipation)).isNull();
+    }
+
+    /** Saving the milestone's date again copies it even though it did not change, so members that drifted are repaired. */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void savingTheSameIndividualDueDateAgainRepairsAMemberOutOfStep() throws Exception {
+        var participations = addSharedParticipations(addUserStoryMember("first", null, null));
+        ZonedDateTime extendedDueDate = milestoneExercise.getDueDate().plusDays(3);
+        ProgrammingExerciseStudentParticipation milestoneParticipation = participations.getFirst();
+        milestoneParticipation.setIndividualDueDate(extendedDueDate);
+        programmingExerciseStudentParticipationRepository.save(milestoneParticipation);
+
+        request.put(individualDueDateUrl(milestoneExercise.getId()),
+                List.of(new ParticipationDueDateUpdateDTO(milestoneParticipation.getId(), milestoneExercise.getId(), extendedDueDate)), HttpStatus.OK);
+
+        assertSameInstant(individualDueDateOf(participations.getLast()), extendedDueDate);
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void anIndividualDueDateCannotBeSetOnANonProgrammingMemberDirectly() throws Exception {
+        Exercise essay = addMember(TextExerciseFactory.generateTextExercise(null, ZonedDateTime.now().plusDays(1), null, course), "An essay");
+        StudentParticipation essayParticipation = participationUtilService.createAndSaveParticipationForExercise(essay, TEST_PREFIX + "student1");
+
+        request.putAndExpectError(individualDueDateUrl(essay.getId()),
+                List.of(new ParticipationDueDateUpdateDTO(essayParticipation.getId(), essay.getId(), ZonedDateTime.now().plusDays(3))), HttpStatus.BAD_REQUEST,
+                "milestonememberduedate");
+    }
+
+    /** A member the student only starts after the extension was granted starts with the milestone's individual due date. */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "student1", roles = "USER")
+    void aMemberStartedAfterAnExtensionTakesTheMilestonesIndividualDueDate() throws Exception {
+        ProgrammingExerciseStudentParticipation milestoneParticipation = participationUtilService.addStudentParticipationForProgrammingExercise(milestoneExercise,
+                TEST_PREFIX + "student1");
+        ZonedDateTime extendedDueDate = milestoneExercise.getDueDate().plusDays(3);
+        milestoneParticipation.setIndividualDueDate(extendedDueDate);
+        programmingExerciseStudentParticipationRepository.save(milestoneParticipation);
+        Exercise essay = addMember(TextExerciseFactory.generateTextExercise(null, null, null, course), "An essay");
+
+        request.post("/api/exercise/exercises/" + essay.getId() + "/participations", null, HttpStatus.CREATED);
+
+        long studentId = userUtilService.getUserByLogin(TEST_PREFIX + "student1").getId();
+        StudentParticipation essayParticipation = studentParticipationRepository.findByExerciseIdAndStudentId(essay.getId(), studentId).getFirst();
+        assertSameInstant(essayParticipation.getIndividualDueDate(), extendedDueDate);
+    }
+
+    /**
+     * A member the student has not started has no participation to carry an extension, so granting one starts it: the
+     * student then sees the extended deadline and can still work on it after the regular one. User stories are not
+     * started again, since their participations come with the milestone's repository.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void grantingAnExtensionStartsTheMembersTheStudentHasNotStarted() throws Exception {
+        UserStoryExercise story = addUserStoryMember("first", null, null);
+        var participations = addSharedParticipations(story);
+        Exercise essay = addMember(TextExerciseFactory.generateTextExercise(null, null, null, course), "An essay");
+        ZonedDateTime extendedDueDate = milestoneExercise.getDueDate().plusDays(3);
+        long studentId = userUtilService.getUserByLogin(TEST_PREFIX + "student1").getId();
+
+        request.put(individualDueDateUrl(milestoneExercise.getId()),
+                List.of(new ParticipationDueDateUpdateDTO(participations.getFirst().getId(), milestoneExercise.getId(), extendedDueDate)), HttpStatus.OK);
+
+        assertThat(studentParticipationRepository.findByExerciseIdAndStudentId(essay.getId(), studentId)).singleElement()
+                .satisfies(essayParticipation -> assertSameInstant(essayParticipation.getIndividualDueDate(), extendedDueDate));
+        assertThat(studentParticipationRepository.findByExerciseIdAndStudentId(story.getId(), studentId)).hasSize(1);
+
+        // Removing the extension keeps the started member but clears its date.
+        request.put(individualDueDateUrl(milestoneExercise.getId()), List.of(new ParticipationDueDateUpdateDTO(participations.getFirst().getId(), milestoneExercise.getId(), null)),
+                HttpStatus.OK);
+
+        assertThat(studentParticipationRepository.findByExerciseIdAndStudentId(essay.getId(), studentId)).singleElement()
+                .satisfies(essayParticipation -> assertThat(essayParticipation.getIndividualDueDate()).isNull());
     }
 }

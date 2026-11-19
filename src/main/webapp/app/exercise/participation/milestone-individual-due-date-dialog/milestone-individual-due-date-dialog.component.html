@@ -1,0 +1,41 @@
+<tumaet-ui-dialog
+    [header]="'artemisApp.participation.milestoneIndividualDueDate.title' | artemisTranslate"
+    size="small"
+    [closable]="false"
+    [(visible)]="visible"
+    (hidden)="cancel()"
+>
+    <div class="flex flex-col gap-4" data-testid="milestone-individual-due-date-dialog">
+        <p class="text-sm text-muted-color m-0" jhiTranslate="artemisApp.participation.milestoneIndividualDueDate.explanation"></p>
+        <div class="flex flex-col gap-1">
+            <label for="milestone-individual-due-date-student" jhiTranslate="artemisApp.participation.milestoneIndividualDueDate.studentLogin"></label>
+            <input
+                tumAetUiInput
+                id="milestone-individual-due-date-student"
+                data-testid="milestone-individual-due-date-student"
+                [value]="studentLogin()"
+                (input)="onStudentLoginInput($event)"
+            />
+        </div>
+        <tumaet-ui-date-picker
+            inputId="milestone-individual-due-date-date"
+            labelName="artemisApp.participation.individualDueDate"
+            [(value)]="dueDate"
+            [min]="exercise().dueDate"
+            [invalid]="isDueDateBeforeExerciseDueDate()"
+            (inputValidityChange)="isDueDateTextValid.set($event)"
+        />
+        <div class="flex justify-end gap-2">
+            <button type="button" tumAetUiButton severity="secondary" size="small" (click)="cancel()" jhiTranslate="entity.action.cancel"></button>
+            <button
+                type="button"
+                tumAetUiButton
+                size="small"
+                data-testid="milestone-individual-due-date-save"
+                [disabled]="isSaveDisabled()"
+                (click)="save()"
+                jhiTranslate="entity.action.save"
+            ></button>
+        </div>
+    </div>
+</tumaet-ui-dialog>

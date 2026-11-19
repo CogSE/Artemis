@@ -48,7 +48,13 @@
             "initializationState": "Status",
             "initializationDate": "Teilnahme Start",
             "individualDueDate": "Einreichungsfrist",
-            "individualDueDateFromMilestone": "Wird am Meilenstein festgelegt und an alle User Stories weitergegeben.",
+            "individualDueDateFromMilestone": "Wird am Meilenstein festgelegt, der sie an alle Aufgaben seiner Gruppe weitergibt.",
+            "milestoneIndividualDueDate": {
+                "add": "Individuelle Abgabefrist hinzufügen",
+                "title": "Individuelle Abgabefrist hinzufügen",
+                "explanation": "Gibt einer Studentin oder einem Studenten eine individuelle Abgabefrist für diesen Meilenstein, die an alle Aufgaben des Meilensteins weitergegeben wird. Wer den Meilenstein noch nicht begonnen hat, erhält eine Teilnahme ohne Abgabe.",
+                "studentLogin": "Login der Studentin oder des Studenten"
+            },
             "noIndividualDueDate": "Keine Einreichungsfrist",
             "editIndividualDueDate": "Einreichungsfrist bearbeiten",
             "initializationNotYetStarted": "Noch nicht gestartet",

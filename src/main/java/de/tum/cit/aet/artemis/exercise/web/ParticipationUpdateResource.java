@@ -20,11 +20,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import de.tum.cit.aet.artemis.account.domain.User;
 import de.tum.cit.aet.artemis.account.repository.UserRepository;
 import de.tum.cit.aet.artemis.assessment.domain.GradingScale;
 import de.tum.cit.aet.artemis.assessment.service.GradingScaleService;
 import de.tum.cit.aet.artemis.core.exception.BadRequestAlertException;
 import de.tum.cit.aet.artemis.core.exception.ConflictException;
+import de.tum.cit.aet.artemis.core.exception.InternalServerErrorException;
 import de.tum.cit.aet.artemis.core.security.Role;
 import de.tum.cit.aet.artemis.core.security.annotations.EnforceAtLeastInstructor;
 import de.tum.cit.aet.artemis.core.security.annotations.EnforceAtLeastTutor;
@@ -38,15 +40,16 @@ import de.tum.cit.aet.artemis.exercise.domain.Exercise;
 import de.tum.cit.aet.artemis.exercise.domain.participation.StudentParticipation;
 import de.tum.cit.aet.artemis.exercise.dto.ParticipationDueDateUpdateDTO;
 import de.tum.cit.aet.artemis.exercise.dto.ParticipationUpdateDTO;
+import de.tum.cit.aet.artemis.exercise.dto.StudentIndividualDueDateDTO;
 import de.tum.cit.aet.artemis.exercise.dto.StudentParticipationDTO;
 import de.tum.cit.aet.artemis.exercise.repository.ExerciseRepository;
+import de.tum.cit.aet.artemis.exercise.repository.MilestoneExerciseGroupRepository;
 import de.tum.cit.aet.artemis.exercise.repository.StudentParticipationRepository;
 import de.tum.cit.aet.artemis.exercise.service.ExerciseDateService;
 import de.tum.cit.aet.artemis.exercise.service.ParticipationService;
 import de.tum.cit.aet.artemis.programming.domain.MilestoneExercise;
 import de.tum.cit.aet.artemis.programming.domain.ProgrammingExercise;
-import de.tum.cit.aet.artemis.programming.domain.UserStoryExercise;
-import de.tum.cit.aet.artemis.programming.service.UserStoryExerciseService;
+import de.tum.cit.aet.artemis.programming.service.MilestoneIndividualDueDateService;
 import de.tum.cit.aet.artemis.quiz.domain.QuizExercise;
 
 /**
@@ -82,11 +85,14 @@ public class ParticipationUpdateResource {
 
     private final StudentParticipationRepository studentParticipationRepository;
 
-    private final UserStoryExerciseService userStoryExerciseService;
+    private final MilestoneIndividualDueDateService milestoneIndividualDueDateService;
+
+    private final MilestoneExerciseGroupRepository milestoneExerciseGroupRepository;
 
     public ParticipationUpdateResource(ParticipationService participationService, ExerciseRepository exerciseRepository, AuthorizationCheckService authCheckService,
             UserRepository userRepository, StudentParticipationRepository studentParticipationRepository, ExerciseDateService exerciseDateService,
-            InstanceMessageSendService instanceMessageSendService, GradingScaleService gradingScaleService, UserStoryExerciseService userStoryExerciseService) {
+            InstanceMessageSendService instanceMessageSendService, GradingScaleService gradingScaleService, MilestoneIndividualDueDateService milestoneIndividualDueDateService,
+            MilestoneExerciseGroupRepository milestoneExerciseGroupRepository) {
         this.participationService = participationService;
         this.exerciseRepository = exerciseRepository;
         this.authCheckService = authCheckService;
@@ -95,7 +101,8 @@ public class ParticipationUpdateResource {
         this.exerciseDateService = exerciseDateService;
         this.instanceMessageSendService = instanceMessageSendService;
         this.gradingScaleService = gradingScaleService;
-        this.userStoryExerciseService = userStoryExerciseService;
+        this.milestoneIndividualDueDateService = milestoneIndividualDueDateService;
+        this.milestoneExerciseGroupRepository = milestoneExerciseGroupRepository;
     }
 
     /**
@@ -211,16 +218,26 @@ public class ParticipationUpdateResource {
         if (exercise instanceof QuizExercise) {
             throw new BadRequestAlertException("Cannot set individual due dates for quiz exercises", ENTITY_NAME, "quizexercise");
         }
-        // A user story works in its milestone's repository, so its deadline is the milestone's: set there, it reaches every story.
-        if (exercise instanceof UserStoryExercise && userStoryExerciseService.findMilestoneExerciseId(exerciseId).isPresent()) {
-            throw new BadRequestAlertException("Set individual due dates on the milestone, which passes them on to its user stories", ENTITY_NAME, "userstoryduedate");
+        // A member of a milestone group takes its individual due dates from the milestone: set there, they reach every member.
+        // A date set on the member directly would be overwritten by the next copy from the milestone.
+        if (milestoneExerciseGroupRepository.findMilestoneExerciseIdByUserStoryExerciseId(exerciseId).isPresent()) {
+            throw new BadRequestAlertException("Set individual due dates on the milestone, which passes them on to every exercise of its group", ENTITY_NAME,
+                    "milestonememberduedate");
         }
 
         final List<StudentParticipation> changedParticipations = participationService.updateIndividualDueDatesFromDTOs(exercise, dueDateUpdateDTOs);
         final List<StudentParticipation> updatedParticipations = studentParticipationRepository.saveAllAndFlush(changedParticipations);
         if (exercise instanceof MilestoneExercise) {
-            // The stories judge lateness by their own participation's due date, so they take the milestone's.
-            userStoryExerciseService.syncIndividualDueDatesFromMilestone(exerciseId, updatedParticipations).forEach(instanceMessageSendService::sendProgrammingExerciseSchedule);
+            // The members judge lateness by their own participation's due date, so they take the milestone's. Every
+            // participation of the request is copied, not only the changed ones: saving a date again repairs members that
+            // drifted out of step.
+            List<StudentParticipation> requestedParticipations = studentParticipationRepository
+                    .findAllById(dueDateUpdateDTOs.stream().map(ParticipationDueDateUpdateDTO::id).toList()).stream()
+                    .filter(participation -> participation.getExercise() != null && participation.getExercise().getId() == exerciseId).toList();
+            // A member the student has not started yet has no participation to carry the date, so it is started first.
+            milestoneIndividualDueDateService.createMissingMemberParticipations(exerciseId, requestedParticipations);
+            milestoneIndividualDueDateService.syncIndividualDueDatesToMembers(exerciseId, requestedParticipations)
+                    .forEach(instanceMessageSendService::sendProgrammingExerciseSchedule);
         }
 
         if (!updatedParticipations.isEmpty() && exercise instanceof ProgrammingExercise programmingExercise) {
@@ -238,4 +255,60 @@ public class ParticipationUpdateResource {
         return ResponseEntity.ok().body(updatedParticipations.stream().map(StudentParticipationDTO::ofAfterUpdate).toList());
     }
 
+    /**
+     * PUT exercises/:exerciseId/participations/individual-due-date/students/:studentLogin : Grants one student an
+     * individual due date on a milestone, whether or not they have started it.
+     * <p>
+     * An individual due date lives on a participation. A student who has not started the milestone yet is given one here,
+     * exactly as their own start would: the repository, the access token and the user story participations sharing that
+     * repository, but no submission and no result. Every other member the student has not started is started as well, so
+     * it can carry the date, which is then copied to every member of the milestone's group.
+     *
+     * @param exerciseId   the id of the milestone exercise
+     * @param studentLogin the login of the student
+     * @param dueDateDTO   the new individual due date, after the milestone's regular due date
+     * @return the student's milestone participation with its new individual due date
+     */
+    @PutMapping("exercises/{exerciseId}/participations/individual-due-date/students/{studentLogin}")
+    @EnforceAtLeastInstructor
+    public ResponseEntity<StudentParticipationDTO> setMilestoneIndividualDueDateOfStudent(@PathVariable long exerciseId, @PathVariable String studentLogin,
+            @Valid @RequestBody StudentIndividualDueDateDTO dueDateDTO) {
+        final Exercise exercise = exerciseRepository.findByIdElseThrow(exerciseId);
+        authCheckService.checkHasAtLeastRoleForExerciseElseThrow(Role.INSTRUCTOR, exercise, null);
+
+        if (!(exercise instanceof MilestoneExercise) || !exercise.isCourseExercise() || exercise.isTeamMode()) {
+            throw new BadRequestAlertException("Individual due dates can only be granted to a student without a participation on an individual course milestone", ENTITY_NAME,
+                    "milestoneonly");
+        }
+        if (exercise.getDueDate() == null || dueDateDTO.individualDueDate().isBefore(exercise.getDueDate())) {
+            throw new BadRequestAlertException("The individual due date has to lie after the due date of the milestone", ENTITY_NAME, "individualDueDateBeforeDueDate");
+        }
+        final Course course = exercise.getCourseViaExerciseGroupOrCourseMemberElseThrow();
+        final User student = userRepository.findOneWithAuthoritiesByLogin(studentLogin).filter(user -> authCheckService.isAtLeastStudentInCourse(course, user))
+                .orElseThrow(() -> new BadRequestAlertException("The student could not be found in this course", ENTITY_NAME, "studentNotFound"));
+
+        final long participationId = participationService.findOneGradedByExerciseAndStudentAnyState(exercise, student).orElseGet(() -> startMilestoneForStudent(exercise, student))
+                .getId();
+        // Read back fresh: the start above saved the participation in several steps.
+        final StudentParticipation participation = studentParticipationRepository.findByIdElseThrow(participationId);
+        participation.setIndividualDueDate(dueDateDTO.individualDueDate());
+        final StudentParticipation updatedParticipation = studentParticipationRepository.saveAndFlush(participation);
+
+        milestoneIndividualDueDateService.createMissingMemberParticipations(exerciseId, List.of(updatedParticipation));
+        milestoneIndividualDueDateService.syncIndividualDueDatesToMembers(exerciseId, List.of(updatedParticipation))
+                .forEach(instanceMessageSendService::sendProgrammingExerciseSchedule);
+        instanceMessageSendService.sendProgrammingExerciseSchedule(exerciseId);
+
+        return ResponseEntity.ok().body(StudentParticipationDTO.ofAfterUpdate(updatedParticipation));
+    }
+
+    private StudentParticipation startMilestoneForStudent(Exercise milestoneExercise, User student) {
+        try {
+            return participationService.startExercise(milestoneExercise, student, false);
+        }
+        catch (Exception e) {
+            log.error("Failed to start milestone {} for student {} to grant an individual due date", milestoneExercise.getId(), student.getLogin(), e);
+            throw new InternalServerErrorException("Failed to create the student's participation in the milestone.");
+        }
+    }
 }

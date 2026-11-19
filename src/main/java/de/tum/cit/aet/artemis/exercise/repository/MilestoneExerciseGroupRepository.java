@@ -318,7 +318,8 @@ public interface MilestoneExerciseGroupRepository extends ArtemisJpaRepository<M
     List<MilestoneScoreTargetDTO> findMilestoneScoreTargetsForUserStoryResultsModifiedAfter(@Param("modifiedAfter") Instant modifiedAfter);
 
     /**
-     * Resolves the id of the {@code MilestoneExercise} anchoring the group a user story belongs to.
+     * Resolves the id of the {@code MilestoneExercise} anchoring the group a user story belongs to. Matches any member of
+     * a milestone group, not only user stories: text, modeling or file upload members are found the same way.
      * <p>
      * A scalar projection because the caller ({@code MilestoneScoreScheduleService}) runs this once per user story result
      * event, purely to turn a per-story event into a per-milestone one so the recomputation can be debounced across a

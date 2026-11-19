@@ -48,7 +48,13 @@
             "initializationState": "Status",
             "initializationDate": "Start Date",
             "individualDueDate": "Individual Due Date",
-            "individualDueDateFromMilestone": "Set on the milestone, which passes it on to every user story.",
+            "individualDueDateFromMilestone": "Set on the milestone, which passes it on to every exercise of its group.",
+            "milestoneIndividualDueDate": {
+                "add": "Add individual due date",
+                "title": "Add individual due date",
+                "explanation": "Grants a student an individual due date on this milestone, which every exercise of the milestone passes on. A student who has not started the milestone yet is given a participation without a submission.",
+                "studentLogin": "Student login"
+            },
             "noIndividualDueDate": "No due date",
             "editIndividualDueDate": "Edit individual due date",
             "initializationNotYetStarted": "Not yet started",

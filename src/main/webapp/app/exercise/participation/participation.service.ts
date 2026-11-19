@@ -81,6 +81,22 @@ export class ParticipationService {
         };
     }
 
+    /**
+     * Grants one student an individual due date on a milestone. A student who has not started the milestone is given a
+     * participation for it, without a submission; the date reaches every exercise of the milestone's group.
+     * @param exercise the milestone exercise
+     * @param studentLogin the login of the student
+     * @param individualDueDate the new individual due date, after the milestone's due date
+     */
+    setMilestoneIndividualDueDateOfStudent(exercise: Exercise, studentLogin: string, individualDueDate: dayjs.Dayjs): Observable<EntityResponseType> {
+        const body = { individualDueDate: convertDateFromClient(individualDueDate) };
+        return this.http
+            .put<StudentParticipationDTO>(`api/exercise/exercises/${exercise.id}/participations/individual-due-date/students/${encodeURIComponent(studentLogin)}`, body, {
+                observe: 'response',
+            })
+            .pipe(map((res) => this.processParticipationDTOResponseType(res)));
+    }
+
     find(participationId: number): Observable<EntityResponseType> {
         return this.http
             .get<StudentParticipationDTO>(`${this.resourceUrl}/${participationId}`, { observe: 'response' })

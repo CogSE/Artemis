@@ -111,6 +111,8 @@ public class MilestoneExerciseService {
 
     private final InstanceMessageSendService instanceMessageSendService;
 
+    private final MilestoneIndividualDueDateService milestoneIndividualDueDateService;
+
     public MilestoneExerciseService(CourseRepository courseRepository, MilestoneExerciseGroupRepository milestoneExerciseGroupRepository,
             ExerciseVariantGroupService exerciseVariantGroupService, ProgrammingExerciseValidationService programmingExerciseValidationService,
             ProgrammingExerciseCreationUpdateService programmingExerciseCreationUpdateService, StaticCodeAnalysisService staticCodeAnalysisService,
@@ -120,7 +122,7 @@ public class MilestoneExerciseService {
             MilestoneExercisePointsService milestoneExercisePointsService, CompetencyExerciseLinkService competencyExerciseLinkService,
             ProgrammingExerciseRepository programmingExerciseRepository, ProgrammingExerciseBuildConfigRepository programmingExerciseBuildConfigRepository,
             ProgrammingExerciseTaskRepository programmingExerciseTaskRepository, ParticipationRepository participationRepository,
-            InstanceMessageSendService instanceMessageSendService) {
+            InstanceMessageSendService instanceMessageSendService, MilestoneIndividualDueDateService milestoneIndividualDueDateService) {
         this.courseRepository = courseRepository;
         this.milestoneExerciseGroupRepository = milestoneExerciseGroupRepository;
         this.exerciseVariantGroupService = exerciseVariantGroupService;
@@ -142,6 +144,7 @@ public class MilestoneExerciseService {
         this.programmingExerciseTaskRepository = programmingExerciseTaskRepository;
         this.participationRepository = participationRepository;
         this.instanceMessageSendService = instanceMessageSendService;
+        this.milestoneIndividualDueDateService = milestoneIndividualDueDateService;
     }
 
     /**
@@ -225,11 +228,11 @@ public class MilestoneExerciseService {
         // CascadeType.MERGE.
         exerciseVariantGroupService.saveWithTimelineAppliedToMembers(group);
         // Those dates are the milestone's, so the follow-ups of editing the milestone itself apply here as well: individual
-        // due dates before the new due date are cleared, on the stories too, and the milestone is rescheduled.
+        // due dates before the new due date are cleared, on every member too, and the milestone is rescheduled.
         MilestoneExercise milestoneExercise = group.getMilestoneExercise();
         if (milestoneExercise != null) {
             participationRepository.removeIndividualDueDatesIfBeforeDueDate(milestoneExercise, originalDueDate);
-            userStoryExerciseService.syncAllIndividualDueDatesFromMilestone(milestoneExercise.getId()).forEach(instanceMessageSendService::sendProgrammingExerciseSchedule);
+            milestoneIndividualDueDateService.syncAllIndividualDueDatesToMembers(milestoneExercise.getId()).forEach(instanceMessageSendService::sendProgrammingExerciseSchedule);
             instanceMessageSendService.sendProgrammingExerciseSchedule(milestoneExercise.getId());
         }
         return group;

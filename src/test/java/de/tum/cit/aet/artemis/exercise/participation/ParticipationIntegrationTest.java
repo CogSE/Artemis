@@ -88,6 +88,7 @@ import de.tum.cit.aet.artemis.exercise.dto.ParticipationSearchDTO;
 import de.tum.cit.aet.artemis.exercise.dto.ParticipationSubmissionDTO;
 import de.tum.cit.aet.artemis.exercise.dto.ParticipationSubmissionResultDTO;
 import de.tum.cit.aet.artemis.exercise.dto.ParticipationUpdateDTO;
+import de.tum.cit.aet.artemis.exercise.dto.StudentIndividualDueDateDTO;
 import de.tum.cit.aet.artemis.exercise.dto.StudentParticipationDTO;
 import de.tum.cit.aet.artemis.exercise.participation.util.ParticipationFactory;
 import de.tum.cit.aet.artemis.exercise.participation.util.ParticipationUtilService;
@@ -635,7 +636,7 @@ class ParticipationIntegrationTest extends AbstractAthenaTest {
     }
 
     /** A milestone group with two user stories, all past their due date. */
-    private record MilestoneGroup(MilestoneExercise milestone, UserStoryExercise firstUserStory, UserStoryExercise secondUserStory) {
+    private record MilestoneGroup(MilestoneExerciseGroup group, MilestoneExercise milestone, UserStoryExercise firstUserStory, UserStoryExercise secondUserStory) {
     }
 
     private MilestoneGroup createMilestoneGroupAfterDueDate() throws Exception {
@@ -655,7 +656,7 @@ class ParticipationIntegrationTest extends AbstractAthenaTest {
         group.setMilestoneExercise(milestone);
         group.setCourse(course);
         group = (MilestoneExerciseGroup) exerciseVariantGroupRepository.save(group);
-        return new MilestoneGroup(milestone, createUserStoryAfterDueDate(group, "practicestoryone"), createUserStoryAfterDueDate(group, "practicestorytwo"));
+        return new MilestoneGroup(group, milestone, createUserStoryAfterDueDate(group, "practicestoryone"), createUserStoryAfterDueDate(group, "practicestorytwo"));
     }
 
     private UserStoryExercise createUserStoryAfterDueDate(MilestoneExerciseGroup group, String shortName) {
@@ -736,6 +737,84 @@ class ParticipationIntegrationTest extends AbstractAthenaTest {
 
         request.postWithResponseBody(externalSubmissionUrl(group.milestone(), TEST_PREFIX + "student1"), new ExternalSubmissionResultDTO(0.0, true, null), ResultDTO.class,
                 HttpStatus.BAD_REQUEST);
+    }
+
+    private String milestoneIndividualDueDateUrl(Exercise exercise, String studentLogin) {
+        return "/api/exercise/exercises/" + exercise.getId() + "/participations/individual-due-date/students/" + studentLogin;
+    }
+
+    /**
+     * An instructor can grant a student who never started a milestone an individual due date, without any submission or
+     * result: the student is given the participation a regular start creates, and the date reaches every member.
+     */
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void individualDueDateOnAMilestoneCanBeGrantedToAStudentWhoNeverStartedIt() throws Exception {
+        var group = createMilestoneGroupAfterDueDate();
+        TextExercise essay = TextExerciseFactory.generateTextExercise(ZonedDateTime.now().minusDays(2), ZonedDateTime.now().minusHours(1), null, course);
+        exerciseRepository.save(essay);
+        // A new exercise is always stored outside any variant group (see Exercise#dropVariantGroupOfNewExercise), so it joins afterwards.
+        essay.setExerciseVariantGroup(group.group());
+        essay = exerciseRepository.save(essay);
+        User student = userUtilService.getUserByLogin(TEST_PREFIX + "student1");
+        ZonedDateTime extendedDueDate = ZonedDateTime.now().plusDays(3).truncatedTo(ChronoUnit.MILLIS);
+
+        request.putWithResponseBody(milestoneIndividualDueDateUrl(group.milestone(), TEST_PREFIX + "student1"), new StudentIndividualDueDateDTO(extendedDueDate),
+                StudentParticipationDTO.class, HttpStatus.OK);
+
+        var milestoneParticipation = gradedParticipation(group.milestone(), student);
+        assertThat(milestoneParticipation.getRepositoryUri()).isNotBlank();
+        assertThat(milestoneParticipation.getSubmissions()).isEmpty();
+        assertThat(milestoneParticipation.getIndividualDueDate().toInstant()).isEqualTo(extendedDueDate.toInstant());
+        for (var userStory : List.of(group.firstUserStory(), group.secondUserStory())) {
+            var userStoryParticipation = gradedParticipation(userStory, student);
+            assertThat(userStoryParticipation.getRepositoryUri()).isEqualTo(milestoneParticipation.getRepositoryUri());
+            assertThat(userStoryParticipation.getIndividualDueDate().toInstant()).isEqualTo(extendedDueDate.toInstant());
+        }
+
+        // A second grant updates the same participation instead of creating another one.
+        request.putWithResponseBody(milestoneIndividualDueDateUrl(group.milestone(), TEST_PREFIX + "student1"), new StudentIndividualDueDateDTO(extendedDueDate.plusDays(1)),
+                StudentParticipationDTO.class, HttpStatus.OK);
+        assertThat(gradedParticipation(group.milestone(), student).getIndividualDueDate().toInstant()).isEqualTo(extendedDueDate.plusDays(1).toInstant());
+        assertThat(participationRepo.findByExerciseIdAndStudentId(group.milestone().getId(), student.getId())).hasSize(1);
+        // The essay, which the student never started, was started for them so that it carries the extension: its regular
+        // due date has passed, and without a participation the student could neither see the extension nor start it.
+        List<StudentParticipation> essayParticipations = participationRepo.findByExerciseIdAndStudentId(essay.getId(), student.getId());
+        assertThat(essayParticipations).singleElement().satisfies(essayParticipation -> {
+            assertThat(essayParticipation.isPracticeMode()).isFalse();
+            assertThat(essayParticipation.getIndividualDueDate().toInstant()).isEqualTo(extendedDueDate.plusDays(1).toInstant());
+        });
+        // Its initial submission is not handed in, so it does not reach the assessment queue.
+        assertThat(participationRepo.findWithEagerSubmissionsByExerciseIdAndStudentIdAndTestRun(essay.getId(), student.getId(), false).orElseThrow().getSubmissions())
+                .allSatisfy(submission -> assertThat(submission.isSubmitted()).isFalse());
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void individualDueDateOfAStudentIsRejectedBeforeTheMilestoneDueDate() throws Exception {
+        var group = createMilestoneGroupAfterDueDate();
+
+        request.putAndExpectError(milestoneIndividualDueDateUrl(group.milestone(), TEST_PREFIX + "student1"),
+                new StudentIndividualDueDateDTO(group.milestone().getDueDate().minusDays(1)), HttpStatus.BAD_REQUEST, "individualDueDateBeforeDueDate");
+        assertThat(participationRepo.findByExerciseIdAndStudentId(group.milestone().getId(), userUtilService.getUserByLogin(TEST_PREFIX + "student1").getId())).isEmpty();
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void individualDueDateOfAStudentIsRejectedOutsideAMilestone() throws Exception {
+        var group = createMilestoneGroupAfterDueDate();
+
+        request.putAndExpectError(milestoneIndividualDueDateUrl(group.firstUserStory(), TEST_PREFIX + "student1"), new StudentIndividualDueDateDTO(ZonedDateTime.now().plusDays(3)),
+                HttpStatus.BAD_REQUEST, "milestoneonly");
+    }
+
+    @Test
+    @WithMockUser(username = TEST_PREFIX + "instructor1", roles = "INSTRUCTOR")
+    void individualDueDateOfAStudentIsRejectedForAStudentOutsideTheCourse() throws Exception {
+        var group = createMilestoneGroupAfterDueDate();
+
+        request.putAndExpectError(milestoneIndividualDueDateUrl(group.milestone(), "nosuchstudent"), new StudentIndividualDueDateDTO(ZonedDateTime.now().plusDays(3)),
+                HttpStatus.BAD_REQUEST, "studentNotFound");
     }
 
     @Test
