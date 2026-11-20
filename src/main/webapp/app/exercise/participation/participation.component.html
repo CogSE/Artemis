@@ -119,7 +119,8 @@
         }
         @if (isProgrammingExercise() && canAccessLiveRepository()) {
             <a
-                [routerLink]="['/courses', course()!.id, 'exercises', 'programming-exercises', exercise()!.id, 'code-editor', dto.participationId]"
+                [routerLink]="['..', 'repository', RepositoryType.USER, dto.participationId]"
+                data-testid="participation-online-editor"
                 class="btn btn-info btn-sm"
                 [jhiFeatureToggleLink]="FeatureToggle.ProgrammingExercises"
             >

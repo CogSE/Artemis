@@ -1,4 +1,10 @@
 <ng-container>
+    <!-- Replaces the route's plain "Repository" title in the course management title bar while a participant is known. -->
+    @if (participantName(); as name) {
+        <div *titleBarTitle>
+            <h5 class="mb-0" id="course-title-bar-title" jhiTranslate="artemisApp.repository.titleOfParticipant" [translateValues]="{ participant: name }"></h5>
+        </div>
+    }
     @if (!loadingParticipation() && !participationCouldNotBeFetched()) {
         <jhi-code-editor-container
             [isProblemStatementVisible]="false"
