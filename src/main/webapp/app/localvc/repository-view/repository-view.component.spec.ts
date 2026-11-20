@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ProgrammingExerciseParticipationService } from 'app/programming/manage/services/programming-exercise-participation.service';
 import { ProgrammingExerciseService } from 'app/programming/manage/services/programming-exercise.service';
 import { MockAccountService } from 'test/helpers/mocks/service/mock-account.service';
@@ -497,5 +497,51 @@ describe('RepositoryViewComponent', () => {
 
         // Expect subscription to be unsubscribed
         expect(component.paramSub?.closed).toBe(true);
+    });
+
+    describe('participant name in the title bar', () => {
+        const participation: ProgrammingExerciseStudentParticipation = {
+            id: 2,
+            repositoryUri: 'student-repo-uri',
+            participantName: 'Anne Studi',
+            participantIdentifier: 'anne',
+            exercise: { id: 1, numberOfAssessmentsOfCorrectionRounds: [], studentAssignedTeamIdComputed: true, secondCorrectionEnabled: false },
+        };
+
+        function openStudentRepositoryAt(url: string, loaded: ProgrammingExerciseStudentParticipation) {
+            vi.spyOn(TestBed.inject(Router), 'url', 'get').mockReturnValue(url);
+            activatedRoute.setParameters({ exerciseId: 1, repositoryType: 'USER', repositoryId: 2 });
+            vi.spyOn(programmingExerciseParticipationService, 'getStudentParticipationWithLatestResult').mockReturnValue(of(loaded));
+            component.ngOnInit();
+        }
+
+        it('names the participant in course management', () => {
+            openStudentRepositoryAt('/course-management/1/programming-exercises/1/repository/USER/2', participation);
+
+            expect(component.participantName()).toBe('Anne Studi');
+        });
+
+        it('falls back to the participant identifier when the name is missing', () => {
+            openStudentRepositoryAt('/course-management/1/programming-exercises/1/repository/USER/2', { ...participation, participantName: undefined });
+
+            expect(component.participantName()).toBe('anne');
+        });
+
+        it('keeps the plain title when the server hides the participant', () => {
+            // e.g. a tutor during an anonymous assessment: the server strips the participant information.
+            openStudentRepositoryAt('/course-management/1/programming-exercises/1/repository/USER/2', {
+                ...participation,
+                participantName: undefined,
+                participantIdentifier: undefined,
+            });
+
+            expect(component.participantName()).toBeUndefined();
+        });
+
+        it('does not name the student on their own repository page', () => {
+            openStudentRepositoryAt('/courses/1/exercises/1/repository/2', participation);
+
+            expect(component.participantName()).toBeUndefined();
+        });
     });
 });

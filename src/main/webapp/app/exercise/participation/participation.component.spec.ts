@@ -259,7 +259,7 @@ describe('ParticipationComponent', () => {
             await componentFixture.whenStable();
             componentFixture.detectChanges();
 
-            expect(!!componentFixture.nativeElement.querySelector('a[href*="code-editor"]')).toBe(isAtLeastEditor || isAtLeastInstructor);
+            expect(!!componentFixture.nativeElement.querySelector('[data-testid="participation-online-editor"]')).toBe(isAtLeastEditor || isAtLeastInstructor);
             expect(componentFixture.nativeElement.querySelector('jhi-code-button')).not.toBeNull();
         });
 
@@ -302,7 +302,7 @@ describe('ParticipationComponent', () => {
             expect(component.columns()[0].field).toBe('participantName');
             expect(component.columns().some((column) => column.headerKey === 'artemisApp.participation.repository')).toBe(true);
             expect(componentFixture.nativeElement.querySelector('jhi-code-button')).not.toBeNull();
-            expect(componentFixture.nativeElement.querySelector('a[href*="code-editor"]')).toBeNull();
+            expect(componentFixture.nativeElement.querySelector('[data-testid="participation-online-editor"]')).toBeNull();
             const notice = componentFixture.nativeElement.querySelector('[data-testid="tutor-participation-access-notice"]');
             expect(notice).not.toBeNull();
             expect(notice.textContent).toContain(assessmentType === AssessmentType.AUTOMATIC ? 'tutorAccess.available' : 'tutorAccess.untilDueDate');
@@ -335,7 +335,7 @@ describe('ParticipationComponent', () => {
             expect(component.participations()[0].participantName).toBeUndefined();
             expect(search).toHaveBeenLastCalledWith(1, expect.objectContaining({ searchTerm: '', sortedColumn: 'id' }));
             expect(componentFixture.nativeElement.querySelector('jhi-code-button')).toBeNull();
-            expect(componentFixture.nativeElement.querySelector('a[href*="code-editor"]')).toBeNull();
+            expect(componentFixture.nativeElement.querySelector('[data-testid="participation-online-editor"]')).toBeNull();
             expect(componentFixture.nativeElement.querySelector('[data-testid="tutor-participation-access-notice"]').textContent).toContain('tutorAccess.anonymousAssessment');
             expect(componentFixture.nativeElement.querySelector('a[href*="assessment-dashboard"]')).not.toBeNull();
         });

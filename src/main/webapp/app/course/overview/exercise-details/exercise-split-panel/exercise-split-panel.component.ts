@@ -163,14 +163,9 @@ export class ExerciseSplitPanelComponent {
         () => this.participationMode() === 'practice' || !!this.studentParticipation()?.testRun || hasExerciseDueDatePassed(this.exercise(), this.studentParticipation()),
     );
 
-    /**
-     * A UserStoryExercise and a MilestoneExercise are ProgrammingExercises (the milestone owns its group's shared
-     * repository, the user stories edit it), so both follow the same behavior wherever this file branches on
-     * ExerciseType.PROGRAMMING. Without the milestone, opening a milestone participation's code editor (e.g. from the
-     * instructor's participation list) never activates the outlet and shows only the problem statement.
-     */
+    /** A UserStoryExercise is a ProgrammingExercise (shares its group's repositories/code editor), so it follows the same student-facing behavior wherever this file branches on ExerciseType.PROGRAMMING. */
     private static isProgrammingLike(type: ExerciseType | undefined): boolean {
-        return type === ExerciseType.PROGRAMMING || type === ExerciseType.USER_STORY || type === ExerciseType.MILESTONE;
+        return type === ExerciseType.PROGRAMMING || type === ExerciseType.USER_STORY;
     }
 
     private static getChatMode(type: ExerciseType): ChatServiceMode | undefined {
@@ -215,7 +210,6 @@ export class ExerciseSplitPanelComponent {
         switch (this.exercise().type) {
             case ExerciseType.PROGRAMMING:
             case ExerciseType.USER_STORY:
-            case ExerciseType.MILESTONE:
                 return 'artemisApp.courseOverview.exerciseDetails.codeEditor';
             case ExerciseType.TEXT:
                 return 'artemisApp.courseOverview.exerciseDetails.textEditor';

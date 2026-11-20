@@ -23,6 +23,7 @@ import { ProgrammingExerciseInstructorRepoDownloadComponent } from 'app/programm
 import { ProgrammingExerciseInstructionComponent } from 'app/programming/shared/instructions-render/programming-exercise-instruction.component';
 import { DomainService } from 'app/programming/shared/code-editor/services/code-editor-domain.service';
 import { DomainType, RepositoryType } from 'app/programming/shared/code-editor/model/code-editor.model';
+import { CourseTitleBarTitleDirective } from 'app/course/shared/directives/course-title-bar-title.directive';
 
 @Component({
     selector: 'jhi-repository-view',
@@ -38,6 +39,7 @@ import { DomainType, RepositoryType } from 'app/programming/shared/code-editor/m
         ProgrammingExerciseStudentRepoDownloadComponent,
         ProgrammingExerciseInstructorRepoDownloadComponent,
         ProgrammingExerciseInstructionComponent,
+        CourseTitleBarTitleDirective,
     ],
 })
 export class RepositoryViewComponent implements OnInit, OnDestroy {
@@ -77,6 +79,11 @@ export class RepositoryViewComponent implements OnInit, OnDestroy {
     readonly result = signal<Result>(undefined!);
     readonly resultHasInlineFeedback = signal(false);
     readonly showInlineFeedback = signal(false);
+    /**
+     * The participant whose repository this is, shown in the course management title bar ("Repository of …"). Unset
+     * for template/solution/test/auxiliary repositories and on the student's own repository page.
+     */
+    readonly participantName = signal<string | undefined>(undefined);
 
     faClockRotateLeft = faClockRotateLeft;
     participationWithLatestResultSub?: Subscription;
@@ -179,6 +186,9 @@ export class RepositoryViewComponent implements OnInit, OnDestroy {
                     const exercise = participationWithResults.exercise as ProgrammingExercise;
                     this.exercise.set(exercise);
                     this.allowVcsAccessLog.set(this.accountService.isAtLeastInstructorInCourse(this.getCourseFromExercise(exercise)));
+                    // Students open their own repository through this view as well; naming them there adds nothing.
+                    const isManagementView = this.router.url.includes('course-management');
+                    this.participantName.set(isManagementView ? participationWithResults.participantName || participationWithResults.participantIdentifier : undefined);
                     this.repositoryUri.set(participationWithResults.repositoryUri!);
                 }),
             )
@@ -246,5 +256,6 @@ export class RepositoryViewComponent implements OnInit, OnDestroy {
         this.result.set(undefined!);
         this.resultHasInlineFeedback.set(false);
         this.showInlineFeedback.set(false);
+        this.participantName.set(undefined);
     }
 }
