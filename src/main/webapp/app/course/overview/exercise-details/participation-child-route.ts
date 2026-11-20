@@ -24,9 +24,11 @@ export function participationChildRouteSegments(exercise: Exercise, participatio
         case ExerciseType.TEXT:
             return ['text-exercises', exercise.id, 'participate', participation.id];
         // A UserStoryExercise is a ProgrammingExercise that shares its milestone group's repository, so it is shown in
-        // the very same code editor, under the same `programming-exercises` segment (see `getExerciseUrlSegment`).
+        // the very same code editor, under the same `programming-exercises` segment (see `getExerciseUrlSegment`). The
+        // MilestoneExercise owns that shared repository; instructors open its participations from the participation list.
         case ExerciseType.PROGRAMMING:
         case ExerciseType.USER_STORY:
+        case ExerciseType.MILESTONE:
             return (exercise as ProgrammingExercise).allowOnlineEditor ? ['programming-exercises', exercise.id, 'code-editor', participation.id] : undefined;
         case ExerciseType.MODELING:
             return ['modeling-exercises', exercise.id, 'participate', participation.id];

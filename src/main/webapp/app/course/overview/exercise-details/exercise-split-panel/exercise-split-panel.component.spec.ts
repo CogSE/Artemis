@@ -200,6 +200,31 @@ describe('ExerciseSplitPanelComponent', () => {
         expect(navigateSpy).not.toHaveBeenCalled();
     });
 
+    it('opens the code editor for a milestone participation, which owns the group shared repository', () => {
+        const navigateSpy = vi.mocked(TestBed.inject(Router).navigate);
+
+        // The instructor's participation list links a milestone participation to this code editor route. Without the
+        // milestone counting as programming-like, the outlet is never placed and only the problem statement shows.
+        fixture.componentRef.setInput('exercise', { id: 3, type: ExerciseType.MILESTONE, allowOnlineEditor: true } as unknown as Exercise);
+        fixture.componentRef.setInput('studentParticipation', { id: 13 } as StudentParticipation);
+        fixture.detectChanges();
+
+        expect(component.showCodeEditor()).toBe(true);
+        expect(component.usesRouterOutlet()).toBe(true);
+        expect(navigateSpy).toHaveBeenCalledWith(['programming-exercises', 3, 'code-editor', 13], expect.anything());
+    });
+
+    it('does not open the code editor for a milestone whose online editor is disabled', () => {
+        const navigateSpy = vi.mocked(TestBed.inject(Router).navigate);
+
+        fixture.componentRef.setInput('exercise', { id: 3, type: ExerciseType.MILESTONE, allowOnlineEditor: false } as unknown as Exercise);
+        fixture.componentRef.setInput('studentParticipation', { id: 13 } as StudentParticipation);
+        fixture.detectChanges();
+
+        expect(component.showCodeEditor()).toBe(false);
+        expect(navigateSpy).not.toHaveBeenCalled();
+    });
+
     describe('user story task board', () => {
         // The due date is still ahead, so only practice mode can make the board read-only.
         const userStory = { id: 7, type: ExerciseType.USER_STORY, allowOnlineEditor: false, dueDate: dayjs().add(1, 'day') } as unknown as Exercise;

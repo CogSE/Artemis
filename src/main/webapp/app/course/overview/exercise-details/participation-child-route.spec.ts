@@ -20,11 +20,11 @@ describe('participationChildRouteSegments', () => {
 
     // A UserStoryExercise is a ProgrammingExercise sharing its milestone group's repository, so both must resolve to
     // the same code editor route — otherwise the split panel never activates its outlet and shows a blank editor.
-    it.each([ExerciseType.PROGRAMMING, ExerciseType.USER_STORY])('routes a %s exercise with the online editor to the code editor', (type) => {
+    it.each([ExerciseType.PROGRAMMING, ExerciseType.USER_STORY, ExerciseType.MILESTONE])('routes a %s exercise with the online editor to the code editor', (type) => {
         expect(participationChildRouteSegments(exerciseOfType(type, true), participation)).toEqual(['programming-exercises', 42, 'code-editor', 7]);
     });
 
-    it.each([ExerciseType.PROGRAMMING, ExerciseType.USER_STORY])('returns undefined for a %s exercise without the online editor', (type) => {
+    it.each([ExerciseType.PROGRAMMING, ExerciseType.USER_STORY, ExerciseType.MILESTONE])('returns undefined for a %s exercise without the online editor', (type) => {
         expect(participationChildRouteSegments(exerciseOfType(type, false), participation)).toBeUndefined();
     });
 

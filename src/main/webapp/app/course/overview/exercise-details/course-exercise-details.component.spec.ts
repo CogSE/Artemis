@@ -4,6 +4,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { PanelDirective, ResizablePanelsComponent } from 'app/shared-ui/components/resizable-panels/resizable-panels.component';
 import { ActivatedRoute, Navigation, ParamMap, Router, UrlTree, convertToParamMap } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ProgrammingExerciseParticipationService } from 'app/programming/manage/services/programming-exercise-participation.service';
+import { ProgrammingExerciseStudentParticipation } from 'app/exercise/shared/entities/participation/programming-exercise-student-participation.model';
 import { TranslateService } from '@ngx-translate/core';
 import { AccountService } from 'app/core/auth/account.service';
 import { User } from 'app/account/user/user.model';
@@ -916,6 +919,76 @@ describe('CourseExerciseDetailsComponent', () => {
             comp.loadExercise();
 
             expect(comp.participationMode()).toBe('graded');
+        });
+    });
+
+    describe('participation of another user named in the URL', () => {
+        const ownParticipation = { id: 679, testRun: false } as StudentParticipation;
+        const studentParticipation = { id: 77, testRun: false } as StudentParticipation;
+        let getStudentParticipationMock: ReturnType<typeof vi.spyOn>;
+
+        type RouteWithParticipationChild = { firstChild?: { snapshot: { paramMap: ParamMap } } };
+
+        function routeToParticipation(participationId: string | undefined) {
+            (route as unknown as RouteWithParticipationChild).firstChild = participationId ? { snapshot: { paramMap: convertToParamMap({ participationId }) } } : undefined;
+        }
+
+        function loadWithOwnParticipations(type: ExerciseType, ownParticipations: StudentParticipation[]) {
+            getExerciseDetailsMock.mockReturnValue(of({ body: { exercise: { ...programmingExercise, type, studentParticipations: ownParticipations } } }));
+            mergeStudentParticipationMock.mockReturnValue(ownParticipations);
+            vi.spyOn(participationService, 'getSpecificStudentParticipation').mockImplementation((participations, testRun) =>
+                (participations ?? []).find((participation) => !!participation.testRun === testRun),
+            );
+            comp.loadExercise();
+        }
+
+        beforeEach(() => {
+            getStudentParticipationMock = vi
+                .spyOn(TestBed.inject(ProgrammingExerciseParticipationService), 'getStudentParticipationWithLatestResult')
+                .mockReturnValue(of(studentParticipation as ProgrammingExerciseStudentParticipation));
+        });
+
+        afterEach(() => {
+            routeToParticipation(undefined);
+        });
+
+        // The instructor's "Online Editor" in the participation list opens a student's participation on this page. With
+        // only the viewer's own participations the split panel hid the code editor and showed the problem statement.
+        it.each([ExerciseType.PROGRAMMING, ExerciseType.MILESTONE])('shows the routed participation of a %s exercise the viewer does not own', (type) => {
+            routeToParticipation('77');
+
+            loadWithOwnParticipations(type, []);
+
+            expect(getStudentParticipationMock).toHaveBeenCalledWith(77);
+            expect(comp.activeParticipation()?.id).toBe(77);
+        });
+
+        it('does not hand the split panel the viewer’s own participation while the routed one is loading', () => {
+            // Otherwise the split panel redirects the URL from the student's participation to the viewer's own.
+            getStudentParticipationMock.mockReturnValue(NEVER);
+            routeToParticipation('77');
+
+            loadWithOwnParticipations(ExerciseType.PROGRAMMING, [ownParticipation]);
+
+            expect(comp.activeParticipation()).toBeUndefined();
+        });
+
+        it('uses the viewer’s own participation without a request when the URL addresses it', () => {
+            routeToParticipation('679');
+
+            loadWithOwnParticipations(ExerciseType.PROGRAMMING, [ownParticipation]);
+
+            expect(getStudentParticipationMock).not.toHaveBeenCalled();
+            expect(comp.activeParticipation()?.id).toBe(679);
+        });
+
+        it('falls back to the viewer’s own participation when the routed one cannot be loaded', () => {
+            getStudentParticipationMock.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 403 })));
+            routeToParticipation('77');
+
+            loadWithOwnParticipations(ExerciseType.PROGRAMMING, [ownParticipation]);
+
+            expect(comp.activeParticipation()?.id).toBe(679);
         });
     });
 

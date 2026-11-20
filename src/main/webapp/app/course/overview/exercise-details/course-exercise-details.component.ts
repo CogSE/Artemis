@@ -55,6 +55,7 @@ import { hasResults } from 'app/exercise/participation/participation.utils';
 import { ExerciseSplitPanelComponent } from './exercise-split-panel/exercise-split-panel.component';
 import { ParticipationMode } from 'app/exercise/exercise-headers/participation-mode-toggle/participation-mode-toggle.component';
 import { participationChildRouteSegments } from 'app/course/overview/exercise-details/participation-child-route';
+import { ProgrammingExerciseParticipationService } from 'app/programming/manage/services/programming-exercise-participation.service';
 
 interface InstructorActionItem {
     routerLink: string;
@@ -84,6 +85,7 @@ export class CourseExerciseDetailsComponent implements OnInit, OnDestroy {
     private irisSettingsService = inject(IrisSettingsService);
     private destroyRef = inject(DestroyRef);
     private courseStorageService = inject(CourseStorageService);
+    private programmingExerciseParticipationService = inject(ProgrammingExerciseParticipationService);
 
     protected readonly splitPanel = viewChild(ExerciseSplitPanelComponent);
 
@@ -164,7 +166,22 @@ export class CourseExerciseDetailsComponent implements OnInit, OnDestroy {
     // Display-only override for the quiz participation status badge, set from the live quiz view.
     readonly liveQuizStatus = signal<LiveQuizParticipationStatus | undefined>(undefined);
 
+    /**
+     * A participation the URL addresses that is not one of the viewer's own, e.g. a student's participation an
+     * instructor opens via "Online Editor" in the participation list. See {@link loadRoutedForeignParticipation}.
+     */
+    private readonly routedForeignParticipation = signal<StudentParticipation | undefined>(undefined);
+    /** Set as soon as the URL is known to address a foreign participation, i.e. before its request completes. */
+    private readonly routedForeignParticipationId = signal<number | undefined>(undefined);
+
     readonly activeParticipation = computed(() => {
+        const routedForeignParticipationId = this.routedForeignParticipationId();
+        if (routedForeignParticipationId !== undefined) {
+            // Undefined while loading: handing the split panel the viewer's own participation meanwhile would make it
+            // redirect the URL away from the participation that was asked for.
+            const routedForeignParticipation = this.routedForeignParticipation();
+            return routedForeignParticipation?.id === routedForeignParticipationId ? routedForeignParticipation : undefined;
+        }
         return this.participationMode() === 'practice' ? (this.practiceStudentParticipation() ?? this.gradedStudentParticipation()) : this.gradedStudentParticipation();
     });
 
@@ -275,6 +292,15 @@ export class CourseExerciseDetailsComponent implements OnInit, OnDestroy {
             .subscribe(() => this.syncViewingSubmissionWithRoute());
         this.syncViewingSubmissionWithRoute();
 
+        // Also independent: a child-only navigation reuses this component, so a routed participation of someone else
+        // has to be picked up (or dropped) here as well as after the exercise loads.
+        this.router.events
+            .pipe(
+                filter((event) => event instanceof NavigationEnd),
+                takeUntilDestroyed(this.destroyRef),
+            )
+            .subscribe(() => this.loadRoutedForeignParticipation());
+
         const courseIdParams$ = this.route.parent?.parent?.params;
         const exerciseIdParams$ = this.route.params;
         if (courseIdParams$) {
@@ -349,7 +375,56 @@ export class CourseExerciseDetailsComponent implements OnInit, OnDestroy {
         return fromUrl ? Number(fromUrl[1]) : undefined;
     }
 
+    /**
+     * Shows the participation the URL addresses when it is not one of the viewer's own.
+     * <p>
+     * The participation list links an instructor to a student's participation through this page
+     * (`…/programming-exercises/:exerciseId/code-editor/:participationId`). The viewer's own participations come from
+     * the exercise details, so without this the split panel got none (or the viewer's own): it then hid the code editor
+     * outlet and showed only the problem statement, or redirected to the viewer's own repository. The server decides
+     * whether the viewer may see the participation; a failed request leaves the page on the viewer's own participations.
+     */
+    private loadRoutedForeignParticipation(): void {
+        const routedParticipationId = this.routedParticipationId();
+        const isForeign =
+            routedParticipationId !== undefined &&
+            isProgrammingExerciseType(this.exercise?.type) &&
+            routedParticipationId !== this.gradedStudentParticipation()?.id &&
+            routedParticipationId !== this.practiceStudentParticipation()?.id;
+        if (!isForeign) {
+            this.clearRoutedForeignParticipation();
+            return;
+        }
+        if (this.routedForeignParticipationId() === routedParticipationId) {
+            return;
+        }
+        this.routedForeignParticipationId.set(routedParticipationId);
+        this.routedForeignParticipation.set(undefined);
+        this.programmingExerciseParticipationService
+            .getStudentParticipationWithLatestResult(routedParticipationId)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+                next: (participation) => {
+                    // Discard a response that arrives after the URL moved on to another participation.
+                    if (this.routedForeignParticipationId() === participation.id) {
+                        this.routedForeignParticipation.set(participation);
+                    }
+                },
+                error: () => {
+                    if (this.routedForeignParticipationId() === routedParticipationId) {
+                        this.clearRoutedForeignParticipation();
+                    }
+                },
+            });
+    }
+
+    private clearRoutedForeignParticipation(): void {
+        this.routedForeignParticipationId.set(undefined);
+        this.routedForeignParticipation.set(undefined);
+    }
+
     loadExercise() {
+        this.clearRoutedForeignParticipation();
         this.participationMode.set('graded');
         this._studentParticipations.set(this.participationWebsocketService.getParticipationsForExercise(this.exerciseId));
         // Evaluated here as well as after the details arrive, because it has to be settled before the first change
@@ -371,6 +446,7 @@ export class CourseExerciseDetailsComponent implements OnInit, OnDestroy {
             // Re-evaluated now that the participations are known: before the response the routed id could not be
             // matched to one of them yet.
             this.syncModeWithRoutedParticipation();
+            this.loadRoutedForeignParticipation();
             this.loadComplaintAndLatestRatedResult();
         });
     }
