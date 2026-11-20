@@ -10,6 +10,7 @@ import {
     faComments,
     faDumbbell,
     faFileAlt,
+    faFlagCheckered,
     faList,
     faPuzzlePiece,
     faQuestion,
@@ -260,6 +261,19 @@ describe('CourseSidebarItemService', () => {
                 icon: faRobot,
                 title: 'Iris',
                 translation: 'artemisApp.courseOverview.menu.iris',
+                hidden: false,
+            });
+        });
+
+        it('getMilestonesItem should return correct item', () => {
+            const item = service.getMilestonesItem(courseId);
+
+            expect(item).toEqual({
+                routerLink: `${courseId}/milestone-exercise-groups`,
+                icon: faFlagCheckered,
+                title: 'Milestones',
+                translation: 'artemisApp.milestoneOverview.title',
+                testId: 'milestones',
                 hidden: false,
             });
         });

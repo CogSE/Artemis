@@ -58,6 +58,13 @@
                 "typeNameToConfirm": "Bitte gib den Namen der Gruppe zur Bestätigung ein."
             }
         },
+        "milestoneOverview": {
+            "title": "Meilensteine",
+            "exerciseCount": "Aufgaben",
+            "details": "Details",
+            "empty": "In diesem Kurs gibt es noch keine Meilensteine.",
+            "loadFailed": "Die Meilensteine konnten nicht geladen werden."
+        },
         "milestoneAssessment": {
             "title": "Meilenstein-Bewertung",
             "pageTitle": "{{ studentLogin }} – Meilenstein-Bewertung",
@@ -87,6 +94,7 @@
                 "estimatedEffort": "Geschätzt",
                 "actualEffort": "Erfasst"
             },
+            "breadcrumb": "Bewertung {{ title }}",
             "dashboard": {
                 "title": "Meilenstein-Bewertungsdashboard",
                 "student": "Studierende:r",

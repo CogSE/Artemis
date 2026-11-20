@@ -4,7 +4,7 @@ import { WritableSignal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { EMPTY, Observable, of } from 'rxjs';
+import { EMPTY, Observable, Subject, of } from 'rxjs';
 import { MockProvider } from 'ng-mocks';
 import { TranslateService } from '@ngx-translate/core';
 import { MockTranslateService } from 'test/helpers/mocks/service/mock-translate.service';
@@ -27,13 +27,14 @@ describe('MilestoneAssessmentDashboardComponent', () => {
                     {
                         exerciseId: 1,
                         title: 'Login form',
+                        shortName: 'US1',
                         exerciseType: ExerciseType.PROGRAMMING,
                         userStory: true,
                         submissionId: 111,
                         assessed: true,
                         latestScore: 80,
                     },
-                    { exerciseId: 2, title: 'Logout', exerciseType: ExerciseType.PROGRAMMING, userStory: true, submissionId: 222 },
+                    { exerciseId: 2, title: 'Logout', shortName: 'US2', exerciseType: ExerciseType.PROGRAMMING, userStory: true, submissionId: 222 },
                     { exerciseId: 3, title: 'Retro quiz', exerciseType: ExerciseType.QUIZ, submissionId: 333, latestScore: 50 },
                 ],
             },
@@ -49,8 +50,8 @@ describe('MilestoneAssessmentDashboardComponent', () => {
         ];
     }
 
-    async function setup(getDashboard: () => Observable<MilestoneAssessmentStudent[]> = () => of(students())): Promise<void> {
-        const route = { params: of({ courseId: '1', groupId: '10' }) } as unknown as ActivatedRoute;
+    async function setup(getDashboard: () => Observable<MilestoneAssessmentStudent[]> = () => of(students()), groupId = '10'): Promise<void> {
+        const route = { params: of({ courseId: '1', groupId }) } as unknown as ActivatedRoute;
 
         await TestBed.configureTestingModule({
             imports: [MilestoneAssessmentDashboardComponent],
@@ -78,14 +79,20 @@ describe('MilestoneAssessmentDashboardComponent', () => {
         visibleStudents: () => MilestoneAssessmentStudent[];
         tutorialGroupOptions: () => { label: string; value: string }[];
         searchTerm: WritableSignal<string>;
-        tutorialGroupFilter: WritableSignal<string>;
+        preferredTutorialGroup: WritableSignal<string>;
+        tutorialGroupFilter: () => string;
+        sortField: () => string;
+        sortAscending: () => boolean;
         openOnly: WritableSignal<boolean>;
         onSort: (event: { field: string; order: number }) => void;
     } {
         return fixture.componentInstance as never;
     }
 
-    beforeEach(() => TestBed.resetTestingModule());
+    beforeEach(() => {
+        TestBed.resetTestingModule();
+        sessionStorage.clear();
+    });
 
     it('renders one row per student and one column per exercise', async () => {
         await setup();
@@ -94,6 +101,13 @@ describe('MilestoneAssessmentDashboardComponent', () => {
         // Taken from the first row: every row carries the group's exercises in the same order, started or not.
         expect(comp().exerciseColumns()).toHaveLength(3);
         expect(fixture.nativeElement.querySelectorAll('tbody tr')).toHaveLength(2);
+    });
+
+    it('heads each exercise column with its short name, falling back to the title', async () => {
+        await setup();
+
+        const headers: string[] = Array.from(fixture.nativeElement.querySelectorAll('thead th')).map((th) => (th as HTMLElement).textContent!.trim());
+        expect(headers.slice(2, 5)).toEqual(['US1', 'US2', 'Retro quiz']);
     });
 
     it('names the tutorial groups of each student, so a tutor can find their own students', async () => {
@@ -201,9 +215,9 @@ describe('MilestoneAssessmentDashboardComponent', () => {
         });
 
         it('filters by one tutorial group, or by having none', () => {
-            comp().tutorialGroupFilter.set('Thursday 14:00');
+            comp().preferredTutorialGroup.set('Thursday 14:00');
             expect(logins()).toEqual(['student1']);
-            comp().tutorialGroupFilter.set('__none__');
+            comp().preferredTutorialGroup.set('__none__');
             expect(logins()).toEqual(['student2']);
         });
 
@@ -222,6 +236,43 @@ describe('MilestoneAssessmentDashboardComponent', () => {
         it('sorts by progress, with a student who submitted nothing first', () => {
             comp().onSort({ field: 'progress', order: 1 });
             expect(logins()).toEqual(['student2', 'student1', 'student3']);
+        });
+
+        it('keeps the filters and the sort order when the tutor comes back from a student', async () => {
+            comp().searchTerm.set('monday');
+            comp().preferredTutorialGroup.set('Monday 10:00');
+            comp().openOnly.set(true);
+            comp().onSort({ field: 'progress', order: -1 });
+            fixture.detectChanges();
+            fixture.destroy();
+
+            // The tutorial groups are only known once the students arrive, so the restored one must outlive the wait.
+            const response = new Subject<MilestoneAssessmentStudent[]>();
+            TestBed.resetTestingModule();
+            await setup(() => response);
+            response.next(withThirdStudent());
+            response.complete();
+
+            expect(comp().searchTerm()).toBe('monday');
+            expect(comp().tutorialGroupFilter()).toBe('Monday 10:00');
+            expect(comp().openOnly()).toBe(true);
+            expect(comp().sortField()).toBe('progress');
+            expect(comp().sortAscending()).toBe(false);
+            expect(logins()).toEqual(['student1']);
+        });
+
+        it('starts another milestone with the default filters', async () => {
+            comp().searchTerm.set('monday');
+            comp().openOnly.set(true);
+            fixture.detectChanges();
+            fixture.destroy();
+
+            TestBed.resetTestingModule();
+            await setup(() => of(withThirdStudent()), '11');
+
+            expect(comp().searchTerm()).toBe('');
+            expect(comp().openOnly()).toBe(false);
+            expect(comp().tutorialGroupFilter()).toBe('__all__');
         });
 
         it('says so when no student matches the filters', () => {

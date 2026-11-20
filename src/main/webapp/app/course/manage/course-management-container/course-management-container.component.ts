@@ -342,6 +342,9 @@ export class CourseManagementContainerComponent extends BaseCourseContainerCompo
 
         // 2–7. Content items (same order as Explore Artemis cards)
         sidebarItems.push(this.sidebarItemService.getExercisesItem(courseId));
+        if (currentCourse.isAtLeastTutor) {
+            sidebarItems.push(this.sidebarItemService.getMilestonesItem(courseId));
+        }
         if (this.lectureEnabled && isEditor) {
             sidebarItems.push(this.sidebarItemService.getLecturesItem(courseId));
         }

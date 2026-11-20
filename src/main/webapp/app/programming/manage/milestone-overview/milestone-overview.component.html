@@ -1,0 +1,70 @@
+<ng-template titleBarTitle>
+    <span jhiTranslate="artemisApp.milestoneOverview.title"></span>
+</ng-template>
+
+@if (sortedGroups().length) {
+    <div class="flex flex-col gap-3">
+        @for (group of sortedGroups(); track group.id) {
+            <tumaet-ui-panel data-testid="milestone-overview-group">
+                <!-- The title and the milestone's key facts share one row, so the list reads like a timeline. -->
+                <div tumAetUiPanelHeader class="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                    <span data-testid="milestone-overview-title">{{ group.title }}</span>
+                    <dl class="m-0 flex flex-wrap gap-x-4 gap-y-1 text-sm leading-normal font-normal text-(--text-body-secondary)">
+                        @for (date of timeline(group); track date.label) {
+                            <div class="flex gap-1">
+                                <dt class="font-semibold"><span [jhiTranslate]="date.label"></span>:</dt>
+                                <dd class="m-0">
+                                    @if (date.value) {
+                                        {{ date.value | artemisDate }}
+                                    } @else {
+                                        <span class="italic" jhiTranslate="artemisApp.exerciseManagement.groupMeta.none"></span>
+                                    }
+                                </dd>
+                            </div>
+                        }
+                        <div class="flex gap-1">
+                            <dt class="font-semibold" jhiTranslate="artemisApp.exerciseManagement.groupMeta.sumOfPoints"></dt>
+                            <dd class="m-0">{{ group.maxPoints ?? 0 }}p</dd>
+                        </div>
+                        <div class="flex gap-1">
+                            <dt class="font-semibold"><span jhiTranslate="artemisApp.milestoneOverview.exerciseCount"></span>:</dt>
+                            <dd class="m-0" data-testid="milestone-overview-exercise-count">{{ group.exerciseIds?.length ?? 0 }}</dd>
+                        </div>
+                    </dl>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a tumAetUiButton size="small" [routerLink]="assessmentDashboardLink(group)" data-testid="milestone-overview-assessment-dashboard">
+                        <fa-icon [icon]="faListCheck" />
+                        <span class="ms-1" jhiTranslate="artemisApp.milestoneAssessment.dashboard.title"></span>
+                    </a>
+                    @if (group.milestoneExerciseId !== undefined) {
+                        <a
+                            tumAetUiButton
+                            severity="secondary"
+                            variant="outlined"
+                            size="small"
+                            [routerLink]="detailsLink(group.milestoneExerciseId)"
+                            data-testid="milestone-overview-details"
+                        >
+                            <fa-icon [icon]="faEye" />
+                            <span class="ms-1" jhiTranslate="artemisApp.milestoneOverview.details"></span>
+                        </a>
+                        <a
+                            tumAetUiButton
+                            severity="secondary"
+                            variant="outlined"
+                            size="small"
+                            [routerLink]="participationsLink(group.milestoneExerciseId)"
+                            data-testid="milestone-overview-participations"
+                        >
+                            <fa-icon [icon]="faListAlt" />
+                            <span class="ms-1" jhiTranslate="artemisApp.exercise.participations"></span>
+                        </a>
+                    }
+                </div>
+            </tumaet-ui-panel>
+        }
+    </div>
+} @else if (!isLoading()) {
+    <p class="text-(--text-body-secondary)" jhiTranslate="artemisApp.milestoneOverview.empty" data-testid="milestone-overview-empty"></p>
+}

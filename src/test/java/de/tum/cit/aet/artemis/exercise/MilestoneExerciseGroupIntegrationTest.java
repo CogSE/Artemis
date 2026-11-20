@@ -855,6 +855,7 @@ class MilestoneExerciseGroupIntegrationTest extends AbstractProgrammingIntegrati
             // Both stories appear, in title order - a story the student never started still gets an entry, because
             // "not started" is what the tutor needs to see rather than a row to hide.
             assertThat(row.exercises()).extracting(MilestoneAssessmentExerciseDTO::exerciseId).containsExactly(first.getId(), second.getId());
+            assertThat(row.exercises()).extracting(MilestoneAssessmentExerciseDTO::shortName).containsExactly(first.getShortName(), second.getShortName());
             assertThat(row.exercises().getFirst().submissionId()).isNotNull();
             assertThat(row.exercises().getFirst().latestScore()).isEqualTo(100.0);
             assertThat(row.exercises().getFirst().assessed()).isFalse();

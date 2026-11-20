@@ -1,3 +1,5 @@
+$student-column-width: 14rem;
+
 .milestone-dashboard {
     &__filters {
         display: flex;
@@ -15,9 +17,47 @@
     }
 
     // A group can have many stories, so the table is the one part that can genuinely exceed the page; it scrolls on
-    // its own so the page never scrolls horizontally.
+    // its own so the page never scrolls horizontally. Only the exercise columns move: who the row is about, how far
+    // their assessment is and the button to continue it stay pinned to the edges.
     &__scroll {
         overflow-x: auto;
+    }
+
+    &__student,
+    &__tutorial-group,
+    &__progress {
+        position: sticky;
+        z-index: 1;
+        background-color: var(--tumaet-ui-content-background);
+    }
+
+    // The tutorial group column is pinned right next to the student column, so the student column needs a known width.
+    &__student {
+        left: 0;
+        box-sizing: border-box;
+        width: $student-column-width;
+        min-width: $student-column-width;
+        max-width: $student-column-width;
+        overflow-wrap: anywhere;
+    }
+
+    // Collapsed table borders do not travel with a sticky cell, so the edge towards the scrolling columns is a shadow.
+    &__tutorial-group {
+        left: $student-column-width;
+        box-shadow: inset -1px 0 0 var(--tumaet-ui-border-color);
+    }
+
+    &__progress {
+        right: 0;
+        white-space: nowrap;
+        box-shadow: inset 1px 0 0 var(--tumaet-ui-border-color);
+    }
+
+    &__progress-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
     }
 
     &__login {

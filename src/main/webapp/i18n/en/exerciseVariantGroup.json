@@ -58,6 +58,13 @@
                 "typeNameToConfirm": "Please type in the name of the group to confirm."
             }
         },
+        "milestoneOverview": {
+            "title": "Milestones",
+            "exerciseCount": "Exercises",
+            "details": "Details",
+            "empty": "There are no milestones in this course yet.",
+            "loadFailed": "The milestones could not be loaded."
+        },
         "milestoneAssessment": {
             "title": "Milestone assessment",
             "pageTitle": "{{ studentLogin }} – Milestone assessment",
@@ -87,6 +94,7 @@
                 "estimatedEffort": "Estimated",
                 "actualEffort": "Logged"
             },
+            "breadcrumb": "Assessment {{ title }}",
             "dashboard": {
                 "title": "Milestone assessment dashboard",
                 "student": "Student",

@@ -11,6 +11,7 @@ import {
     faComments,
     faDumbbell,
     faFileAlt,
+    faFlagCheckered,
     faList,
     faNetworkWired,
     faPersonChalkboard,
@@ -52,6 +53,18 @@ export class CourseSidebarItemService {
             iconColor: '#6366f1',
             title: 'Exercises',
             translation: 'artemisApp.courseOverview.menu.exercises',
+            hidden: false,
+        };
+    }
+
+    /** The course's milestone groups, each leading on to its assessment dashboard. */
+    getMilestonesItem(courseId: number): SidebarItem {
+        return {
+            routerLink: `${courseId}/milestone-exercise-groups`,
+            icon: faFlagCheckered,
+            title: 'Milestones',
+            translation: 'artemisApp.milestoneOverview.title',
+            testId: 'milestones',
             hidden: false,
         };
     }

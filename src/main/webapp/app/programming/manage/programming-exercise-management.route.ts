@@ -18,6 +18,16 @@ import {
 } from 'app/programming/manage/assess/code-editor-tutor-assessment-container/code-editor-tutor-assessment-container.component';
 
 export const routes: Routes = [
+    {
+        // Every milestone group of the course, as the way in for a tutor grading one; reached from the course sidebar.
+        path: 'milestone-exercise-groups',
+        loadComponent: () => import('app/programming/manage/milestone-overview/milestone-overview.component').then((m) => m.MilestoneOverviewComponent),
+        data: {
+            authorities: IS_AT_LEAST_TUTOR,
+            pageTitle: 'artemisApp.milestoneOverview.title',
+        },
+        canActivate: [UserRouteAccessService],
+    },
     // Milestone create/edit reuses the same programming-exercise update page as a normal exercise (see
     // ProgrammingExerciseUpdateComponent.isMilestoneMode), so the milestone's settings (language, package,
     // build config, static code analysis, ...) can be configured exactly like a programming exercise, minus

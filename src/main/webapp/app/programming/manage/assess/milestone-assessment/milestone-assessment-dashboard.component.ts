@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, linkedSignal, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -19,6 +19,7 @@ import { ArtemisTranslatePipe } from 'app/foundation/pipes/artemis-translate.pip
 import { TranslateDirective } from 'app/foundation/language/translate.directive';
 import { AlertService } from 'app/foundation/service/alert.service';
 import { SortService } from 'app/foundation/service/sort.service';
+import { SessionStorageService } from 'app/foundation/service/session-storage.service';
 import { CourseTitleBarTitleDirective } from 'app/course/shared/directives/course-title-bar-title.directive';
 import { ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
 import { MilestoneAssessmentExercise, MilestoneAssessmentService, MilestoneAssessmentStudent } from './milestone-assessment.service';
@@ -35,6 +36,17 @@ const EXERCISE_SORT_PREFIX = 'exercise-';
 /** Tutorial group filter values that are not a group title. A title cannot clash with them, since they are not shown. */
 const ALL_TUTORIAL_GROUPS = '__all__';
 const NO_TUTORIAL_GROUP = '__none__';
+
+/** The filters and sort order a tutor set, kept per group so they survive opening a student and coming back. */
+interface DashboardFilters {
+    searchTerm?: string;
+    tutorialGroup?: string;
+    openOnly?: boolean;
+    sortField?: string;
+    sortAscending?: boolean;
+}
+
+const FILTER_STORAGE_KEY_PREFIX = 'milestoneAssessment.dashboard.filters.';
 
 /**
  * The milestone's own assessment dashboard: one row per student, one column per exercise of the group, user stories first.
@@ -72,6 +84,7 @@ export class MilestoneAssessmentDashboardComponent {
     private readonly alertService = inject(AlertService);
     private readonly sortService = inject(SortService);
     private readonly translateService = inject(TranslateService);
+    private readonly sessionStorageService = inject(SessionStorageService);
 
     protected readonly courseId = signal<number>(0);
     protected readonly groupId = signal<number>(0);
@@ -105,10 +118,16 @@ export class MilestoneAssessmentDashboardComponent {
         ];
     });
 
-    /** Falls back to all tutorial groups when a reload drops the selected one, rather than leaving an empty table behind. */
-    protected readonly tutorialGroupFilter = linkedSignal<{ value: string }[], string>({
-        source: this.tutorialGroupOptions,
-        computation: (options, previous) => (previous && options.some((option) => option.value === previous.value) ? previous.value : ALL_TUTORIAL_GROUPS),
+    /**
+     * The tutorial group the tutor picked. Kept apart from the effective filter below, so that a group restored from an
+     * earlier visit is not dropped while the students - and with them the group options - are still loading.
+     */
+    protected readonly preferredTutorialGroup = signal(ALL_TUTORIAL_GROUPS);
+
+    /** Falls back to all tutorial groups when the picked one is not listed, rather than leaving an empty table behind. */
+    protected readonly tutorialGroupFilter = computed(() => {
+        const preferred = this.preferredTutorialGroup();
+        return this.tutorialGroupOptions().some((option) => option.value === preferred) ? preferred : ALL_TUTORIAL_GROUPS;
     });
 
     /** The rows the table shows: the students passing every filter, in the chosen order. */
@@ -137,8 +156,36 @@ export class MilestoneAssessmentDashboardComponent {
         this.route.params.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
             this.courseId.set(Number(params['courseId']));
             this.groupId.set(Number(params['groupId']));
+            this.restoreFilters();
             this.load();
         });
+        // A tutor opens a student from here and comes back, by the browser or the breadcrumb, to a fresh component.
+        effect(() => {
+            const filters: DashboardFilters = {
+                searchTerm: this.searchTerm(),
+                tutorialGroup: this.preferredTutorialGroup(),
+                openOnly: this.openOnly(),
+                sortField: this.sortField(),
+                sortAscending: this.sortAscending(),
+            };
+            if (this.groupId()) {
+                this.sessionStorageService.store(this.filterStorageKey(), filters);
+            }
+        });
+    }
+
+    /** Session storage rather than local storage: the filters belong to the tab the tutor is grading in, not to every tab. */
+    private filterStorageKey(): string {
+        return `${FILTER_STORAGE_KEY_PREFIX}${this.courseId()}.${this.groupId()}`;
+    }
+
+    private restoreFilters(): void {
+        const filters = this.sessionStorageService.retrieve<DashboardFilters>(this.filterStorageKey()) ?? {};
+        this.searchTerm.set(filters.searchTerm ?? '');
+        this.preferredTutorialGroup.set(filters.tutorialGroup ?? ALL_TUTORIAL_GROUPS);
+        this.openOnly.set(filters.openOnly ?? false);
+        this.sortField.set(filters.sortField ?? 'student');
+        this.sortAscending.set(filters.sortAscending ?? true);
     }
 
     private load(): void {

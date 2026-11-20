@@ -302,6 +302,17 @@ describe('CourseManagementContainerComponent', () => {
         expect(sidebarItems.some((item) => item.title === 'Presentations')).toBe(shown);
     });
 
+    it.each([
+        { role: 'tutor', isAtLeastTutor: true, shown: true },
+        { role: 'student', isAtLeastTutor: false, shown: false },
+    ])('should show milestones in the sidebar of a $role: $shown', ({ isAtLeastTutor, shown }) => {
+        component.course.set({ ...course1, isAtLeastTutor, isAtLeastEditor: false, isAtLeastInstructor: false });
+
+        const sidebarItems = component.getSidebarItems();
+
+        expect(sidebarItems.some((item) => item.title === 'Milestones')).toBe(shown);
+    });
+
     it('should keep the transparent presentation layout for a selected exercise-linked presentation', () => {
         route.snapshot.firstChild!.data = { transparentCourseBody: true };
         (router as unknown as MockRouter).setUrl('/course-management/1/presentations/17/exercises/7');

@@ -212,14 +212,14 @@ public class MilestoneAssessmentService {
     private MilestoneAssessmentExerciseDTO toExerciseDTO(Exercise exercise, @Nullable StudentParticipation participation, List<UserStoryTaskDTO> tasks) {
         boolean userStory = exercise instanceof UserStoryExercise;
         if (participation == null) {
-            return new MilestoneAssessmentExerciseDTO(exercise.getId(), exercise.getTitle(), exercise.getExerciseType(), userStory, exercise.getMaxPoints(), null, null, null,
-                    false, List.of());
+            return new MilestoneAssessmentExerciseDTO(exercise.getId(), exercise.getTitle(), exercise.getShortName(), exercise.getExerciseType(), userStory,
+                    exercise.getMaxPoints(), null, null, null, false, List.of());
         }
         Submission latestSubmission = participation.findLatestSubmission().orElse(null);
         Result latestResult = latestSubmission == null ? null : latestSubmission.getLatestResult();
         boolean assessed = latestResult != null && latestResult.isManual() && latestResult.getCompletionDate() != null;
-        return new MilestoneAssessmentExerciseDTO(exercise.getId(), exercise.getTitle(), exercise.getExerciseType(), userStory, exercise.getMaxPoints(), participation.getId(),
-                latestSubmission == null ? null : latestSubmission.getId(), latestResult == null ? null : latestResult.getScore(), assessed, tasks);
+        return new MilestoneAssessmentExerciseDTO(exercise.getId(), exercise.getTitle(), exercise.getShortName(), exercise.getExerciseType(), userStory, exercise.getMaxPoints(),
+                participation.getId(), latestSubmission == null ? null : latestSubmission.getId(), latestResult == null ? null : latestResult.getScore(), assessed, tasks);
     }
 
     /**

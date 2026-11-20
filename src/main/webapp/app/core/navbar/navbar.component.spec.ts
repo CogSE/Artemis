@@ -52,13 +52,14 @@ import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { ThemeSwitchComponent } from 'app/core/theme/theme-switch.component';
 import { NavbarComponent } from 'app/core/navbar/navbar.component';
 import { EntityTitleService, EntityType } from 'app/core/navbar/entity-title.service';
+import { ExerciseVariantGroupDTO, ExerciseVariantGroupService } from 'app/course/manage/exercises/exercise-variant-group.service';
 import { ActiveMenuDirective } from 'app/core/navbar/active-menu.directive';
 import { LoadingNotificationComponent } from 'app/core/loading-notification/loading-notification.component';
 import { SystemNotificationComponent } from 'app/core/notification/system-notification/system-notification.component';
 import { WebsocketService } from 'app/foundation/service/websocket.service';
 import { MockWebsocketService } from 'test/helpers/mocks/service/mock-websocket.service';
 import { LoadingNotificationService } from 'app/core/loading-notification/loading-notification.service';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 import { ImageComponent } from 'app/shared-ui/image/image.component';
 import { Course } from 'app/course/shared/entities/course.model';
 import { Exercise, ExerciseType } from 'app/exercise/shared/entities/exercise/exercise.model';
@@ -130,6 +131,7 @@ describe('NavbarComponent', () => {
                 LocalStorageService,
                 SessionStorageService,
                 { provide: TranslateService, useClass: MockTranslateService },
+                { provide: ExerciseVariantGroupService, useValue: { getMilestoneGroupsForCourse: () => of([]) } },
                 { provide: Router, useValue: router },
                 { provide: ProfileService, useClass: MockProfileService },
                 { provide: ActivatedRoute, useValue: new MockActivatedRoute({ id: 123 }) },
@@ -543,6 +545,55 @@ describe('NavbarComponent', () => {
         router.setUrl('/course-management/1/lectures/2/edit');
         fixture.detectChanges();
         expect(titleService.getTitle()).not.toContain('student1');
+    });
+
+    describe('milestone assessment breadcrumbs', () => {
+        const dashboardCrumb = { label: 'Assessment MS1', uri: '/course-management/1/milestone-exercise-groups/10/assessment-dashboard/', translate: false };
+
+        beforeEach(() => {
+            vi.spyOn(TestBed.inject(ExerciseVariantGroupService), 'getMilestoneGroupsForCourse').mockReturnValue(
+                of([
+                    { id: 10, title: 'MS1', type: 'milestone' },
+                    { id: 11, title: 'MS2', type: 'milestone' },
+                ]),
+            );
+            vi.spyOn(TestBed.inject(TranslateService), 'instant').mockImplementation((key: string | string[], params?: object) =>
+                key === 'artemisApp.milestoneAssessment.breadcrumb' ? `Assessment ${(params as { title: string }).title}` : String(key),
+            );
+        });
+
+        it('names the dashboard after its milestone, below the milestones overview', () => {
+            router.setUrl('/course-management/1/milestone-exercise-groups/10/assessment-dashboard');
+            fixture.detectChanges();
+
+            expect(component.breadcrumbs().slice(2)).toEqual([
+                expect.objectContaining({ label: 'artemisApp.milestoneOverview.title', uri: '/course-management/1/milestone-exercise-groups/', translate: true }),
+                expect.objectContaining(dashboardCrumb),
+            ]);
+        });
+
+        it('keeps the milestone title while moving on to a student, rather than flashing the generic label', () => {
+            router.setUrl('/course-management/1/milestone-exercise-groups/10/assessment-dashboard');
+            fixture.detectChanges();
+
+            // The next request is still outstanding when the crumbs are rebuilt.
+            vi.spyOn(TestBed.inject(ExerciseVariantGroupService), 'getMilestoneGroupsForCourse').mockReturnValue(new Subject<ExerciseVariantGroupDTO[]>());
+            router.setUrl('/course-management/1/milestone-exercise-groups/10/assessment/student1');
+            fixture.detectChanges();
+
+            expect(component.breadcrumbs().at(-2)).toEqual(expect.objectContaining(dashboardCrumb));
+        });
+
+        it('puts the assessment of a student below the dashboard it was picked from', () => {
+            router.setUrl('/course-management/1/milestone-exercise-groups/10/assessment/student1');
+            fixture.detectChanges();
+
+            expect(component.breadcrumbs().slice(2)).toEqual([
+                expect.objectContaining({ label: 'artemisApp.milestoneOverview.title', translate: true }),
+                expect.objectContaining(dashboardCrumb),
+                expect.objectContaining({ label: 'student1', uri: '/course-management/1/milestone-exercise-groups/10/assessment/student1/', translate: false }),
+            ]);
+        });
     });
 
     it('should leave the tab title to the route while there are no breadcrumbs', () => {

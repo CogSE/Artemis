@@ -15,7 +15,7 @@
         <tumaet-ui-select
             [options]="tutorialGroupOptions()"
             [ngModel]="tutorialGroupFilter()"
-            (ngModelChange)="tutorialGroupFilter.set($event)"
+            (ngModelChange)="preferredTutorialGroup.set($event)"
             optionLabel="label"
             optionValue="value"
             size="small"
@@ -31,23 +31,30 @@
         <table tumAetUiTable size="small" [sortField]="sortField()" [sortOrder]="sortAscending() ? 1 : -1" (sortChange)="onSort($event)">
             <thead>
                 <tr>
-                    <th scope="col" [tumAetUiSortableColumn]="'student'"><span jhiTranslate="artemisApp.milestoneAssessment.dashboard.student"></span></th>
-                    <th scope="col" [tumAetUiSortableColumn]="'tutorialGroup'"><span jhiTranslate="artemisApp.milestoneAssessment.dashboard.tutorialGroup"></span></th>
+                    <th scope="col" class="milestone-dashboard__student" [tumAetUiSortableColumn]="'student'">
+                        <span jhiTranslate="artemisApp.milestoneAssessment.dashboard.student"></span>
+                    </th>
+                    <th scope="col" class="milestone-dashboard__tutorial-group" [tumAetUiSortableColumn]="'tutorialGroup'">
+                        <span jhiTranslate="artemisApp.milestoneAssessment.dashboard.tutorialGroup"></span>
+                    </th>
                     @for (exercise of exerciseColumns(); track exercise.exerciseId) {
-                        <th scope="col" class="text-center" [tumAetUiSortableColumn]="exerciseSortField(exercise)">{{ exercise.title }}</th>
+                        <th scope="col" class="text-center" [tumAetUiSortableColumn]="exerciseSortField(exercise)">
+                            <span [tumAetUiTooltip]="exercise.title">{{ exercise.shortName || exercise.title }}</span>
+                        </th>
                     }
-                    <th scope="col" [tumAetUiSortableColumn]="'progress'"><span jhiTranslate="artemisApp.milestoneAssessment.dashboard.progress"></span></th>
-                    <th scope="col"></th>
+                    <th scope="col" class="milestone-dashboard__progress" [tumAetUiSortableColumn]="'progress'">
+                        <span jhiTranslate="artemisApp.milestoneAssessment.dashboard.progress"></span>
+                    </th>
                 </tr>
             </thead>
             <tbody>
                 @for (student of visibleStudents(); track student.studentLogin) {
                     <tr>
-                        <td>
+                        <td class="milestone-dashboard__student">
                             <span class="font-semibold">{{ student.studentName || student.studentLogin }}</span>
                             <span class="milestone-dashboard__login">{{ student.studentLogin }}</span>
                         </td>
-                        <td>
+                        <td class="milestone-dashboard__tutorial-group">
                             @if (student.tutorialGroups?.length) {
                                 {{ student.tutorialGroups!.join(', ') }}
                             } @else {
@@ -87,14 +94,16 @@
                                 }
                             </td>
                         }
-                        <td class="whitespace-nowrap">{{ assessedCount(student) }} / {{ manuallyAssessable(student).length }}</td>
-                        <td>
-                            <a tumAetUiButton size="small" [routerLink]="assessmentLink(student)" jhiTranslate="artemisApp.milestoneAssessment.dashboard.assess"></a>
+                        <td class="milestone-dashboard__progress">
+                            <div class="milestone-dashboard__progress-content">
+                                <span data-testid="milestone-dashboard-progress">{{ assessedCount(student) }} / {{ manuallyAssessable(student).length }}</span>
+                                <a tumAetUiButton size="small" [routerLink]="assessmentLink(student)" jhiTranslate="artemisApp.milestoneAssessment.dashboard.assess"></a>
+                            </div>
                         </td>
                     </tr>
                 } @empty {
                     <tr>
-                        <td class="milestone-dashboard__muted" [attr.colspan]="exerciseColumns().length + 4" jhiTranslate="artemisApp.milestoneAssessment.dashboard.noMatches"></td>
+                        <td class="milestone-dashboard__muted" [attr.colspan]="exerciseColumns().length + 3" jhiTranslate="artemisApp.milestoneAssessment.dashboard.noMatches"></td>
                     </tr>
                 }
             </tbody>

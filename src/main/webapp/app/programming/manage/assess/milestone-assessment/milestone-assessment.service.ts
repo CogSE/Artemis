@@ -16,6 +16,8 @@ import { UserStoryTask } from 'app/exercise/shared/entities/participation/progra
 export interface MilestoneAssessmentExercise {
     exerciseId: number;
     title: string;
+    /** Shown as the dashboard's column header, with the title as its tooltip. Absent when the exercise has none. */
+    shortName?: string;
     exerciseType: ExerciseType;
     /** Whether this is a user story. Needed on top of the type, since a user story is a programming exercise. */
     userStory?: boolean;

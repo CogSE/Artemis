@@ -20,6 +20,8 @@ import de.tum.cit.aet.artemis.programming.dto.UserStoryTaskDTO;
  *
  * @param exerciseId      the exercise's id
  * @param title           the exercise's title, used as the tab label
+ * @param shortName       the exercise's short name, used as the dashboard's column header; {@code null} if the exercise
+ *                            has none, in which case the header falls back to the title
  * @param exerciseType    the exercise's type, which decides the assessment editor the page mounts for it
  * @param userStory       whether the exercise is a user story; needed on top of the type, since a user story is a
  *                            programming exercise
@@ -34,6 +36,6 @@ import de.tum.cit.aet.artemis.programming.dto.UserStoryTaskDTO;
  *                            without tasks, and on the dashboard, which does not show them
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public record MilestoneAssessmentExerciseDTO(long exerciseId, String title, ExerciseType exerciseType, boolean userStory, @Nullable Double maxPoints,
+public record MilestoneAssessmentExerciseDTO(long exerciseId, String title, @Nullable String shortName, ExerciseType exerciseType, boolean userStory, @Nullable Double maxPoints,
         @Nullable Long participationId, @Nullable Long submissionId, @Nullable Double latestScore, boolean assessed, List<UserStoryTaskDTO> tasks) {
 }

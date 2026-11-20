@@ -44,6 +44,7 @@ import { getCurrentRouteSignal } from 'app/foundation/route/getCurrentRouteSigna
 import { CourseNotificationOverviewComponent } from 'app/notification/course-notification/course-notification-overview/course-notification-overview.component';
 import { CourseStorageService } from 'app/course/manage/services/course-storage.service';
 import { ExerciseVariantGenerationService } from 'app/hyperion/services/exercise-variant-generation.service';
+import { ExerciseVariantGroupService } from 'app/course/manage/exercises/exercise-variant-group.service';
 
 @Component({
     selector: 'jhi-navbar',
@@ -94,6 +95,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     private readonly titleService = inject(Title);
     private readonly featureToggleService = inject(FeatureToggleService);
     private readonly courseStorageService = inject(CourseStorageService);
+    private readonly exerciseVariantGroupService = inject(ExerciseVariantGroupService);
     protected readonly variantGenerationService = inject(ExerciseVariantGenerationService);
 
     protected readonly faBars = faBars;
@@ -123,6 +125,12 @@ export class NavbarComponent implements OnInit, OnDestroy {
     readonly passwordResetEnabled = signal(false);
     readonly breadcrumbs = signal<Breadcrumb[]>([]);
     breadcrumbSubscriptions: Subscription[] = [];
+    /**
+     * The milestone titles already fetched, by group id. Breadcrumbs are rebuilt on every navigation, so without this the
+     * milestone assessment crumb would fall back to its generic label each time a tutor moves between the dashboard and
+     * a student, until the request returns.
+     */
+    private readonly milestoneGroupTitles = new Map<number, string>();
     readonly isCollapsed = signal<boolean>(undefined!);
     readonly iconsMovedToMenu = signal<boolean>(undefined!);
     readonly isIconMenuCompact = signal<boolean>(undefined!);
@@ -295,7 +303,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
         more_feedback_requests: 'artemisApp.moreFeedback.list.title',
         instructor_dashboard: 'entity.action.instructorDashboard',
         assessment_dashboard: 'artemisApp.assessmentDashboard.home.title',
-        milestone_exercise_groups: 'artemisApp.exerciseVariantGroup.milestoneGroup',
+        milestone_exercise_groups: 'artemisApp.milestoneOverview.title',
         test_run_exercise_assessment_dashboard: 'artemisApp.exerciseAssessmentDashboard.home.title',
         iris: 'global.menu.admin.sidebar.iris',
         lti_configuration: 'global.menu.admin.sidebar.lti',
@@ -539,6 +547,11 @@ export class NavbarComponent implements OnInit, OnDestroy {
      * @param segment the current url segment to add a (translated) crumb for
      */
     private addBreadcrumbForUrlSegment(currentPath: string, segment: string): void {
+        // A milestone group's id is followed by its assessment pages; the id itself gets no crumb (see addBreadcrumbForNumberSegment).
+        if (this.lastRouteUrlSegment === 'milestone-exercise-groups' && (segment === 'assessment-dashboard' || segment === 'assessment')) {
+            this.addMilestoneAssessmentCrumb(currentPath, segment);
+            return;
+        }
         // When we're not dealing with an ID we need to translate the current part
         // The translation might still depend on the previous parts
         switch (segment) {
@@ -676,6 +689,44 @@ export class NavbarComponent implements OnInit, OnDestroy {
                 },
             }),
         );
+    }
+
+    /**
+     * Adds the one crumb both milestone assessment pages share, "Assessment <milestone>", linking to the group's
+     * assessment dashboard. The page of a single student hangs below it, as that is where the tutor picked the student;
+     * `.../assessment` itself has no page. Until the milestone's title arrives, the crumb names the dashboard generically.
+     *
+     * @param currentPath the path up to and including the `assessment-dashboard` or `assessment` segment
+     * @param segment which of the two segments the path ends with
+     */
+    private addMilestoneAssessmentCrumb(currentPath: string, segment: string): void {
+        const dashboardPath = segment === 'assessment' ? currentPath.replace(/assessment\/$/, 'assessment-dashboard/') : currentPath;
+        const match = /\/course-management\/(\d+)\/milestone-exercise-groups\/(\d+)\//.exec(currentPath);
+        const groupId = match ? Number(match[2]) : undefined;
+        const knownTitle = groupId === undefined ? undefined : this.milestoneGroupTitles.get(groupId);
+        let crumb = knownTitle
+            ? this.addBreadcrumb(dashboardPath, this.milestoneAssessmentCrumbLabel(knownTitle), false)
+            : this.addBreadcrumb(dashboardPath, 'artemisApp.milestoneAssessment.dashboard.title', true);
+        if (!match) {
+            return;
+        }
+        // Fetched even when the title is known, so a renamed milestone is picked up; the crumb only changes if it was.
+        this.breadcrumbSubscriptions.push(
+            this.exerciseVariantGroupService.getMilestoneGroupsForCourse(Number(match[1])).subscribe({
+                next: (groups) => {
+                    groups.forEach((group) => group.id !== undefined && group.title && this.milestoneGroupTitles.set(group.id, group.title));
+                    const title = this.milestoneGroupTitles.get(groupId!);
+                    const index = this.breadcrumbs().indexOf(crumb);
+                    if (title && title !== knownTitle && index >= 0) {
+                        crumb = this.setBreadcrumb(dashboardPath, this.milestoneAssessmentCrumbLabel(title), false, index);
+                    }
+                },
+            }),
+        );
+    }
+
+    private milestoneAssessmentCrumbLabel(title: string): string {
+        return this.translateService.instant('artemisApp.milestoneAssessment.breadcrumb', { title });
     }
 
     /**
