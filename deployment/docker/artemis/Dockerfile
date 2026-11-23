@@ -122,7 +122,9 @@ RUN java -Djarmode=tools -jar Artemis.war extract --destination /extract/app
 #-----------------------------------------------------------------------------------------------------------------------
 # The runtime uses Oracle JDK 25.0.5.1 until a Temurin 25 image of the same update release is published.
 # The archive is pinned by version and verified against Oracle's published SHA-256 checksum.
-FROM docker.io/library/ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS runtime_jdk
+# The stage runs on the build platform: downloading and extracting the archive does not depend on the CPU
+# architecture, and GNU tar fails with "Function not implemented" when it runs under emulation.
+FROM --platform=$BUILDPLATFORM docker.io/library/ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS runtime_jdk
 
 ARG TARGETARCH
 ARG JDK_VERSION=25.0.5.1
